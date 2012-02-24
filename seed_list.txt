@@ -1,0 +1,6 @@
+/home/sharad/fcon1000/seeds/Fox_tn_LP_3mm.nii.gz
+/home/sharad/fcon1000/seeds/Fox_tn_MPF_3mm.nii.gz
+/home/sharad/fcon1000/seeds/Fox_tn_PCC_3mm.nii.gz
+/home/sharad/fcon1000/seeds/Fox_tp_FEF_3mm.nii.gz
+/home/sharad/fcon1000/seeds/Fox_tp_IPS_3mm.nii.gz
+/home/sharad/fcon1000/seeds/Fox_tp_MT_3mm.nii.gz

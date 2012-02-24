@@ -1,0 +1,351 @@
+﻿NIPYPE FCON 1000 Pipeline A-Z List -:
+
+
+NIPYPE Installation Instructions:
+
+
+1) Download Install python EPD from this link:- http://download.enthought.com/epd-7.1/ . Make sure that you download the EPD version according to your machine architecture. Python EPD is not mandatory but recommended since it takes care of all the package dependencies for nipype.
+
+
+2) Install git  : if you are redhat use “yum install git”, on mac you need fink or macports to install git. Basically to install the command is  “fink install git” or “port install git”. On ubuntu, “sudo apt-get install git”
+
+
+3) To check out the latest development version of nipype:
+git clone git://github.com/nipy/nipype.git
+
+
+4) To install nipype , navigate to the python directory checked out in step 3 and execute the following commands from the terminal :
+
+
+python setup.py build
+python setup.py install
+
+
+or use the python command: easy_install nipype
+
+
+In case u have EPD distribution then use  that python  you use to execute the commands mentioned above.
+
+
+5) Download and install “nibabel” package. Make sure you use the python from EPD distribution(in case you have it) to install it. The steps to install it are exactly same word for word as that of nipype in step 4 . nibabel code can be checked out from the git repository by executing the following command: 
+
+
+git clone git://github.com/nipy/nibabel.git
+
+
+or just use the python command: easy_install nibabel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PIPELINE SETUP INSTRUCTIONS:
+ 
+1) Untar the fcon-pipeline.tar.gz or check out the current developer version from github:
+
+
+<PROVIDE THE GITHUB LINK> ---> Coming Soon
+
+
+2) Navigate to the scripts directory and follow the instructions to setup dir_setup.ini .
+
+
+1. FSLDIR: indicate FSL home directory.
+
+
+1. scripts_dir: Indicate the full path of the scripts directory. This directory is the one where fcon_pipeline.py , fcon_nodes.py, e_afni.py reside.
+        
+        sample : scripts_dir:/Users/sikkas01/scripts/
+
+
+1. working_dir: Indicate the full path to the working_dir … Brian and yang the working directory already resides in the scripts directory. In case you need to change its location , just move this directory and indicate its full path. This is the working/cache directory for nipype where u can look for all the results generated at any time in the pipeline for all the subjects. Also , information about which commands were executed and what were the inputs and outputs is there. I explain it in detail in the section dedicated to working_dir.
+
+
+        sample: working_dir:/Users/sikkas01/scripts/working_dir
+
+
+1.  prior_dir: Indicate the full path to the tissue priors directory. Note you should have tissue priors for the resolution you intend to use. For example the tissuepriors directory contains tissuepriors for 3mm resolution.
+        
+         sample: prior_dir:/Users/sikkas01/scripts/tissuepriors
+
+
+1. nuisance_template: Indicate the full path where the nuisance template resides. It resides in the templates directory
+
+
+        sample: nuisance_template:/Users/sikkas01/scripts/templates/nuisance.fsf 
+
+
+
+
+1. seed_file: Indicate the name of seed_list.txt file. In case you feel like it giving it a better name just indicate it in this option . For the sake of project organization , the seed_list.txt is mandatorily kept in the scripts directory. seed_list.txt contains in each line the full path to a seed.
+        sample: seed_file:seed_list.txt
+
+
+1. recon_subjects: Indicate the full path  of the directory where FREE SURFER recon-all tool stores the surface files for each subject.
+
+
+        sample: recon_subjects:/Users/sikkas01/scripts/recon_subjects
+
+
+1.  batch_file: Indicate the name of the batch_list, the standard name is ‘batch_list.txt’. For the sake of project organization , the batch_list.txt is mandatorily kept in the scripts directory. batch_list.txt contains in each line contains the following:
+1. the main directory for the site
+2. the full path to the subject list for the site
+
+
+sample : batch_file:batch_list.txt
+sample contents of batch_list.txt: 
+/Users/sikkas01/NYU   /Users/sikkas01/NYU/NYU_subjects.txt
+
+
+        sample contents of subject_list(NYU_subjects.txt in the sample case):
+        0010001
+        0010002
+
+
+1. rest_name: name of the resting state image in your data.
+
+
+        sample(if the resting state image is rest.nii.gz): rest_name:rest
+        
+1. anat_name: name of the structural image in your data.
+
+
+
+
+1. standard_res: The standard resolution of the MNI_152_T1 FSL images , the tissues and the seeds in your experiment.(3mm or 2mm or 1mm etc)
+
+
+        sample: 3mm
+
+
+1.  hp : Value of  Highpass filter for band filtering in the functional preprocessing stage(funcpreproc)
+
+
+        sample hp:0.005
+
+
+1. lp: Value of Lowpass filter for band filtering in the functional preprocessing stage(funcpreproc).
+
+
+        sample lp:0.1
+
+
+1. _HP_ : Value of  Highpass filter for band filtering in the ALFF/FALFF stage(falff)
+
+
+        sample _hp_:0.01
+
+
+1. _LP_ : Value of  Lowpass filter for band filtering in the ALFF/FALFF stage(falff)
+
+
+        sample _lp_:0.1
+
+
+Leave out the fields anat_dir , rest_dir , logfile, as is . anat_dir , rest_dir have become obsolete and logging has not been implemented yet, so leave it out. 
+
+
+FWHM = 6.0 and sigma = 2.5479870901 have been set as default in fcon_nodes.py (lines 26 and 27). TO change just change the values here. Refer to the fcon bash scripts for the calculation for sigma.
+
+
+
+
+
+
+PLAYING WITH DATASOURCE TEMPLATE:
+
+
+Drift your attention to the following code snippet for datasource(for reference on what is datasource(read datagrabber) and what does it do refer: http://nipy.sourceforge.net/nipype/interfaces/generated/nipype.interfaces.io.html and http://nipy.sourceforge.net/nipype/users/grabbing_and_sinking.html )
+
+
+---------------
+def gatherData(sublist, analysisdirectory):
+
+
+            global datasource
+            global working_dir
+            global anat_name
+            global anat_dir
+            global rest_name
+            global rest_dir
+
+
+
+
+            datasource = pe.Node( interface = nio.DataGrabber(infields=['subject_id'], outfields = [ 'anat', 'rest' ]) , name= 'datasource')
+            datasource.inputs.base_directory = analysisdirectory
+
+
+----->  datasource.inputs.template = '%s/*/*/%s.nii.gz' ##Need to change this line for directory structure
+
+
+            datasource.inputs.template_args = dict( anat = [['subject_id',anat_name]] , rest = [['subject_id',rest_name]])
+            datasource.iterables = ('subject_id', sublist)
+
+
+----------------
+
+
+At The moment the subject directory(source data directory structure) is
+
+
+<SUBJECT_ID_X>/session_1/anat_1/mprage.nii.gz
+<SUBJECT_ID_X>/session_1/rest_1/rest.nii.gz
+......
+<SUBJECT_ID_X>/session_1/rest_N/rest.nii.gz
+
+
+SUBJECT_ID_X belongs to 0010001 , 0010002, 0021000
+
+
+so the corresponding template looks like %s/*/*/%s.nii.gz(Let the highlighed section grab your attention in code snippet.)
+
+
+
+
+The 1st %s in the template gets its data from 
+
+
+"datasource.iterables = ('subject_id', sublist)" 
+
+
+in the above code snippet.
+
+
+
+
+The 2nd %s in the template gets its data from
+
+
+ "datasource.inputs.template_args = dict( anat = [['subject_id',anat_name]] , rest = [['subject_id',rest_name]])"
+
+
+So, this template, will essentially pick up all the rest and anat images in the above directory structure, for all the subjects in the sublist(the subject list.)
+If your data has a different organization , then change the datasource template accordingly.
+
+
+
+
+
+
+
+
+WORKFLOW BASE DIRECTORY
+
+
+The workflow base directory or the working directory is the cache where nipype workflow engine stores all the working information needed about executing each node in the workflow(each afni , fsl , freesurfer command for example.). It contains for each node, the following information:
+
+
+1. Inputs to a node at the execution time.
+2. Outputs from a node after execution.
+3. Standard output messages on stdout.
+4. The command as it is executed by the node.
+5. Output files.
+6. Crash Reports if a node crashed.
+
+
+The files to look for in a node are, 
+1. report.rst in _report folder in a node : contains full inputs , outputs, standard outputs and execution environments for the node.
+2. command.txt : contains the command executed.
+Workflow Base directory should always be used for debugging purposes.
+
+
+DataSink
+
+
+Refer to section http://nipy.sourceforge.net/nipype/users/grabbing_and_sinking.html 
+
+
+NIPYPE DISCUSSION FORUM:
+
+
+The developer community mainly managed by Satrajit Ghosh and Chris Filo Gorgolewski. Once You start developing in nipype and run into problems, their advice comes  in very handy.
+
+
+The link to the forum is :
+
+
+http://groups.google.com/group/nipy-user/topics
+
+
+
+
+e_afni.py
+
+
+This is the file where all the afni interfaces that I wrote reside. If you cant find an afni interface here for a command , then in high probability it has not been implemented in nipype.
+
+
+
+
+Node, MapNode, Function , Rename, Select 
+
+
+Refer to the following quick reads to get the basic sense of what are these, easy to understand , but hard to go without using them (These are links follow them ...)
+
+
+1. Tutorial : Interfaces
+2. Tutorial : Workflows
+3. http://nipy.sourceforge.net/nipype/interfaces/generated/nipype.interfaces.utility.html?highlight=rename
+
+
+VERY IMPORTANT : ALL the preprocessing corresponding to the anatomical images for a subject  is done with ‘node’. However, all other preprocessing have ‘mapnode’ at their heart.  What this translates to is, each subject must have exactly one anatomical scan. However each subject can have multiple resting state scans. You probably would hate this design decision, but workflow linkage becomes very complex for all the stages following the anatomical preprocessing stage. “Just for now” if your directory structure for each subject contains multiple structural scans and multiple anatomical scans, then split a single subject to many subjects each having exactly one structural scan and all the resting state scans.
+
+
+
+
+OUTPUTS
+
+
+All outputs for a subject reside in the same location (not completed the results are duplicated as of now( issue still unresolved refer 
+http://groups.google.com/group/nipy-user/browse_thread/thread/704330ac7491d25f#
+
+
+) ) as the original anatomical and functional image location for each subject. Also it is based on output structure which should be exaclty same as fcon_scripts_version_2 bash scripts (Authors: clare , maarten , zarrar).
+
+
+
+
+SOME AWESOME NIPYPE PIPELINE EXAMPLES ALREADY ON GIT
+
+
+https://github.com/mwaskom/Fluid_NiPype
+
+
+https://github.com/czarrar/niscripts
+
+
+
+
+
+
+
+
+
+
+SOME AWESOME TUTORIALS
+
+
+http://miykael.github.com/nipype-beginner-s-guide/ANTS.html 
+
+
+nipype.interfaces.fsl.preprocess
+
+
+nipype.workflows.fsl.resting
+
+
+nipype.workflows.fsl.preprocess
