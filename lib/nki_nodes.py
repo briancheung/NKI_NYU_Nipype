@@ -10,8 +10,6 @@ import nipype.interfaces.fsl as fsl
 import nipype.interfaces.io as nio
 import nipype.interfaces.utility as util
 from nipype.interfaces.utility import Rename
-from nipype.interfaces.afni.preprocess import ThreedSkullStrip
-from nipype.interfaces.afni.preprocess import Threedcalc
 from nipype.interfaces.afni.base import Info, AFNITraitedSpec, AFNICommand
 from nipype.interfaces.base import Bunch, TraitedSpec, File, Directory, InputMultiPath
 from nipype.utils.filemanip import fname_presuffix, list_to_filename, split_filename
@@ -23,6 +21,7 @@ from multiprocessing import Process
 from multiprocessing import Pool
 from ConfigParser import SafeConfigParser
 
+
 FWHM = 6.0
 sigma = 2.5479870901
 #n_lp = float(HP) * float(int(n_vols)) * float (TR)
@@ -30,6 +29,14 @@ sigma = 2.5479870901
 #n_hp = float(LP) * float(int(n_vols)) * float (TR)
 #n2 = float("%1.0f" %(float(n_hp - n_lp + 1.0)))
 seed_list = []
+
+
+def setParameters(_fwhm):
+
+	global FWHM
+	global sigma
+	FWHM = float(_fwhm)
+	sigma = FWHM/2.3548
 
 def setSeedList(seed_file):
 
@@ -110,6 +117,10 @@ def createMC(in_file,pp):
 	import commands
 	EV_Lists = []
 	idx = 0
+
+	if not(isinstance(in_file,list)):
+		in_file = [in_file]
+
 	for file in in_file:
 		print file
 		parent_path = os.path.dirname(pp[idx])
@@ -130,6 +141,15 @@ def createMC(in_file,pp):
 		cmd = "awk '{print $4}' %s > %s/mc4.1D" %(file, parent_path)
 		print cmd
 		sys.stderr.write(commands.getoutput(cmd))
+
+		cmd = "awk '{print $5}' %s > %s/mc5.1D" %(file, parent_path)
+		print cmd
+		sys.stderr.write(commands.getoutput(cmd))
+
+		cmd = "awk '{print $6}' %s > %s/mc6.1D" %(file, parent_path)
+		print cmd
+		sys.stderr.write(commands.getoutput(cmd))
+
 
 		cmd = "awk '{print $5}' %s > %s/mc5.1D" %(file, parent_path)
 		print cmd
@@ -340,7 +360,80 @@ def pToFile(time_series):
 RSFC_printToFile = pe.MapNode(util.Function(input_names = ['time_series'], output_names = ['ts_oneD'], function = pToFile), name='RSFC_printToFile', iterfield = ["time_series"])
 
 
+
+
+def mPath(rest_path, strategy, sublist):
+
+	import re
+
+	def modifyPath(path, strategy, sublist):
+
+		rpath = ''
+		parts = path.split('-')
+
+		idx = 0
+	
+		if strategy in path:
+			return path
+
+		for part in parts:
+	
+			if not part in sublist: 
+				rpath += '-' + part
+			else:
+				rpath += '-' + strategy + '-' +part
+			idx += 1
+
+		return rpath
+
+	result_path = []
+   
+	if(isinstance(rest_path,list)):
+		for r_p in rest_path:
+			path = re.sub(r'\/','-',r_p)
+			path = modifyPath(path,strategy,sublist)
+			result_path.append(path)
+
+		print str(result_path)
+	else:
+		path = re.sub(r'\/','-',rest_path)
+		path = modifyPath(path,strategy,sublist)
+		result_path.append(path)
+		print str(result_path)
+	return result_path
+
+
+def mAnat(anat, strategy, sublist):
+
+	import os
+	parts = anat.split('/')
+
+	result_path = ''
+	idx = 0
+	
+	if strategy in anat:
+		result_path = os.path.dirname(anat)
+		return result_path
+
+	for part in parts:
+
+		if not part.endswith('.nii.gz'):
+			if not part in sublist: 
+				result_path += '/' + part
+			else:
+				result_path += '/' + strategy + '/' +part
+		idx += 1
+	
+	return result_path	
+
 #TR and n_vols nodes
+
+adjustPath = pe.Node(util.Function(input_names = ['rest_path','strategy','sublist'], output_names = ['result_path'], function = mPath), name='adjustPath')
+
+adjustPath1 = adjustPath.clone('adjustPath1')
+
+adjustAnat = pe.Node(util.Function(input_names = ['anat','strategy','sublist'], output_names = ['result_path'], function = mAnat), name='adjustAnat')
+
 
 TR = pe.Node(util.Function(input_names = ['in_files'], output_names = ['TR'], function = getImgTR), name='TR')
 NVOLS = pe.Node(util.Function(input_names = ['in_files'], output_names = ['nvols'], function = getImgNVols), name='NVOLS')
@@ -369,6 +462,12 @@ getStats = pe.Node(util.Function(input_names = ['in_files'], output_names = ['st
 
 lifeSaver = pe.MapNode(interface = util.Rename(), name = 'lifeSaver', iterfield = ["in_file","format_string"])
 
+lifeSaverALFF = pe.MapNode(interface = util.Rename(), name = 'lifeSaverALFF', iterfield = ["in_file","format_string"])
+
+lifeSaverNuisancepp = pe.MapNode(interface = util.Rename(), name = 'lifeSaverNuisancepp', iterfield = ["in_file","format_string"])
+
+lifeSaverNuisanceMask = pe.MapNode(interface = util.Rename(), name = 'lifeSaverNuisanceMask', iterfield = ["in_file","format_string"])
+
 lifeSaver_reg_flirt = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_reg_flirt', iterfield = ["in_file","format_string"])
 
 lifeSaver_func2highresmat = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_func2highresmat', iterfield = ["in_file","format_string"])
@@ -385,14 +484,10 @@ lifeSaver_example_func2standard_NL = pe.MapNode(interface = util.Rename(), name 
 
 lifeSaver_seg_flirt = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_flirt', iterfield = ["in_file","format_string"])
 
-lifeSaver_seg_smooth = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_smooth', iterfield = ["in_file","format_string"])
+lifeSaver_seg_warp = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_warp', iterfield = ["in_file","format_string"])
 
-
-lifeSaver_seg_flirt1 = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_flirt1', iterfield = ["in_file","format_string"])
 
 lifeSaver_seg_smooth1 = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_smooth1', iterfield = ["in_file","format_string"])
-
-lifeSaver_seg_flirt2 = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_flirt2', iterfield = ["in_file","format_string"])
 
 lifeSaver_seg_thresh = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_thresh', iterfield = ["in_file","format_string"])
 
@@ -402,13 +497,9 @@ lifeSaver_seg_copy = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg
 
 lifeSaver_seg_flirt3 = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_flirt3', iterfield = ["in_file","format_string"])
 
-lifeSaver_seg_smooth2 = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_smooth2', iterfield = ["in_file","format_string"])
-
-lifeSaver_seg_flirt4 = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_flirt4', iterfield = ["in_file","format_string"])
+lifeSaver_seg_warp1 = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_warp1', iterfield = ["in_file","format_string"])
 
 lifeSaver_seg_prior1 = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_prior1', iterfield = ["in_file","format_string"])
-
-lifeSaver_seg_flirt5 = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_flirt5', iterfield = ["in_file","format_string"])
 
 lifeSaver_seg_thresh1 = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_seg_thresh1', iterfield = ["in_file","format_string"])
 
@@ -433,6 +524,10 @@ lifeSaver_alff_Z_alff = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_
 lifeSaver_alff_warp_alff = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_alff_warp_alff', iterfield = ["in_file","format_string"])
 
 lifeSaver_alff_warp_falff = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_alff_warp_falff', iterfield = ["in_file","format_string"])
+
+lifeSaver_alff_smooth = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_alff_smooth', iterfield = ["in_file","format_string"])
+
+lifeSaver_falff_smooth = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_falff_smooth', iterfield = ["in_file","format_string"])
 
 
 def saveSeg(in_file,pp):
@@ -592,19 +687,17 @@ Saver_nuisance_stat = pe.MapNode(util.Function(input_names = ['in_file','pp'], o
 
 Saver_nuisance_calc = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveNuisance_calc), name='Saver_nuisance_calc', iterfield = ["in_file","pp"])
 
+Saver_func_filter = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveNuisance_calc), name='Saver_func_filter', iterfield = ["in_file","pp"])
+
 Saver_nuisance_warp = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveNuisance_calc), name='Saver_nuisance_warp', iterfield = ["in_file","pp"])
 
 Saver_nuisance_warp_1 = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveNuisance_calc), name='Saver_nuisance_warp_1', iterfield = ["in_file","pp"])
 
 Saver_seg_flirt = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_flirt', iterfield = ["in_file","pp"])
 
-Saver_seg_smooth = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_smooth', iterfield = ["in_file","pp"])
-
-Saver_seg_flirt1 = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_flirt1', iterfield = ["in_file","pp"])
+Saver_seg_warp = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_warp', iterfield = ["in_file","pp"])
 
 Saver_seg_smooth1 = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_smooth1', iterfield = ["in_file","pp"])
-
-Saver_seg_flirt2 = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_flirt2', iterfield = ["in_file","pp"])
 
 Saver_seg_thresh = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_thresh', iterfield = ["in_file","pp"])
 
@@ -612,13 +705,9 @@ Saver_seg_mask = pe.MapNode(util.Function(input_names = ['in_file','pp'], output
 
 Saver_seg_flirt3 = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_flirt3', iterfield = ["in_file","pp"])
 
-Saver_seg_smooth2 = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_smooth2', iterfield = ["in_file","pp"])
-
-Saver_seg_flirt4 = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_flirt4', iterfield = ["in_file","pp"])
+Saver_seg_warp1 = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_warp1', iterfield = ["in_file","pp"])
 
 Saver_seg_prior1 = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_prior1', iterfield = ["in_file","pp"])
-
-Saver_seg_flirt5 = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_flirt5', iterfield = ["in_file","pp"])
 
 Saver_seg_thresh1 = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveSeg), name='Saver_seg_thresh1', iterfield = ["in_file","pp"])
 
@@ -631,6 +720,8 @@ Saver_RSFC_corr = pe.MapNode(util.Function(input_names = ['in_file','pp'], outpu
 Saver_RSFC_z_trans = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveRSFC), name='Saver_RSFC_z_trans', iterfield = ["in_file","pp"])
 
 Saver_RSFC_register = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveRSFC), name='Saver_RSFC_register', iterfield = ["in_file","pp"])
+
+Saver_RSFC_smooth = pe.MapNode(util.Function(input_names = ['in_file','pp'], output_names = ['out_file'], function = saveRSFC), name='Saver_RSFC_smooth', iterfield = ["in_file","pp"])
 #anatomical nodes
 
 
@@ -679,7 +770,10 @@ def renameRSFC(in_file,name,whichNode):
 	
 	elif (whichNode == 'register'):
 		name = (name.split('.'))[0] + '_Z_2standard.nii.gz'
-	
+
+	elif('Z_2standard_FWHM' in whichNode):
+
+		name = (name.split('.'))[0] + whichNode + '.nii.gz'
 
 	sys.stderr.write( 'name>>>>> ' + str(name))
 
@@ -736,6 +830,8 @@ reg_xfm2_o = pe.Node(util.Function(input_names = ['in_file','name'], output_name
 
 reg_fnt_r = pe.Node(interface = util.Rename(), name = 'reg_fnt_r')
 reg_fnt_o = pe.Node(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = renameAnat), name='reg_fnt_o')
+reg_inw_r = reg_fnt_r.clone('reg_inw_r')
+reg_inw_o = reg_fnt_o.clone('reg_inw_o')
 
 reg_fntj_r = pe.Node(interface = util.Rename(), name = 'reg_fntj_r')
 reg_fntj_o = pe.Node(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = renameAnat), name='reg_fntj_o')
@@ -822,17 +918,11 @@ reg_warp_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_n
 seg_flirt_r = pe.MapNode(interface = util.Rename(), name = 'seg_flirt_r', iterfield = ["in_file","format_string"])
 seg_flirt_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_flirt_o', iterfield = ["in_file"])
 
-seg_smooth_r = pe.MapNode(interface = util.Rename(), name = 'seg_smooth_r', iterfield = ["in_file","format_string"])
-seg_smooth_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_smooth_o', iterfield = ["in_file"])
-
-seg_flirt1_r = pe.MapNode(interface = util.Rename(), name = 'seg_flirt1_r', iterfield = ["in_file","format_string"])
-seg_flirt1_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_flirt1_o', iterfield = ["in_file"])
+seg_warp_r = pe.MapNode(interface = util.Rename(), name = 'seg_warp_r', iterfield = ["in_file","format_string"])
+seg_warp_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_warp_o', iterfield = ["in_file"])
 
 seg_smooth1_r = pe.MapNode(interface = util.Rename(), name = 'seg_smooth1_r', iterfield = ["in_file","format_string"])
 seg_smooth1_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_smooth1_o', iterfield = ["in_file"])
-
-seg_flirt2_r = pe.MapNode(interface = util.Rename(), name = 'seg_flirt2_r', iterfield = ["in_file","format_string"])
-seg_flirt2_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_flirt2_o', iterfield = ["in_file"])
 
 seg_thresh_r = pe.MapNode(interface = util.Rename(), name = 'seg_thresh_r', iterfield = ["in_file","format_string"])
 seg_thresh_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_thresh_o', iterfield = ["in_file"])
@@ -846,17 +936,11 @@ seg_copy_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_n
 seg_flirt3_r = pe.MapNode(interface = util.Rename(), name = 'seg_flirt3_r', iterfield = ["in_file","format_string"])
 seg_flirt3_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_flirt3_o', iterfield = ["in_file"])
 
-seg_smooth2_r = pe.MapNode(interface = util.Rename(), name = 'seg_smooth2_r', iterfield = ["in_file","format_string"])
-seg_smooth2_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_smooth2_o', iterfield = ["in_file"])
-
-seg_flirt4_r = pe.MapNode(interface = util.Rename(), name = 'seg_flirt4_r', iterfield = ["in_file","format_string"])
-seg_flirt4_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_flirt4_o', iterfield = ["in_file"])
+seg_warp1_r = pe.MapNode(interface = util.Rename(), name = 'seg_warp1_r', iterfield = ["in_file","format_string"])
+seg_warp1_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_warp1_o', iterfield = ["in_file"])
 
 seg_prior1_r = pe.MapNode(interface = util.Rename(), name = 'seg_prior1_r', iterfield = ["in_file","format_string"])
 seg_prior1_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_prior1_o', iterfield = ["in_file"])
-
-seg_flirt5_r = pe.MapNode(interface = util.Rename(), name = 'seg_flirt5_r', iterfield = ["in_file","format_string"])
-seg_flirt5_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_flirt5_o', iterfield = ["in_file"])
 
 seg_thresh1_r = pe.MapNode(interface = util.Rename(), name = 'seg_thresh1_r', iterfield = ["in_file","format_string"])
 seg_thresh1_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='seg_thresh1_o', iterfield = ["in_file"])
@@ -930,6 +1014,12 @@ alff_warp_alff_o = pe.MapNode(util.Function(input_names = ['in_file','name'], ou
 alff_warp_falff_r = pe.MapNode(interface = util.Rename(), name = 'alff_warp_falff_r', iterfield = ["in_file","format_string"])
 alff_warp_falff_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='alff_warp_falff_o', iterfield = ["in_file"])
 
+alff_smooth_r = pe.MapNode(interface = util.Rename(), name = 'alff_smooth_r', iterfield = ["in_file","format_string"])
+alff_smooth_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='alff_smooth_o', iterfield = ["in_file"])
+
+falff_smooth_r = pe.MapNode(interface = util.Rename(), name = 'falff_smooth_r', iterfield = ["in_file","format_string"])
+falff_smooth_o = pe.MapNode(util.Function(input_names = ['in_file','name'], output_names = ['out_file'], function = rename), name='falff_smooth_o', iterfield = ["in_file"])
+
 RSFC_corr_r = pe.MapNode(interface = util.Rename(), name = 'RSFC_corr_r', iterfield = ["in_file","format_string"])
 RSFC_corr_o = pe.MapNode(util.Function(input_names = ['in_file','name','whichNode'], output_names = ['out_file'], function = renameRSFC), name='RSFC_corr_o', iterfield = ["in_file","name"])
 
@@ -939,6 +1029,9 @@ RSFC_z_trans_o = pe.MapNode(util.Function(input_names = ['in_file','name','which
 RSFC_register_r = pe.MapNode(interface = util.Rename(), name = 'RSFC_register_r', iterfield = ["in_file","format_string"])
 RSFC_register_o = pe.MapNode(util.Function(input_names = ['in_file','name','whichNode'], output_names = ['out_file'], function = renameRSFC), name='RSFC_register_o', iterfield = ["in_file","name"])
 
+
+RSFC_smooth_r = pe.MapNode(interface = util.Rename(), name = 'RSFC_smooth_r', iterfield = ["in_file","format_string"])
+RSFC_smooth_o = pe.MapNode(util.Function(input_names = ['in_file','name','whichNode'], output_names = ['out_file'], function = renameRSFC), name='RSFC_smooth_o', iterfield = ["in_file","name"])
 
 
 func_calc = pe.MapNode(interface = e_afni.Threedcalc(), name='func_calc', iterfield = ["infile_a","stop_idx"])
@@ -1044,7 +1137,7 @@ reg_flirt = pe.MapNode(interface= fsl.FLIRT(), name='reg_flirt', iterfield = ["i
 #reg_flirt.inputs.out_matrix_file = os.path.abspath('example_func2highres.mat')
 reg_flirt.inputs.cost = 'corratio'
 reg_flirt.inputs.dof = 6
-reg_flirt.inputs.interp = 'trilinear'
+reg_flirt.inputs.interp = 'nearestneighbour'
 
 # Create mat file for conversion from subject's anatomical to functional
 reg_xfm1 = pe.MapNode(interface= fsl.ConvertXFM(), name='reg_xfm1', iterfield = ["in_file"])
@@ -1061,7 +1154,7 @@ reg_flirt1 = pe.Node(interface=fsl.FLIRT(), name='reg_flirt1')
 reg_flirt1.inputs.cost = 'corratio'
 reg_flirt1.inputs.cost_func = 'corratio'
 reg_flirt1.inputs.dof = 12
-reg_flirt1.inputs.interp = 'trilinear'
+reg_flirt1.inputs.interp = 'nearestneighbour'
 
 ## Create mat file for conversion from standard to high res
 reg_xfm2 = pe.Node(interface= fsl.ConvertXFM(), name='reg_xfm2')
@@ -1071,26 +1164,17 @@ reg_xfm2.inputs.invert_xfm = True
 
 ## 5. FUNC->STANDARD
 ## Create mat file for registration of functional to standard
-reg_xfm3 = pe.MapNode(interface= fsl.ConvertXFM(), name='reg_xfm3', iterfield = ["in_file"])
 #reg_xfm3.inputs.in_file = os.path.abspath(reg_dir+'/example_func2highres.mat')
 #reg_xfm3.inputs.in_file2 = os.path.abspath(reg_dir+'/highres2standard.mat')
 #reg_xfm3.inputs.out_file = 'example_func2standard.mat'
-reg_xfm3.inputs.concat_xfm = True
-
-## apply registration
-reg_flirt2 = pe.MapNode(interface=fsl.FLIRT(), name='reg_flirt2', iterfield = ["in_file","in_matrix_file"])
 #reg_flirt2.inputs.in_file  = os.path.abspath(func_reg_dir+'/example_func.nii.gz')
 #reg_flirt2.inputs.reference = os.path.abspath(anat_reg_dir+'/standard.nii.gz')
 #reg_flirt2.inputs.out_file = 'example_func2standard.nii.gz'
 #reg_flirt2.inputs.in_matrix_file = os.path.abspath(reg_dir+'/example_func2standard.mat')
-reg_flirt2.inputs.apply_xfm = True
-reg_flirt2.inputs.interp = 'trilinear'
-
-## Create inverse mat file for registration of standard to functional
-reg_xfm4 = pe.MapNode(interface= fsl.ConvertXFM(), name='reg_xfm4', iterfield = ["in_file"])
 #reg_xfm4.inputs.in_file = os.path.abspath(reg_dir+'/example_func2standard.mat')
 #reg_xfm4.inputs.out_file = 'standard2example_func.mat'
-reg_xfm4.inputs.invert_xfm = True
+
+reg_inw = pe.Node(interface = e_afni.InvWarp(), name = 'reg_inw')
 
 ## 6. T1->STANDARD NONLINEAR
 # Perform nonlinear registration (higres to standard)
@@ -1137,20 +1221,12 @@ seg_flirt = pe.MapNode(interface=fsl.FLIRT(), name='seg_flirt', iterfield = ["re
 #seg_flirt.inputs.in_matrix_file = os.path.abspath(func_reg_dir+'/highres2example_func.mat')
 seg_flirt.inputs.apply_xfm = True
 
-## 6. Smooth image to match smoothing on functional
-seg_smooth = pe.MapNode(interface = fsl.ImageMaths(), name = 'seg_smooth', iterfield = ["in_file"])
-seg_str1 = "-kernel gauss %f -fmean " %(sigma)
-#seg_smooth.inputs.in_file = os.path.abspath(segment_dir+'/csf2func.nii.gz')
-seg_smooth.inputs.op_string = seg_str1
-#seg_smooth.inputs.out_file = os.path.abspath(segment_dir+'/csf_sm.nii.gz')
+## 6 register CSF template (in MNI space) to native space
+seg_warp = pe.MapNode(interface = fsl.ApplyWarp(), name = 'seg_warp', iterfield = ["ref_file","postmat"])
+seg_warp.inputs.interp = 'nn'
 
+seg_warp1 = seg_warp.clone('seg_warp1')
 ## 7. register to standard
-seg_flirt1 = pe.MapNode(interface=fsl.FLIRT(), name='seg_flirt1', iterfield = ["in_file","in_matrix_file"])
-#seg_flirt1.inputs.in_file  = os.path.abspath(segment_dir+'/csf_sm.nii.gz')
-#seg_flirt1.inputs.reference = os.path.abspath(anat_reg_dir+'/standard.nii.gz')
-#seg_flirt1.inputs.out_file = os.path.abspath(segment_dir+'/csf2standard.nii.gz')
-#seg_flirt1.inputs.in_matrix_file = os.path.abspath(func_reg_dir+'/example_func2standard.mat')
-seg_flirt1.inputs.apply_xfm = True
 
 ## 8. find overlap with prior
 seg_smooth1 = pe.MapNode(interface = MultiImageMaths(), name = 'seg_smooth1', iterfield = ["in_file"])
@@ -1161,12 +1237,6 @@ seg_smooth1.inputs.op_string = seg_str1
 #seg_smooth1.inputs.out_file = os.path.abspath(segment_dir+'/csf_masked.nii.gz')
 
 ## 9. revert back to functional space
-seg_flirt2 = pe.MapNode(interface=fsl.FLIRT(), name='seg_flirt2', iterfield = ["in_file", "reference","in_matrix_file"])
-#seg_flirt2.inputs.in_file  = os.path.abspath(segment_dir+'/csf_masked.nii.gz')
-#seg_flirt2.inputs.reference = os.path.abspath(func_reg_dir+'/example_func.nii.gz')
-#seg_flirt2.inputs.out_file = os.path.abspath(segment_dir+'/csf_native.nii.gz')
-#seg_flirt2.inputs.in_matrix_file = os.path.abspath(func_reg_dir+'/standard2example_func.mat')
-seg_flirt2.inputs.apply_xfm = True
 
 ## 10. Threshold and binarize probability map of csf
 seg_thresh = pe.MapNode(interface= fsl.ImageMaths(), name = 'seg_thresh', iterfield = ["in_file"])
@@ -1200,12 +1270,6 @@ seg_smooth2.inputs.op_string = seg_str1
 #seg_smooth2.inputs.out_file = os.path.abspath(segment_dir+'/wm_sm.nii.gz')
 
 ## 14. register to standard
-seg_flirt4 = pe.MapNode(interface=fsl.FLIRT(), name='seg_flirt4', iterfield = ["in_file","in_matrix_file"])
-#seg_flirt4.inputs.in_file  = os.path.abspath(segment_dir+'/wm_sm.nii.gz')
-#seg_flirt4.inputs.reference = os.path.abspath(anat_reg_dir+'/standard.nii.gz')
-#seg_flirt4.inputs.out_file = os.path.abspath(segment_dir+'/wm2standard.nii.gz')
-#seg_flirt4.inputs.in_matrix_file = os.path.abspath(func_reg_dir+'/example_func2standard.mat')
-seg_flirt4.inputs.apply_xfm = True
 
 ## 15. find overlap with prior
 seg_prior1 = pe.MapNode(interface = fsl.MultiImageMaths(), name = 'seg_prior1', iterfield = ["in_file"])
@@ -1215,13 +1279,6 @@ seg_prior1.inputs.op_string = seg_str1
 #seg_prior1.inputs.operand_files = os.path.abspath(PRIOR_WHITE)
 #seg_prior1.inputs.out_file = os.path.abspath(segment_dir+'/wm_masked.nii.gz')
 
-## 16. revert back to functional space
-seg_flirt5 = pe.MapNode(interface=fsl.FLIRT(), name='seg_flirt5', iterfield = ["in_file","reference","in_matrix_file"])
-#seg_flirt5.inputs.in_file  = os.path.abspath(segment_dir+'/wm_masked.nii.gz')
-#seg_flirt5.inputs.reference = os.path.abspath(func_reg_dir+'/example_func.nii.gz')
-#seg_flirt5.inputs.out_file = os.path.abspath(segment_dir+'/wm_native.nii.gz')
-#seg_flirt5.inputs.in_matrix_file = os.path.abspath(func_reg_dir+'/standard2example_func.mat')
-seg_flirt5.inputs.apply_xfm = True
 
 ## 17. Threshold and binarize probability map of wm
 seg_thresh1 = pe.MapNode(interface= fsl.ImageMaths(), name = 'seg_thresh1', iterfield = ["in_file"])
@@ -1263,17 +1320,25 @@ lifeSaver_nuisance_stat = pe.MapNode(interface = util.Rename(), name = 'lifeSave
 
 lifeSaver_nuisance_calc = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_nuisance_calc', iterfield = ["in_file","format_string"])
 
+lifeSaver_func_filter = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_func_filter', iterfield = ["in_file","format_string"])
+
 lifeSaver_nuisance_warp = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_nuisance_warp', iterfield = ["in_file","format_string"])
 
 lifeSaver_nuisance_warp_1 = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_nuisance_warp_1', iterfield = ["in_file","format_string"])
 
 lifeSaver_RSFC_printToFile = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_RSFC_printToFile', iterfield = ["in_file","format_string"])
 
+lifeSaverRSFC = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_RSFC', iterfield = ["in_file","format_string"])
+
+lifeSaverRSFC1 = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_RSFC1', iterfield = ["in_file","format_string"])
+
 lifeSaver_RSFC_corr = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_RSFC_corr', iterfield = ["in_file","format_string"])
 
 lifeSaver_RSFC_z_trans = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_RSFC_z_trans', iterfield = ["in_file","format_string"])
 
 lifeSaver_RSFC_register = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_RSFC_register', iterfield = ["in_file","format_string"])
+
+lifeSaver_RSFC_smooth = pe.MapNode(interface = util.Rename(), name = 'lifeSaver_RSFC_smooth', iterfield = ["in_file","format_string"])
 
 def getPolyRegressors(nvols,nPoly):
 
@@ -1286,7 +1351,6 @@ def getPolyRegressors(nvols,nPoly):
 	sys.stderr.write(commands.getoutput(cmd))
 
 	if os.path.exists(os.path.join(os.getcwd(),'poly_detrend_1.txt')) and os.path.exists(os.path.join(os.getcwd(),'poly_detrend_2.txt')):
-
 		regressors =  [os.path.join(os.getcwd(),'poly_detrend_1.txt'),os.path.join(os.getcwd(),'poly_detrend_2.txt')]
 		return regressors
 	else:
@@ -1444,6 +1508,10 @@ alff_smooth.inputs.op_string = alff_str1 + " %s"
 #alff_smooth.inputs.operand_files = os.path.abspath(func_dir + '/rest_mask.nii.gz')
 #alff_smooth.inputs.out_file = os.path.abspath(alff_dir+'/prefiltered_func_data_smooth.nii.gz')
 
+falff_smooth = pe.MapNode(interface = MultiImageMaths(), name = 'falff_smooth', iterfield = ["in_file","operand_files"])
+falff_str1 = "-kernel gauss %f -fmean -mas" %(sigma)
+falff_smooth.inputs.op_string = falff_str1 + " %s"
+#func_smooth.inputs.out_file = os.path.abspath(analysisdirectory + '/' + subject + '/' + 'rest_1/rest_sm.nii.gz')
 ## 4. Grand mean Scaling
 alff_scale = pe.MapNode(interface = fsl.ImageMaths(), name = 'alff_scale', iterfield = ["in_file"])
 alff_scale.inputs.op_string = '-ing 10000'
@@ -1459,6 +1527,19 @@ alff_mean = pe.MapNode(interface = fsl.ImageMaths(), name = 'alff_mean', iterfie
 alff_mean.inputs.op_string = '-Tmean'
 #alff_mean.inputs.out_file = os.path.abspath(alff_dir+'/mean_rest_alff_pp.nii.gz')
 
+## 4. Calculate fALFF
+alff_falff = pe.MapNode(interface = fsl.ImageMaths(), name = 'alff_falff', iterfield = ["in_file","op_string"])
+#alff_falff.inputs.op_string = '-Tmean -mul %s -div 2' %(n_vols)
+#alff_falff.inputs.in_file = os.path.abspath(alff_dir+'/prealff_func_data_ps_sqrt.nii.gz')
+#alff_falff.inputs.out_file = os.path.abspath(alff_dir+'/prealff_func_data_ps_sum.nii.gz')
+
+alff_falff1 = pe.MapNode(interface = MultiImageMaths(), name = 'falff1', iterfield = ["in_file","operand_files"])
+alff_falff1.inputs.op_string = "-div %s"
+#alff_falff1.inputs.in_file = os.path.abspath(alff_dir+'/prealff_func_ps_alff4slow.nii.gz')
+#alff_falff1.inputs.operand_files = os.path.abspath(alff_dir+'/prealff_func_data_ps_sum.nii.gz')
+#alff_falff1.inputs.out_file = os.path.abspath(alff_dir+'/fALFF.nii.gz')
+
+## 5. Z-normalisation across whole brain
 ## 4. Calculate fALFF
 alff_falff = pe.MapNode(interface = fsl.ImageMaths(), name = 'alff_falff', iterfield = ["in_file","op_string"])
 #alff_falff.inputs.op_string = '-Tmean -mul %s -div 2' %(n_vols)
@@ -1518,7 +1599,6 @@ alff_warp_alff = pe.MapNode(interface = fsl.ApplyWarp(), name = 'alff_warp_alff'
 #alff_warp_alff.inputs.premat = os.path.abspath(func_reg_dir + '/example_func2highres.mat')
 #alff_warp_alff.inputs.out_file = os.path.abspath(alff_dir + '/ALFF_Z_2standard.nii.gz')
 
-#Registering Z-transformed fALFF to standard space
 alff_warp_falff = pe.MapNode(interface = fsl.ApplyWarp(), name = 'alff_warp_falff', iterfield = ["in_file","premat"])
 #alff_warp_falff.inputs.in_file = os.path.abspath(alff_dir+'/fALFF_Z.nii.gz')
 #alff_warp_falff.inputs.ref_file = os.path.abspath( FSLDIR + '/data/standard/MNI152_T1_%s.nii.gz' %(standard_res))
@@ -1531,7 +1611,7 @@ alff_roi = pe.MapNode(interface = fsl.ExtractROI(), name = "alff_roi", iterfield
 #alff_roi.inputs.roi_file = os.path.abspath(alff_dir+'/prealff_func_data.nii.gz')
 alff_roi.inputs.t_min = 1
 #alff_roi.inputs.t_size = int(n_vols)
-
+#Registering Z-transformed fALFF to standard space
 alff_cp1 = pe.MapNode(interface = fsl.ImageMaths(), name = 'alff_cp1', iterfield = ["in_file"])
 #alff_cp1.inputs.in_file = os.path.abspath(alff_dir+'/rest_alff_pp.nii.gz')
 #alff_cp1.inputs.out_file = os.path.abspath(alff_dir+'/prealff_func_data.nii.gz')
@@ -1563,6 +1643,11 @@ alff_sum = pe.MapNode(interface = fsl.ImageMaths(), name = 'alff_sum',iterfield 
 #alff_sum.inputs.out_file = os.path.abspath(alff_dir+'/prealff_func_ps_alff4slow.nii.gz')
 
 
+
+## 0. Register Seed template in to native space
+#RSFC_warp = pe.MapNode(interface = fsl.ApplyWarp(), name = 'RSFC_warp', iterfield = ["ref_file","postmat"])
+#RSFC_warp.inputs.interp = 'nn'
+#RSFC_warp.inputs.iterables = ("in_file",seed_list)
 ## 1. Extract Timeseries
 RSFC_time_series = pe.MapNode(interface = e_afni.ThreedROIstats(), name = 'RSFC_time_series', iterfield = ["in_file"])
 #RSFC_time_series.inputs.in_file = os.path.abspath(func_dir+'/rest_res2standard.nii.gz')
@@ -1593,6 +1678,10 @@ RSFC_register = pe.MapNode(interface = fsl.ApplyWarp(), name = 'RSFC_register', 
 #RSFC_register.inputs.field_file = os.path.abspath(anat_reg_dir + '/highres2standard_warp.nii.gz')
 #RSFC_register.inputs.premat = os.path.abspath(func_reg_dir + '/example_func2highres.mat')
 #RSFC_register.inputs.out_file = os.path.abspath(RSFC_dir + '/%s_Z_2standard.nii.gz' %(seed_name))
+
+RSFC_smooth = pe.MapNode(interface = MultiImageMaths(), name = 'RSFC_smooth', iterfield = ["in_file","operand_files"])
+RSFC_str1 = "-kernel gauss %f -fmean -mas " %(sigma)
+RSFC_smooth.inputs.op_string = RSFC_str1 + " %s"
 
 ## Linear registration of T1 --> symmetric standard
 VMHC_flirt = pe.Node(interface= fsl.FLIRT(), name='VMHC_flirt')
@@ -1641,8 +1730,6 @@ VMHC_corr.inputs.out_file = 'VMHC.nii.gz'
 #VMHC_corr.inputs.xset = '${vmhc_dir}/${image2use}.nii.gz'
 #VMHC_corr.inputs.yset = 'tmp_LRflipped.nii.gz'
 
-## Fisher Z transform map
-
 VMHC_z_trans = pe.MapNode(interface = e_afni.Threedcalc(), name = 'VMHC_z_trans', iterfield = ["infile_a"])
 #VMHC_z_trans.inputs.infile_a = os.path.abspath('VMHC.nii.gz')
 VMHC_z_trans.inputs.expr = '\'log((a+1)/(a-1))/2\''
@@ -1650,5 +1737,3 @@ VMHC_z_trans.inputs.out_file = 'VMHC_Z.nii.gz'
 
 VMHC_z_stat = pe.MapNode(interface = e_afni.Threedcalc(), name = 'VMHC_z_stat', iterfield = ["infile_a","expr"])
 VMHC_z_stat.inputs.out_file = 'VMHC_z_stat.nii.gz'
-
-

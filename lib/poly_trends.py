@@ -1,12 +1,16 @@
-#!/frodo/shared/epd/bin/python
+#! /usr/share/epd/bin/python2.7
+
 import numpy as np
 import sys
 import os
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
 #constants:
+
 nTRs = int(sys.argv[1])
 nPoly = int(sys.argv[2])
-
 
 ## Create polynomial regressors centered on 0 and bounded by -1 and 1
 x = np.arange(nTRs)
@@ -24,4 +28,4 @@ for i in num_pol:
 
 ## Print out text file for each polynomial to be used as a regressor
 for i in num_pol:
-    np.savetxt('poly_detrend_' + str(i+1) + '.txt',y[i],fmt='%0.02f')
+    np.savetxt('poly_detrend_' + str(i+1) + '.txt',y[i],fmt='%0.09f')

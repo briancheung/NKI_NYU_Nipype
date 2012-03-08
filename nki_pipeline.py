@@ -10,8 +10,6 @@ import nipype.interfaces.afni as afni
 import nipype.interfaces.fsl as fsl
 import nipype.interfaces.io as nio
 import nipype.interfaces.utility as util
-from nipype.interfaces.afni.preprocess import ThreedSkullStrip
-from nipype.interfaces.afni.preprocess import Threedcalc
 from nipype.interfaces.afni.base import Info, AFNITraitedSpec, AFNICommand
 from nipype.interfaces.base import Bunch, TraitedSpec, File, Directory, InputMultiPath
 from nipype.utils.filemanip import fname_presuffix, list_to_filename, split_filename
@@ -24,6 +22,8 @@ from multiprocessing import Pool
 from ConfigParser import SafeConfigParser
 
 #*******************************************************************************************
+subjectList = None
+FWHM = None
 FSLDIR = ''
 scripts_dir = ''
 prior_dir = ''
@@ -53,6 +53,8 @@ LP = None
 hp = None
 lp = None
 zeroSM = ''
+dir_file = None
+strategy = None
 #*******************************************************************************************
 
 
@@ -88,7 +90,11 @@ def funcpreproc():
 	global zeroSM
 
 	workflow.connect(datasource,'rest',nki_nodes.lifeSaver,'in_file')
-	workflow.connect(datasource,('rest',adjustPath),nki_nodes.lifeSaver,'format_string')
+	workflow.connect(datasource,'rest',nki_nodes.adjustPath,'rest_path')
+	workflow.connect(infosource,'strategy',nki_nodes.adjustPath,'strategy')
+	workflow.connect(infosource,'sublist',nki_nodes.adjustPath,'sublist')
+	workflow.connect(nki_nodes.adjustPath,'result_path',nki_nodes.lifeSaver,'format_string')
+	#workflow.connect(datasource,('rest',adjustPath),nki_nodes.lifeSaver,'format_string')
 	workflow.connect(nki_nodes.lifeSaver, 'out_file',nki_nodes.TR,'in_files')
 	workflow.connect(nki_nodes.lifeSaver, 'out_file',nki_nodes.NVOLS,'in_files')
 	#workflow.connect(datasource, 'rest',nki_nodes.TR,'in_files')
@@ -129,17 +135,15 @@ def registration():
 	workflow.connect(nki_nodes.anat_calc,'out_file', nki_nodes.reg_flirt1, 'in_file')
 	workflow.connect(infosource,'standard_res_brain', nki_nodes.reg_flirt1, 'reference')
 	workflow.connect(nki_nodes.reg_flirt1,'out_matrix_file',nki_nodes.reg_xfm2, 'in_file')
-	workflow.connect(nki_nodes.reg_flirt,'out_matrix_file',nki_nodes.reg_xfm3, 'in_file')
-	workflow.connect(nki_nodes.reg_flirt1, 'out_matrix_file',nki_nodes.reg_xfm3, 'in_file2')
-	workflow.connect(nki_nodes.reg_xfm3,'out_file',nki_nodes.reg_flirt2,'in_matrix_file')
-	workflow.connect(infosource,'standard_res_brain', nki_nodes.reg_flirt2, 'reference')
-	workflow.connect(nki_nodes.func_mean, 'out_file', nki_nodes.reg_flirt2, 'in_file')
-	workflow.connect(nki_nodes.reg_xfm3, 'out_file', nki_nodes.reg_xfm4, 'in_file')
 	workflow.connect(nki_nodes.anat_reorient, 'out_file', nki_nodes.reg_fnt , 'in_file')
 	workflow.connect(nki_nodes.reg_flirt1,'out_matrix_file', nki_nodes.reg_fnt, 'affine_file')
 	workflow.connect(infosource,'standard',nki_nodes.reg_fnt,'ref_file')
 	workflow.connect(infosource,'standard_brain_mask_dil',nki_nodes.reg_fnt,'refmask_file' )
 	workflow.connect(infosource,'config_file',nki_nodes.reg_fnt,'config_file')
+	
+	workflow.connect(nki_nodes.reg_fnt,'fieldcoeff_file',nki_nodes.reg_inw,'in_file')
+	workflow.connect(nki_nodes.anat_calc,'out_file', nki_nodes.reg_inw,'ref_file')
+	
 	workflow.connect(nki_nodes.func_mean, 'out_file',nki_nodes.reg_warp,'in_file')
 	workflow.connect(infosource,'standard',nki_nodes.reg_warp, 'ref_file')
 	workflow.connect(nki_nodes.reg_fnt, 'fieldcoeff_file', nki_nodes.reg_warp,'field_file')
@@ -185,34 +189,27 @@ def segment():
 	workflow.connect(nki_nodes.func_mean,'out_file',nki_nodes.seg_flirt,'reference')
 	workflow.connect(nki_nodes.reg_xfm1, 'out_file', nki_nodes.seg_flirt,'in_matrix_file')
 
-	workflow.connect( nki_nodes.seg_flirt , 'out_file' , nki_nodes.seg_smooth , 'in_file' )
-	workflow.connect( nki_nodes.seg_smooth, 'out_file', nki_nodes.seg_flirt1, 'in_file')
-
-	workflow.connect(infosource,'standard_res_brain', nki_nodes.seg_flirt1, 'reference')
-	workflow.connect(nki_nodes.reg_xfm3, 'out_file',nki_nodes.seg_flirt1, 'in_matrix_file')
-	workflow.connect( nki_nodes.seg_flirt1, 'out_file', nki_nodes.seg_smooth1, 'in_file')
-	workflow.connect( infosource, 'PRIOR_CSF', nki_nodes.seg_smooth1, 'operand_files')
-	workflow.connect( nki_nodes.seg_smooth1,'out_file', nki_nodes.seg_flirt2,'in_file')
-	workflow.connect( nki_nodes.func_mean,'out_file', nki_nodes.seg_flirt2,'reference')
-	workflow.connect( nki_nodes.reg_xfm4, 'out_file', nki_nodes.seg_flirt2,'in_matrix_file')
-	workflow.connect( nki_nodes.seg_flirt2, 'out_file', nki_nodes.seg_thresh, 'in_file')
-	workflow.connect( nki_nodes.seg_thresh,'out_file', nki_nodes.seg_mask,'in_file')
+	#workflow.connect( nki_nodes.seg_flirt , 'out_file' , nki_nodes.seg_smooth , 'in_file' )
+	workflow.connect(nki_nodes.func_mean,'out_file',nki_nodes.seg_warp,'ref_file')
+	workflow.connect(nki_nodes.reg_inw,'out_file',nki_nodes.seg_warp,'field_file')
+	workflow.connect(infosource,'PRIOR_CSF',nki_nodes.seg_warp,'in_file')
+	workflow.connect(nki_nodes.reg_xfm1,'out_file',nki_nodes.seg_warp,'postmat')
+	workflow.connect(nki_nodes.seg_flirt, 'out_file', nki_nodes.seg_smooth1, 'in_file')
+	workflow.connect(nki_nodes.seg_warp, 'out_file', nki_nodes.seg_smooth1, 'operand_files')
+	workflow.connect(nki_nodes.seg_smooth1, 'out_file', nki_nodes.seg_thresh, 'in_file')
+	workflow.connect(nki_nodes.seg_thresh,'out_file', nki_nodes.seg_mask,'in_file')
 	workflow.connect(nki_nodes.func_mask, 'out_file' ,nki_nodes.seg_copy, 'in_file' )
-	workflow.connect( nki_nodes.seg_copy,'out_file',  nki_nodes.seg_mask,'operand_files')
-	workflow.connect(  nki_nodes.seg_segment, ('probability_maps',pick_wm_1),  nki_nodes.seg_flirt3 , 'in_file' )
-	workflow.connect( nki_nodes.func_mean,'out_file', nki_nodes.seg_flirt3 , 'reference' )
-	workflow.connect( nki_nodes.reg_xfm1, 'out_file', nki_nodes.seg_flirt3 , 'in_matrix_file' )
-
-	workflow.connect( nki_nodes.seg_flirt3, 'out_file',  nki_nodes.seg_smooth2, 'in_file')
-	workflow.connect( nki_nodes.seg_smooth2,'out_file', nki_nodes.seg_flirt4, 'in_file')
-	workflow.connect( infosource,'standard_res_brain', nki_nodes.seg_flirt4, 'reference')
-	workflow.connect( nki_nodes.reg_xfm3, 'out_file', nki_nodes.seg_flirt4, 'in_matrix_file')
-	workflow.connect( nki_nodes.seg_flirt4,'out_file', nki_nodes.seg_prior1, 'in_file')
-	workflow.connect( infosource, 'PRIOR_WHITE', nki_nodes.seg_prior1, 'operand_files')
-	workflow.connect( nki_nodes.seg_prior1,'out_file', nki_nodes.seg_flirt5, 'in_file')
-	workflow.connect( nki_nodes.func_mean,'out_file', nki_nodes.seg_flirt5, 'reference')
-	workflow.connect( nki_nodes.reg_xfm4,'out_file', nki_nodes.seg_flirt5, 'in_matrix_file')
-	workflow.connect( nki_nodes.seg_flirt5,'out_file', nki_nodes.seg_thresh1,'in_file')
+	workflow.connect(nki_nodes.seg_copy,'out_file',  nki_nodes.seg_mask,'operand_files')
+	workflow.connect(nki_nodes.seg_segment, ('probability_maps',pick_wm_1),  nki_nodes.seg_flirt3 , 'in_file' )
+	workflow.connect(nki_nodes.func_mean,'out_file', nki_nodes.seg_flirt3 , 'reference' )
+	workflow.connect(nki_nodes.reg_xfm1, 'out_file', nki_nodes.seg_flirt3 , 'in_matrix_file' )
+	workflow.connect(nki_nodes.func_mean,'out_file',nki_nodes.seg_warp1,'ref_file')
+	workflow.connect(nki_nodes.reg_inw,'out_file',nki_nodes.seg_warp1,'field_file')
+	workflow.connect(infosource,'PRIOR_WHITE',nki_nodes.seg_warp1,'in_file')
+	workflow.connect(nki_nodes.reg_xfm1,'out_file',nki_nodes.seg_warp1,'postmat')
+	workflow.connect(nki_nodes.seg_flirt3,'out_file', nki_nodes.seg_prior1, 'in_file')
+	workflow.connect(nki_nodes.seg_warp1, 'out_file', nki_nodes.seg_prior1, 'operand_files')
+	workflow.connect(nki_nodes.seg_prior1,'out_file', nki_nodes.seg_thresh1,'in_file')
 	workflow.connect( nki_nodes.seg_thresh1,'out_file', nki_nodes.seg_mask1,'in_file')
 	workflow.connect( nki_nodes.seg_copy,'out_file', nki_nodes.seg_mask1,'operand_files')
 
@@ -495,7 +492,7 @@ def gatherData(sublist, analysisdirectory):
 
 def getFields():
 
-	fields = ['brain_symmetric','symm_standard','standard_res_brain','standard','standard_brain_mask_dil','twomm_brain_mask_dil','config_file_twomm','config_file','PRIOR_CSF','PRIOR_WHITE','nuisance_template','nuisance_template_cc','nuisance_template_noglobal','HP','LP','hp','lp','which_regression','dummy']
+	fields = ['sublist','strategy','brain_symmetric','symm_standard','standard_res_brain','standard','standard_brain_mask_dil','twomm_brain_mask_dil','config_file_twomm','config_file','PRIOR_CSF','PRIOR_WHITE','nuisance_template','nuisance_template_cc','nuisance_template_noglobal','HP','LP','hp','lp','which_regression','dummy']
 	return fields
 
 def getInfoSource(sublist, analysisdirectory):
@@ -511,6 +508,8 @@ def getInfoSource(sublist, analysisdirectory):
 	global LP
 	global hp
 	global lp
+	global strategy
+	global subjectList
 
 
 	formula  = getFields()
@@ -530,6 +529,8 @@ def getInfoSource(sublist, analysisdirectory):
 	infosource.inputs.hp = float(hp)
 	infosource.inputs.lp = float(lp)
 	infosource.inputs.which_regression = which_regression
+	infosource.inputs.strategy = strategy
+	infosource.inputs.sublist = subjectList
 
 	infosource.inputs.brain_symmetric = os.path.abspath(FSLDIR + '/data/standard/MNI152_T1_2mm_brain_symmetric.nii.gz')
 	infosource.inputs.symm_standard = os.path.abspath(FSLDIR + '/data/standard/MNI152_T1_2mm_symmetric.nii.gz')
@@ -577,18 +578,24 @@ def getSinkRSFC():
 	return datasinkRSFC
 
 
+
+
+
 def adjustPath(rest_path):
 
 	import re
+
 	result_path = []
 	
 	if(isinstance(rest_path,list)):
 		for r_p in rest_path:
-			result_path.append(re.sub(r'\/','-',r_p))
+			path = re.sub(r'\/','-',r_p)
+			result_path.append(re.sub(r'\/','-',path))
 
 		print str(result_path)
 	else:
-		result_path.append(re.sub(r'\/','-',rest_path))
+		path = re.sub(r'\/','-',rest_path)
+		result_path.append(re.sub(r'\/','-',path))
 		print str(result_path)
 	return result_path
 
@@ -749,7 +756,12 @@ def makeOutputConnectionsAnat(datasinkAnat):
 	global workflow
 	global infosource
 
-	workflow.connect(datasource, 'anat', datasinkAnat, 'container')
+
+	workflow.connect(datasource,'anat',nki_nodes.adjustAnat,'anat')
+	workflow.connect(infosource,'strategy',nki_nodes.adjustAnat,'strategy')
+	workflow.connect(infosource,'sublist',nki_nodes.adjustAnat,'sublist')
+	workflow.connect(nki_nodes.adjustAnat, 'result_path', datasinkAnat, 'container')
+	#workflow.connect(datasource, 'anat', datasinkAnat, 'container')
 	
 	## Connect anatpreproc nodes to datasink
 	workflow.connect(nki_nodes.anat_refit,'out_file',datasinkAnat,'@mprage')
@@ -796,23 +808,7 @@ def makeOutputConnectionsReg(datasink, datasinkAnat):
 	workflow.connect(nki_nodes.reg_flirt1_r, 'out_file',datasinkAnat, 'reg.@highres2standardmat')
 	workflow.connect(nki_nodes.reg_xfm2_r, 'out_file',datasinkAnat,'reg.@standard2highresmat')
 
-	workflow.connect(nki_nodes.reg_xfm3_r, 'out_file',nki_nodes.lifeSaver_func2standardmat,'in_file')
-	workflow.connect(nki_nodes.reg_xfm3_r, ('out_file',adjustReg),nki_nodes.lifeSaver_func2standardmat,'format_string')
-	workflow.connect(nki_nodes.lifeSaver_func2standardmat,'out_file',datasink,'@example_func2standardmat')
-#	workflow.connect(nki_nodes.reg_xfm3, 'out_file',datasink,'@example_func2standardmat')
-
-
-	workflow.connect(nki_nodes.reg_flirt2_r, 'out_file',nki_nodes.lifeSaver_func2standard,'in_file')
-	workflow.connect(nki_nodes.reg_flirt2_r, ('out_file',adjustReg),nki_nodes.lifeSaver_func2standard,'format_string')
-	workflow.connect(nki_nodes.lifeSaver_func2standard,'out_file',datasink,'@example_func2standard')
-#	workflow.connect(nki_nodes.reg_flirt2, 'out_file',datasink,'@example_func2standard')
-	
-
-	workflow.connect(nki_nodes.reg_xfm4_r, 'out_file',nki_nodes.lifeSaver_standard2example_funcmat,'in_file')
-	workflow.connect(nki_nodes.reg_xfm4_r, ('out_file',adjustReg),nki_nodes.lifeSaver_standard2example_funcmat,'format_string')
-	workflow.connect(nki_nodes.lifeSaver_standard2example_funcmat,'out_file',datasink,'@standard2example_funcmat')
-	#workflow.connect(nki_nodes.reg_xfm4, 'out_file',datasink,'@standard2example_funcmat')
-
+	workflow.connect(nki_nodes.reg_inw_r , 'out_file',datasinkAnat,'reg.@stand2highres_warp')
 	workflow.connect(nki_nodes.reg_fnt_r , 'out_file',datasinkAnat,'reg.@highres2standard_NL')
 	workflow.connect(nki_nodes.reg_fntj_r, 'out_file',datasinkAnat,'reg.@highres2standard_jac')
 	workflow.connect(nki_nodes.reg_fntf_r, 'out_file',datasinkAnat,'reg.@highres2standard_warp')
@@ -825,7 +821,11 @@ def makeOutputConnectionsReg(datasink, datasinkAnat):
 
 def makeOutputConnectionsSeg(datasink, datasinkAnat):
 	## Connect segmentation nodes to datasink	
-	global zeroSM
+	workflow.connect(nki_nodes.seg_copy_r, 'out_file',nki_nodes.lifeSaver_seg_copy,'in_file')
+	workflow.connect(nki_nodes.seg_copy_r, ('out_file',adjustSegment),nki_nodes.lifeSaver_seg_copy,'format_string')
+	workflow.connect(nki_nodes.lifeSaver_seg_copy,'out_file',datasink,'@seg_copy')
+#	workflow.connect( nki_nodes.seg_copy,'out_file',  datasink,'segment.@seg_copy')
+	
 
 	workflow.connect( nki_nodes.seg_segment, 'probability_maps',datasinkAnat,'segment.@seg_segment' )
 	
@@ -836,36 +836,21 @@ def makeOutputConnectionsSeg(datasink, datasinkAnat):
 	workflow.connect(nki_nodes.lifeSaver_seg_flirt,'out_file',datasink,'@seg_flirt')
 #	workflow.connect( nki_nodes.seg_flirt , 'out_file', datasink, 'segment.@seg_flirt' )
 
-	workflow.connect(nki_nodes.seg_smooth_r, 'out_file',nki_nodes.Saver_seg_smooth,'in_file')
-	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_smooth,'pp')
-	workflow.connect(nki_nodes.seg_smooth_r, 'out_file',nki_nodes.lifeSaver_seg_smooth,'in_file')
-	workflow.connect(nki_nodes.Saver_seg_smooth, 'out_file',nki_nodes.lifeSaver_seg_smooth,'format_string')
-	workflow.connect(nki_nodes.lifeSaver_seg_smooth,'out_file',datasink,'@seg_smooth')
-#	workflow.connect( nki_nodes.seg_smooth, 'out_file', datasink, 'segment.@seg_smooth')
+	workflow.connect(nki_nodes.seg_warp_r, 'out_file',nki_nodes.Saver_seg_warp,'in_file')
+	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_warp,'pp')
+	workflow.connect(nki_nodes.seg_warp_r, 'out_file',nki_nodes.lifeSaver_seg_warp,'in_file')
+	workflow.connect(nki_nodes.Saver_seg_warp,'out_file',nki_nodes.lifeSaver_seg_warp,'format_string')
+	workflow.connect(nki_nodes.lifeSaver_seg_warp,'out_file',datasink,'@seg_warp')
+#	workflow.connect( nki_nodes.seg_warp , 'out_file', datasink, 'segment.@seg_warp' )
 
-
-	workflow.connect(nki_nodes.seg_flirt1_r, 'out_file',nki_nodes.Saver_seg_flirt1,'in_file')
-	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_flirt1,'pp')
-	workflow.connect(nki_nodes.seg_flirt1_r, 'out_file',nki_nodes.lifeSaver_seg_flirt1,'in_file')
-	workflow.connect(nki_nodes.Saver_seg_flirt1, 'out_file',nki_nodes.lifeSaver_seg_flirt1,'format_string')
-	workflow.connect(nki_nodes.lifeSaver_seg_flirt1,'out_file',datasink,'@seg_flirt1')
-#	workflow.connect( nki_nodes.seg_flirt1, 'out_file', datasink, 'segment.@seg_flirt1')
-
-	
 	workflow.connect(nki_nodes.seg_smooth1_r, 'out_file',nki_nodes.Saver_seg_smooth1,'in_file')
 	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_smooth1,'pp')
 	workflow.connect(nki_nodes.seg_smooth1_r, 'out_file',nki_nodes.lifeSaver_seg_smooth1,'in_file')
-	workflow.connect(nki_nodes.Saver_seg_flirt1, 'out_file',nki_nodes.lifeSaver_seg_smooth1,'format_string')
+	workflow.connect(nki_nodes.Saver_seg_smooth1, 'out_file',nki_nodes.lifeSaver_seg_smooth1,'format_string')
 	workflow.connect(nki_nodes.lifeSaver_seg_smooth1,'out_file',datasink,'@seg_smooth1')
-#	workflow.connect( nki_nodes.seg_smooth1,'out_file', datasink,'segment.@seg_smooth1')
-	
-	workflow.connect(nki_nodes.seg_flirt2_r, 'out_file',nki_nodes.Saver_seg_flirt2,'in_file')
-	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_flirt2,'pp')
-	workflow.connect(nki_nodes.seg_flirt2_r, 'out_file',nki_nodes.lifeSaver_seg_flirt2,'in_file')
-	workflow.connect(nki_nodes.Saver_seg_flirt2, 'out_file',nki_nodes.lifeSaver_seg_flirt2,'format_string')
-	workflow.connect(nki_nodes.lifeSaver_seg_flirt2,'out_file',datasink,'@seg_flirt2')
-#	workflow.connect( nki_nodes.seg_flirt2, 'out_file', datasink, 'segment.@seg_flirt2')
-	
+#	workflow.connect( nki_nodes.seg_smooth1, 'out_file', datasink, 'segment.@seg_smooth')
+
+
 	workflow.connect(nki_nodes.seg_thresh_r, 'out_file',nki_nodes.Saver_seg_thresh,'in_file')
 	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_thresh,'pp')
 	workflow.connect(nki_nodes.seg_thresh_r, 'out_file',nki_nodes.lifeSaver_seg_thresh,'in_file')
@@ -873,6 +858,7 @@ def makeOutputConnectionsSeg(datasink, datasinkAnat):
 	workflow.connect(nki_nodes.lifeSaver_seg_thresh,'out_file',datasink,'@seg_thresh')
 #	workflow.connect( nki_nodes.seg_thresh,'out_file', datasink,'segment.@seg_thresh')
 	
+
 	workflow.connect(nki_nodes.seg_mask_r, 'out_file',nki_nodes.Saver_seg_mask,'in_file')
 	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_mask,'pp')
 	workflow.connect(nki_nodes.seg_mask_r, 'out_file',nki_nodes.lifeSaver_seg_mask,'in_file')
@@ -880,13 +866,6 @@ def makeOutputConnectionsSeg(datasink, datasinkAnat):
 	workflow.connect(nki_nodes.lifeSaver_seg_mask,'out_file',datasink,'@seg_mask')
 #	workflow.connect( nki_nodes.seg_mask,'out_file', datasink,'segment.@seg_mask')
 	
-	workflow.connect(nki_nodes.seg_copy_r, 'out_file',nki_nodes.lifeSaver_seg_copy,'in_file')
-	workflow.connect(nki_nodes.seg_copy_r, ('out_file',adjustSegment),nki_nodes.lifeSaver_seg_copy,'format_string')
-	workflow.connect(nki_nodes.lifeSaver_seg_copy,'out_file',datasink,'@seg_copy')
-#	workflow.connect( nki_nodes.seg_copy,'out_file',  datasink,'segment.@seg_copy')
-	
-
-
 	workflow.connect(nki_nodes.seg_flirt3_r, 'out_file',nki_nodes.Saver_seg_flirt3,'in_file')
 	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_flirt3,'pp')
 	workflow.connect(nki_nodes.seg_flirt3_r, 'out_file',nki_nodes.lifeSaver_seg_flirt3,'in_file')
@@ -894,20 +873,13 @@ def makeOutputConnectionsSeg(datasink, datasinkAnat):
 	workflow.connect(nki_nodes.lifeSaver_seg_flirt3,'out_file',datasink,'@seg_flirt3')
 #	workflow.connect( nki_nodes.seg_flirt3, 'out_file', datasink, 'segment.@seg_flirt3')
 
-	workflow.connect(nki_nodes.seg_smooth2_r, 'out_file',nki_nodes.Saver_seg_smooth2,'in_file')
-	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_smooth2,'pp')
-	workflow.connect(nki_nodes.seg_smooth2_r, 'out_file',nki_nodes.lifeSaver_seg_smooth2,'in_file')
-	workflow.connect(nki_nodes.Saver_seg_smooth2, 'out_file',nki_nodes.lifeSaver_seg_smooth2,'format_string')
-	workflow.connect(nki_nodes.lifeSaver_seg_smooth2,'out_file',datasink,'@seg_smooth2')
-#	workflow.connect( nki_nodes.seg_smooth2,'out_file', datasink, 'segment.@seg_smooth2')
-	
-	workflow.connect(nki_nodes.seg_flirt4_r, 'out_file',nki_nodes.Saver_seg_flirt4,'in_file')
-	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_flirt4,'pp')
-	workflow.connect(nki_nodes.seg_flirt4_r, 'out_file',nki_nodes.lifeSaver_seg_flirt4,'in_file')
-	workflow.connect(nki_nodes.Saver_seg_flirt4, 'out_file',nki_nodes.lifeSaver_seg_flirt4,'format_string')
-	workflow.connect(nki_nodes.lifeSaver_seg_flirt4,'out_file',datasink,'@seg_flirt4')
-#	workflow.connect( nki_nodes.seg_flirt4,'out_file', datasink, 'segment.@seg_flirt4')
-#	
+	workflow.connect(nki_nodes.seg_warp1_r, 'out_file',nki_nodes.Saver_seg_warp1,'in_file')
+	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_warp1,'pp')
+	workflow.connect(nki_nodes.seg_warp1_r, 'out_file',nki_nodes.lifeSaver_seg_warp1,'in_file')
+	workflow.connect(nki_nodes.Saver_seg_warp1,'out_file',nki_nodes.lifeSaver_seg_warp1,'format_string')
+	workflow.connect(nki_nodes.lifeSaver_seg_warp1,'out_file',datasink,'@seg_warp1')
+#	workflow.connect( nki_nodes.seg_warp1 , 'out_file', datasink, 'segment.@seg_warp1' )
+
 	workflow.connect(nki_nodes.seg_prior1_r, 'out_file',nki_nodes.Saver_seg_prior1,'in_file')
 	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_prior1,'pp')
 	workflow.connect(nki_nodes.seg_prior1_r, 'out_file',nki_nodes.lifeSaver_seg_prior1,'in_file')
@@ -915,20 +887,14 @@ def makeOutputConnectionsSeg(datasink, datasinkAnat):
 	workflow.connect(nki_nodes.lifeSaver_seg_prior1,'out_file',datasink,'@seg_prior1')
 #	workflow.connect( nki_nodes.seg_prior1,'out_file', datasink, 'segment.@seg_prior1')
 #	
-	workflow.connect(nki_nodes.seg_flirt5_r, 'out_file',nki_nodes.Saver_seg_flirt5,'in_file')
-	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_flirt5,'pp')
-	workflow.connect(nki_nodes.seg_flirt5_r, 'out_file',nki_nodes.lifeSaver_seg_flirt5,'in_file')
-	workflow.connect(nki_nodes.Saver_seg_flirt5, 'out_file',nki_nodes.lifeSaver_seg_flirt5,'format_string')
-	workflow.connect(nki_nodes.lifeSaver_seg_flirt5,'out_file',datasink,'@seg_flirt5')
-#	workflow.connect( nki_nodes.seg_flirt5,'out_file', datasink,'segment.@seg_flirt5')
-#	
+
 	workflow.connect(nki_nodes.seg_thresh1_r, 'out_file',nki_nodes.Saver_seg_thresh1,'in_file')
 	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_thresh1,'pp')
 	workflow.connect(nki_nodes.seg_thresh1_r, 'out_file',nki_nodes.lifeSaver_seg_thresh1,'in_file')
 	workflow.connect(nki_nodes.Saver_seg_thresh1, 'out_file',nki_nodes.lifeSaver_seg_thresh1,'format_string')
 	workflow.connect(nki_nodes.lifeSaver_seg_thresh1,'out_file',datasink,'@seg_thresh1')
 #	workflow.connect( nki_nodes.seg_thresh1,'out_file', datasink,'segment.@seg_thresh1')
-#	
+	
 	workflow.connect(nki_nodes.seg_mask1_r, 'out_file',nki_nodes.Saver_seg_mask1,'in_file')
 	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_seg_mask1,'pp')
 	workflow.connect(nki_nodes.seg_mask1_r, 'out_file',nki_nodes.lifeSaver_seg_mask1,'in_file')
@@ -999,6 +965,12 @@ def makeOutputConnectionsNuisance(datasink):
 	workflow.connect(nki_nodes.lifeSaver_nuisance_calc,'out_file',datasink,'@nuisance_calc')
 #	workflow.connect(nki_nodes.nuisance_calc,'out_file',datasink,'@nuisance_calc')
 
+	workflow.connect(nki_nodes.func_filter_r, 'out_file',nki_nodes.Saver_func_filter,'in_file')
+	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_func_filter,'pp')
+	workflow.connect(nki_nodes.func_filter_r, 'out_file',nki_nodes.lifeSaver_func_filter,'in_file')
+	workflow.connect(nki_nodes.Saver_func_filter, 'out_file',nki_nodes.lifeSaver_func_filter,'format_string')
+	workflow.connect(nki_nodes.lifeSaver_func_filter,'out_file',datasink,'@func_filter')
+
 	workflow.connect(nki_nodes.nuisance_warp_r, 'out_file',nki_nodes.Saver_nuisance_warp,'in_file')
 	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_nuisance_warp,'pp')
 	workflow.connect(nki_nodes.nuisance_warp_r, 'out_file',nki_nodes.lifeSaver_nuisance_warp,'in_file')
@@ -1006,11 +978,7 @@ def makeOutputConnectionsNuisance(datasink):
 	workflow.connect(nki_nodes.lifeSaver_nuisance_warp,'out_file',datasink,'@nuisance_warp')
 #	workflow.connect(nki_nodes.nuisance_warp,'out_file',datasink,'@nuisance_warp')
 
-	workflow.connect(nki_nodes.nuisance_warp_1_r, 'out_file',nki_nodes.Saver_nuisance_warp_1,'in_file')
-	workflow.connect(nki_nodes.func_mean_r,'out_file',nki_nodes.Saver_nuisance_warp_1,'pp')
-	workflow.connect(nki_nodes.nuisance_warp_1_r, 'out_file',nki_nodes.lifeSaver_nuisance_warp_1,'in_file')
-	workflow.connect(nki_nodes.Saver_nuisance_warp_1, 'out_file',nki_nodes.lifeSaver_nuisance_warp_1,'format_string')
-	workflow.connect(nki_nodes.lifeSaver_nuisance_warp_1,'out_file',datasink,'@nuisance_warp_1')
+	workflow.connect(nki_nodes.nuisance_warp_1_r,'out_file',datasink,'@nuisance_warp_1')
 
 
 def makeOutputConnections(analysisdirectory):
@@ -1124,22 +1092,6 @@ def rename_reg_outputs():
 	#workflow.connect(nki_nodes.reg_flirt1, 'out_matrix_file',datasinkAnat, 'reg.@highres2standardmat')
 	#workflow.connect(nki_nodes.reg_xfm2, 'out_file',datasinkAnat,'reg.@standard2highresmat')
 	
-	workflow.connect(nki_nodes.reg_xfm3, 'out_file',nki_nodes.reg_xfm3_o,'in_file')
-	workflow.connect(renamer,'reg_xfm3_out_file',nki_nodes.reg_xfm3_o,'name')
-	workflow.connect(nki_nodes.reg_xfm3, 'out_file',nki_nodes.reg_xfm3_r,'in_file')
-	workflow.connect(nki_nodes.reg_xfm3_o,'out_file',nki_nodes.reg_xfm3_r,'format_string')
-	#workflow.connect(nki_nodes.reg_xfm3, 'out_file',datasink,'reg.@example_func2standardmat')
-	
-	workflow.connect(nki_nodes.reg_flirt2, 'out_file',nki_nodes.reg_flirt2_o,'in_file')
-	workflow.connect(renamer,'reg_flirt2_out_file',nki_nodes.reg_flirt2_o,'name')
-	workflow.connect(nki_nodes.reg_flirt2, 'out_file',nki_nodes.reg_flirt2_r,'in_file')
-	workflow.connect(nki_nodes.reg_flirt2_o,'out_file',nki_nodes.reg_flirt2_r,'format_string')
-	#workflow.connect(nki_nodes.reg_flirt2, 'out_file',datasink,'reg.@example_func2standard')
-	
-	workflow.connect(nki_nodes.reg_xfm4, 'out_file',nki_nodes.reg_xfm4_o,'in_file')
-	workflow.connect(renamer,'reg_xfm4_out_file',nki_nodes.reg_xfm4_o,'name')
-	workflow.connect(nki_nodes.reg_xfm4, 'out_file',nki_nodes.reg_xfm4_r,'in_file')
-	workflow.connect(nki_nodes.reg_xfm4_o,'out_file',nki_nodes.reg_xfm4_r,'format_string')
 	#workflow.connect(nki_nodes.reg_xfm4, 'out_file',datasink,'reg.@standard2example_funcmat')
 	
 	#workflow.connect(nki_nodes.reg_fnt , 'warped_file',datasinkAnat,'reg.@highres2standard_NL')
@@ -1153,7 +1105,12 @@ def rename_reg_outputs():
 
 def rename_seg_outputs():
 
-	global zeroSM
+	workflow.connect(nki_nodes.seg_copy, 'out_file',nki_nodes.seg_copy_o,'in_file')
+	workflow.connect(renamer,'seg_copy_out_file',nki_nodes.seg_copy_o,'name')
+	workflow.connect(nki_nodes.seg_copy, 'out_file',nki_nodes.seg_copy_r,'in_file')
+	workflow.connect(nki_nodes.seg_copy_o,'out_file',nki_nodes.seg_copy_r,'format_string')
+#	workflow.connect( nki_nodes.seg_copy,'out_file',  datasink,'segment.@seg_copy')
+
 	#workflow.connect( nki_nodes.seg_segment, 'probability_maps',datasinkAnat,'segment.@seg_segment' )
 	
 	workflow.connect(nki_nodes.seg_flirt, 'out_file',nki_nodes.seg_flirt_o,'in_file')
@@ -1162,47 +1119,29 @@ def rename_seg_outputs():
 	workflow.connect(nki_nodes.seg_flirt_o,'out_file',nki_nodes.seg_flirt_r,'format_string')
 	#workflow.connect( nki_nodes.seg_flirt , 'out_file', datasink, 'segment.@seg_flirt' )
 
-	workflow.connect(nki_nodes.seg_smooth, 'out_file',nki_nodes.seg_smooth_o,'in_file')
-	workflow.connect(renamer,'seg_smooth_out_file',nki_nodes.seg_smooth_o,'name')
-	workflow.connect(nki_nodes.seg_smooth, 'out_file',nki_nodes.seg_smooth_r,'in_file')
-	workflow.connect(nki_nodes.seg_smooth_o,'out_file',nki_nodes.seg_smooth_r,'format_string')
-#	workflow.connect( nki_nodes.seg_smooth, 'out_file', datasink, 'segment.@seg_smooth')
-
-	workflow.connect(nki_nodes.seg_flirt1, 'out_file',nki_nodes.seg_flirt1_o,'in_file')
-	workflow.connect(renamer,'seg_flirt1_out_file',nki_nodes.seg_flirt1_o,'name')
-	workflow.connect(nki_nodes.seg_flirt1, 'out_file',nki_nodes.seg_flirt1_r,'in_file')
-	workflow.connect(nki_nodes.seg_flirt1_o,'out_file',nki_nodes.seg_flirt1_r,'format_string')
-#	workflow.connect( nki_nodes.seg_flirt1, 'out_file', datasink, 'segment.@seg_flirt1')
-
+	workflow.connect(nki_nodes.seg_warp, 'out_file',nki_nodes.seg_warp_o,'in_file')
+	workflow.connect(renamer,'seg_warp_out_file',nki_nodes.seg_warp_o,'name')
+	workflow.connect(nki_nodes.seg_warp, 'out_file',nki_nodes.seg_warp_r,'in_file')
+	workflow.connect(nki_nodes.seg_warp_o,'out_file',nki_nodes.seg_warp_r,'format_string')
+#	workflow.connect( nki_nodes.seg_warp, 'out_file', datasink, 'segment.@seg_warp')
+	
 	workflow.connect(nki_nodes.seg_smooth1, 'out_file',nki_nodes.seg_smooth1_o,'in_file')
 	workflow.connect(renamer,'seg_smooth1_out_file',nki_nodes.seg_smooth1_o,'name')
 	workflow.connect(nki_nodes.seg_smooth1, 'out_file',nki_nodes.seg_smooth1_r,'in_file')
 	workflow.connect(nki_nodes.seg_smooth1_o,'out_file',nki_nodes.seg_smooth1_r,'format_string')
 #	workflow.connect( nki_nodes.seg_smooth1,'out_file', datasink,'segment.@seg_smooth1')
 
-	workflow.connect(nki_nodes.seg_flirt2, 'out_file',nki_nodes.seg_flirt2_o,'in_file')
-	workflow.connect(renamer,'seg_flirt2_out_file',nki_nodes.seg_flirt2_o,'name')
-	workflow.connect(nki_nodes.seg_flirt2, 'out_file',nki_nodes.seg_flirt2_r,'in_file')
-	workflow.connect(nki_nodes.seg_flirt2_o,'out_file',nki_nodes.seg_flirt2_r,'format_string')
-#	workflow.connect( nki_nodes.seg_flirt2, 'out_file', datasink, 'segment.@seg_flirt2')
-
 	workflow.connect(nki_nodes.seg_thresh, 'out_file',nki_nodes.seg_thresh_o,'in_file')
 	workflow.connect(renamer,'seg_thresh_out_file',nki_nodes.seg_thresh_o,'name')
 	workflow.connect(nki_nodes.seg_thresh, 'out_file',nki_nodes.seg_thresh_r,'in_file')
 	workflow.connect(nki_nodes.seg_thresh_o,'out_file',nki_nodes.seg_thresh_r,'format_string')
 #	workflow.connect( nki_nodes.seg_thresh,'out_file', datasink,'segment.@seg_thresh')
-
+	
 	workflow.connect(nki_nodes.seg_mask, 'out_file',nki_nodes.seg_mask_o,'in_file')
 	workflow.connect(renamer,'seg_mask_out_file',nki_nodes.seg_mask_o,'name')
 	workflow.connect(nki_nodes.seg_mask, 'out_file',nki_nodes.seg_mask_r,'in_file')
 	workflow.connect(nki_nodes.seg_mask_o,'out_file',nki_nodes.seg_mask_r,'format_string')
 #	workflow.connect( nki_nodes.seg_mask,'out_file', datasink,'segment.@seg_mask')
-
-	workflow.connect(nki_nodes.seg_copy, 'out_file',nki_nodes.seg_copy_o,'in_file')
-	workflow.connect(renamer,'seg_copy_out_file',nki_nodes.seg_copy_o,'name')
-	workflow.connect(nki_nodes.seg_copy, 'out_file',nki_nodes.seg_copy_r,'in_file')
-	workflow.connect(nki_nodes.seg_copy_o,'out_file',nki_nodes.seg_copy_r,'format_string')
-#	workflow.connect( nki_nodes.seg_copy,'out_file',  datasink,'segment.@seg_copy')
 
 	workflow.connect(nki_nodes.seg_flirt3, 'out_file',nki_nodes.seg_flirt3_o,'in_file')
 	workflow.connect(renamer,'seg_flirt3_out_file',nki_nodes.seg_flirt3_o,'name')
@@ -1210,41 +1149,30 @@ def rename_seg_outputs():
 	workflow.connect(nki_nodes.seg_flirt3_o,'out_file',nki_nodes.seg_flirt3_r,'format_string')
 #	workflow.connect( nki_nodes.seg_flirt3, 'out_file', datasink, 'segment.@seg_flirt3')
 
-	workflow.connect(nki_nodes.seg_smooth2, 'out_file',nki_nodes.seg_smooth2_o,'in_file')
-	workflow.connect(renamer,'seg_smooth2_out_file',nki_nodes.seg_smooth2_o,'name')
-	workflow.connect(nki_nodes.seg_smooth2, 'out_file',nki_nodes.seg_smooth2_r,'in_file')
-	workflow.connect(nki_nodes.seg_smooth2_o,'out_file',nki_nodes.seg_smooth2_r,'format_string')
-#	workflow.connect( nki_nodes.seg_smooth2,'out_file', datasink, 'segment.@seg_smooth2')
-
-	workflow.connect(nki_nodes.seg_flirt4, 'out_file',nki_nodes.seg_flirt4_o,'in_file')
-	workflow.connect(renamer,'seg_flirt4_out_file',nki_nodes.seg_flirt4_o,'name')
-	workflow.connect(nki_nodes.seg_flirt4, 'out_file',nki_nodes.seg_flirt4_r,'in_file')
-	workflow.connect(nki_nodes.seg_flirt4_o,'out_file',nki_nodes.seg_flirt4_r,'format_string')
-#	workflow.connect( nki_nodes.seg_flirt4,'out_file', datasink, 'segment.@seg_flirt4')
-
+	workflow.connect(nki_nodes.seg_warp1, 'out_file',nki_nodes.seg_warp1_o,'in_file')
+	workflow.connect(renamer,'seg_warp1_out_file',nki_nodes.seg_warp1_o,'name')
+	workflow.connect(nki_nodes.seg_warp1, 'out_file',nki_nodes.seg_warp1_r,'in_file')
+	workflow.connect(nki_nodes.seg_warp1_o,'out_file',nki_nodes.seg_warp1_r,'format_string')
+#	workflow.connect( nki_nodes.seg_warp1, 'out_file', datasink, 'segment.@seg_warp')
+	
 	workflow.connect(nki_nodes.seg_prior1, 'out_file',nki_nodes.seg_prior1_o,'in_file')
 	workflow.connect(renamer,'seg_prior1_out_file',nki_nodes.seg_prior1_o,'name')
 	workflow.connect(nki_nodes.seg_prior1, 'out_file',nki_nodes.seg_prior1_r,'in_file')
 	workflow.connect(nki_nodes.seg_prior1_o,'out_file',nki_nodes.seg_prior1_r,'format_string')
 #	workflow.connect( nki_nodes.seg_prior1,'out_file', datasink, 'segment.@seg_prior1')
 
-	workflow.connect(nki_nodes.seg_flirt5, 'out_file',nki_nodes.seg_flirt5_o,'in_file')
-	workflow.connect(renamer,'seg_flirt5_out_file',nki_nodes.seg_flirt5_o,'name')
-	workflow.connect(nki_nodes.seg_flirt5, 'out_file',nki_nodes.seg_flirt5_r,'in_file')
-	workflow.connect(nki_nodes.seg_flirt5_o,'out_file',nki_nodes.seg_flirt5_r,'format_string')
-#	workflow.connect( nki_nodes.seg_flirt5,'out_file', datasink,'segment.@seg_flirt5')
-
 	workflow.connect(nki_nodes.seg_thresh1, 'out_file',nki_nodes.seg_thresh1_o,'in_file')
 	workflow.connect(renamer,'seg_thresh1_out_file',nki_nodes.seg_thresh1_o,'name')
 	workflow.connect(nki_nodes.seg_thresh1, 'out_file',nki_nodes.seg_thresh1_r,'in_file')
 	workflow.connect(nki_nodes.seg_thresh1_o,'out_file',nki_nodes.seg_thresh1_r,'format_string')
-#	workflow.connect( nki_nodes.seg_thresh1,'out_file', datasink,'segment.@seg_thresh1')
+#	workflow.connect( nki_nodes.seg_thresh1,'out_file', datasink,'segment.@seg_thresh')
 	
 	workflow.connect(nki_nodes.seg_mask1, 'out_file',nki_nodes.seg_mask1_o,'in_file')
 	workflow.connect(renamer,'seg_mask1_out_file',nki_nodes.seg_mask1_o,'name')
 	workflow.connect(nki_nodes.seg_mask1, 'out_file',nki_nodes.seg_mask1_r,'in_file')
 	workflow.connect(nki_nodes.seg_mask1_o,'out_file',nki_nodes.seg_mask1_r,'format_string')
 #	workflow.connect( nki_nodes.seg_mask1,'out_file', datasink,'segment.@seg_mask1')
+
 
 def rename_nuisance_outputs():
 
@@ -1298,6 +1226,12 @@ def rename_nuisance_outputs():
 	workflow.connect(nki_nodes.nuisance_calc_o,'out_file',nki_nodes.nuisance_calc_r,'format_string')
 	#workflow.connect(nki_nodes.nuisance_calc,'out_file',datasink,'nuisance.@nuisance_calc')
 	
+	workflow.connect(nki_nodes.func_filter, 'out_file',nki_nodes.func_filter_o,'in_file')
+	workflow.connect(renamer,'func_filter_out_file',nki_nodes.func_filter_o,'name')
+	workflow.connect(nki_nodes.func_filter, 'out_file',nki_nodes.func_filter_r,'in_file')
+	workflow.connect(nki_nodes.func_filter_o,'out_file',nki_nodes.func_filter_r,'format_string')
+	#workflow.connect(nki_nodes.func_filter,'out_file',datasink,'nuisance.@func_filter')
+
 	workflow.connect(nki_nodes.nuisance_warp, 'out_file',nki_nodes.nuisance_warp_o,'in_file')
 	workflow.connect(renamer,'nuisance_warp_out_file',nki_nodes.nuisance_warp_o,'name')
 	workflow.connect(nki_nodes.nuisance_warp, 'out_file',nki_nodes.nuisance_warp_r,'in_file')
@@ -1311,17 +1245,6 @@ def rename_nuisance_outputs():
 
 def rename_anat_outputs():
 
-#	workflow.connect(nki_nodes.anat_refit, 'out_file',nki_nodes.anat_refit_o,'in_file')
-#	workflow.connect(renamer,'anat_refit_out_file',nki_nodes.anat_refit_o,'name')
-#	workflow.connect(nki_nodes.anat_refit, 'out_file',nki_nodes.anat_refit_r,'in_file')
-#	workflow.connect(nki_nodes.anat_refit_o,'out_file',nki_nodes.anat_refit_r,'format_string')
-	#workflow.connect(nki_nodes.anat_refit,'out_file',datasinkAnat,'@mprage')
-
-#	workflow.connect(nki_nodes.anat_reorient, 'out_file',nki_nodes.anat_reorient_o,'in_file')
-#	workflow.connect(renamer,'anat_reorient_out_file',nki_nodes.anat_reorient_o,'name')
-#	workflow.connect(nki_nodes.anat_reorient, 'out_file',nki_nodes.anat_reorient_r,'in_file')
-#	workflow.connect(nki_nodes.anat_reorient_o,'out_file',nki_nodes.anat_reorient_r,'format_string')
-	#workflow.connect(nki_nodes.anat_reorient,'out_file',datasinkAnat,'@mprage_RPI')
 
 	workflow.connect(nki_nodes.anat_skullstrip, 'out_file',nki_nodes.anat_skullstrip_o,'in_file')
 	workflow.connect(renamer,'anat_skullstrip_out_file',nki_nodes.anat_skullstrip_o,'name')
@@ -1329,11 +1252,6 @@ def rename_anat_outputs():
 	workflow.connect(nki_nodes.anat_skullstrip_o,'out_file',nki_nodes.anat_skullstrip_r,'format_string')
 	#workflow.connect(nki_nodes.anat_skullstrip,'out_file', datasinkAnat,'@mprage_surf')
 	
-#	workflow.connect(nki_nodes.anat_calc, 'out_file',nki_nodes.anat_calc_o,'in_file')
-#	workflow.connect(renamer,'anat_calc_out_file',nki_nodes.anat_calc_o,'name')
-#	workflow.connect(nki_nodes.anat_calc, 'out_file',nki_nodes.anat_calc_r,'in_file')
-#	workflow.connect(nki_nodes.anat_calc_o,'out_file',nki_nodes.anat_calc_r,'format_string')
-	#workflow.connect(nki_nodes.anat_calc,'out_file',datasinkAnat,'@mprage_brain')
 
 	workflow.connect(nki_nodes.reg_flirt1, 'out_matrix_file',nki_nodes.reg_flirt1_o,'in_file')
 	workflow.connect(renamer,'reg_flirt1_out_matrix_file',nki_nodes.reg_flirt1_o,'name')
@@ -1353,6 +1271,11 @@ def rename_anat_outputs():
 	workflow.connect(nki_nodes.reg_xfm2_o,'out_file',nki_nodes.reg_xfm2_r,'format_string')
 	#workflow.connect(nki_nodes.reg_xfm2, 'out_file',datasinkAnat,'reg.@standard2highresmat')
 
+	workflow.connect(nki_nodes.reg_inw, 'out_file',nki_nodes.reg_inw_o,'in_file')
+	workflow.connect(renamer,'reg_inw_out_file',nki_nodes.reg_inw_o,'name')
+	workflow.connect(nki_nodes.reg_inw, 'out_file',nki_nodes.reg_inw_r,'in_file')
+	workflow.connect(nki_nodes.reg_inw_o,'out_file',nki_nodes.reg_inw_r,'format_string')
+	#workflow.connect(nki_nodes.reg_inw , 'out_file',datasinkAnat,'reg.@highres2standard_NL')
 
 	workflow.connect(nki_nodes.reg_fnt, 'warped_file',nki_nodes.reg_fnt_o,'in_file')
 	workflow.connect(renamer,'reg_fnt_warped_file',nki_nodes.reg_fnt_o,'name')
@@ -1371,10 +1294,6 @@ def rename_anat_outputs():
 	workflow.connect(renamer,'reg_fnt_fieldcoeff_file',nki_nodes.reg_fntf_o,'name')
 	workflow.connect(nki_nodes.reg_fnt, 'fieldcoeff_file',nki_nodes.reg_fntf_r,'in_file')
 	workflow.connect(nki_nodes.reg_fntf_o,'out_file',nki_nodes.reg_fntf_r,'format_string')
-	#workflow.connect(nki_nodes.reg_fnt, 'fieldcoeff_file',datasinkAnat,'reg.@highres2standard_warp')
-
-	#workflow.connect(nki_nodes.reg_warp,'out_file',datasinkAnat,'reg.@example_func2standard_NL')
-	#workflow.connect( nki_nodes.seg_segment, 'probability_maps',datasinkAnat,'segment.@seg_segment' )
 
 
 
@@ -1388,7 +1307,7 @@ def renameOutputs():
 
 def getNodeOutputNames():
 
-	names = ['reg_warp_out_file','reg_fnt_jacobian_file','reg_fnt_fieldcoeff_file','reg_fnt_warped_file','reg_flirt1_out_file','reg_flirt1_out_matrix_file','reg_xfm2_out_file','anat_refit_out_file','anat_reorient_out_file','anat_skullstrip_out_file','anat_calc_out_file','func_calc_out_file','func_refit_out_file','func_reorient_out_file','func_tstat_out_file','func_volreg_oned_file','func_volreg_out_file','func_automask_out_file','func_calcR_out_file','func_mean_out_file','func_calcI_out_file','func_despike_out_file','func_smooth_out_file','func_scale_out_file','func_filter_out_file','func_detrenda_out_file','func_detrendb_out_file','func_detrendc_out_file','func_mask_out_file','reg_flirt_out_file','reg_flirt_out_matrix_file','reg_xfm1_out_file','reg_xfm3_out_file','reg_flirt2_out_file','reg_xfm4_out_file','seg_flirt_out_file','seg_smooth_out_file','seg_flirt1_out_file','seg_smooth1_out_file','seg_flirt2_out_file','seg_thresh_out_file','seg_mask_out_file','seg_copy_out_file','seg_flirt3_out_file','seg_smooth2_out_file','seg_flirt4_out_file','seg_prior1_out_file','seg_flirt5_out_file','seg_thresh1_out_file','seg_mask1_out_file','nuisance_globalE_out_file','nuisance_csf_out_file','nuisance_wm_out_file','nuisance_featM_design_file','nuisance_fgls_residual4d','nuisance_stat_out_file','nuisance_calc_out_file','nuisance_warp_out_file','alff_cp_out_file','alff_mean_out_file','alff_pspec_out_file','alff_sum_out_file','alff_falff1_out_file','alff_Z_falff_out_file','alff_Z_alff_out_file','alff_warp_alff_out_file','alff_warp_falff_out_file','corrs','z_trans','register','nuisance_erosion_csf1_out_file','nuisance_erosion_wm1_out_file','nuisance_compcor_out_file','nuisance_MedianAngle_out_file','nuisance_warp_1_out_file']
+	names = ['seg_warp_out_file','seg_warp1_out_file','reg_inw_out_file','reg_warp_out_file','reg_fnt_jacobian_file','reg_fnt_fieldcoeff_file','reg_fnt_warped_file','reg_flirt1_out_file','reg_flirt1_out_matrix_file','reg_xfm2_out_file','anat_refit_out_file','anat_reorient_out_file','anat_skullstrip_out_file','anat_calc_out_file','func_calc_out_file','func_refit_out_file','func_reorient_out_file','func_tstat_out_file','func_volreg_oned_file','func_volreg_out_file','func_automask_out_file','func_calcR_out_file','func_mean_out_file','func_calcI_out_file','func_despike_out_file','func_smooth_out_file','func_scale_out_file','func_filter_out_file','func_detrenda_out_file','func_detrendb_out_file','func_detrendc_out_file','func_mask_out_file','reg_flirt_out_file','reg_flirt_out_matrix_file','reg_xfm1_out_file','reg_xfm3_out_file','reg_flirt2_out_file','reg_xfm4_out_file','seg_flirt_out_file','seg_smooth_out_file','seg_flirt1_out_file','seg_smooth1_out_file','seg_flirt2_out_file','seg_thresh_out_file','seg_mask_out_file','seg_copy_out_file','seg_flirt3_out_file','seg_smooth2_out_file','seg_flirt4_out_file','seg_prior1_out_file','seg_flirt5_out_file','seg_thresh1_out_file','seg_mask1_out_file','nuisance_globalE_out_file','nuisance_csf_out_file','nuisance_wm_out_file','nuisance_featM_design_file','nuisance_fgls_residual4d','nuisance_stat_out_file','nuisance_calc_out_file','nuisance_warp_out_file','alff_cp_out_file','alff_mean_out_file','alff_pspec_out_file','alff_sum_out_file','alff_falff1_out_file','alff_Z_falff_out_file','alff_Z_alff_out_file','alff_warp_alff_out_file','alff_warp_falff_out_file','corrs','z_trans','register','nuisance_erosion_csf1_out_file','nuisance_erosion_wm1_out_file','nuisance_compcor_out_file','nuisance_MedianAngle_out_file','nuisance_warp_1_out_file']
 
 
 	return names
@@ -1424,7 +1343,7 @@ def getRenamer():
 	renamer.inputs.func_calcR_out_file = rest_name + '_ss.nii.gz'
 	renamer.inputs.func_mean_out_file = 'example_func.nii.gz'
 	renamer.inputs.func_scale_out_file = rest_name + '_pp.nii.gz'
-	renamer.inputs.func_filter_out_file = rest_name + '_filt.nii.gz'
+	renamer.inputs.func_filter_out_file = rest_name + '_res_filt.nii.gz'
 	renamer.inputs.func_mask_out_file = rest_name + '_pp_mask.nii.gz'
 
 	#renamer for registration
@@ -1435,21 +1354,18 @@ def getRenamer():
 	renamer.inputs.reg_flirt2_out_file = 'example_func2standard.nii.gz'
 	renamer.inputs.reg_xfm4_out_file = 'standard2example_func.mat'
 	renamer.inputs.reg_warp_out_file = 'example_func2standard_NL.nii.gz'
+	renamer.inputs.reg_inw_out_file = 'stand2highres_warp.nii.gz'
 
 	#renamer for segmentation
-	renamer.inputs.seg_flirt_out_file = 'csf2func.nii.gz'
-	renamer.inputs.seg_smooth_out_file = 'csf_sm.nii.gz'
-	renamer.inputs.seg_flirt1_out_file = 'csf2standard.nii.gz'
-	renamer.inputs.seg_smooth1_out_file = 'csf_masked.nii.gz'
-	renamer.inputs.seg_flirt2_out_file = 'csf_native.nii.gz'
+	renamer.inputs.seg_flirt_out_file = 'csf_t12func.nii.gz'
+	renamer.inputs.seg_warp_out_file = 'csf_mni2func.nii.gz'
+	renamer.inputs.seg_smooth1_out_file = 'csf_combo.nii.gz'
 	renamer.inputs.seg_thresh_out_file = 'csf_bin.nii.gz'
 	renamer.inputs.seg_mask_out_file = 'csf_mask.nii.gz'
 	renamer.inputs.seg_copy_out_file = 'global_mask.nii.gz'
-	renamer.inputs.seg_flirt3_out_file = 'wm2func.nii.gz'
-	renamer.inputs.seg_smooth2_out_file = 'wm_sm.nii.gz'
-	renamer.inputs.seg_flirt4_out_file = 'wm2standard.nii.gz'
-	renamer.inputs.seg_prior1_out_file = 'wm_masked.nii.gz'
-	renamer.inputs.seg_flirt5_out_file = 'wm_native.nii.gz'
+	renamer.inputs.seg_flirt3_out_file = 'wm_t12func.nii.gz'
+	renamer.inputs.seg_warp1_out_file = 'wm_mni2func.nii.gz'
+	renamer.inputs.seg_prior1_out_file = 'wm_t12func.nii.gz'
 	renamer.inputs.seg_thresh1_out_file = 'wm_bin.nii.gz'
 	renamer.inputs.seg_mask1_out_file = 'wm_mask.nii.gz'
 
@@ -1484,13 +1400,14 @@ def getRenamer():
 	renamer.inputs.z_trans = 'z_trans'
 	renamer.inputs.register = 'register'
 
-#def genPowerParams():
 
-	
 
-#def scrubbing():
+def setParameters(sublist):
 
-#	genPowerParams()
+	global FWHM
+	global subjectList
+	subjectList = sublist
+	nki_nodes.setParameters(FWHM)
 
 
 def processS(sublist, analysisdirectory):
@@ -1499,14 +1416,16 @@ def processS(sublist, analysisdirectory):
 	global infosource
 	global datasource
 	global workflow
+	global strategy
 
+	setParameters(sublist)
+	
 	numCores = int(sys.argv[1])
 	
 	getInfoSource(sublist, analysisdirectory)
 	getRenamer()
 	gatherData(sublist, analysisdirectory)
-	
-	wfname =  'fcon1000'
+	wfname =  'nki_nyu_'+ strategy
 	workflow = pe.Workflow(name=wfname)
 	workflow.base_dir = working_dir
 	anatpreproc()
@@ -1514,7 +1433,6 @@ def processS(sublist, analysisdirectory):
 	registration()
 	segment()
 	nuisance()
-	#scrubbing()
 	renameOutputs()
 	makeOutputConnections(analysisdirectory)
 
@@ -1635,10 +1553,19 @@ def readDirSetup():
 	global lp
 	global which_regression
 	global zeroSM
+	global FWHM
+	global dir_file
+	global strategy
 	parsermap = {}
 	
+
+	if(not(os.path.exists(sys.argv[2]))):
+		sys.stderr.write('\ndefinition file expected: '+sys.argv[2])
+
+	dir_file = os.path.abspath(sys.argv[2])
+	strategy = sys.argv[3]
 	parser = SafeConfigParser()
-	parser.read('dir_setup.ini')
+	parser.read(dir_file)
 
 	for section in parser.sections():
 
@@ -1653,9 +1580,7 @@ def readDirSetup():
 	seed_list = scripts_dir + '/' + parsermap['seed_file']
 	batch_list = scripts_dir + '/' + parsermap['batch_file']
 	rest_name = parsermap['rest_name']
-	rest_dir = parsermap['rest_dir']
 	anat_name = parsermap['anat_name']
-	anat_dir = parsermap['anat_dir']
 	standard_res = parsermap['standard_res']
 	nuisance_template = parsermap['nuisance_template']
 	nuisance_template_cc = parsermap['nuisance_template_cc']
@@ -1664,17 +1589,33 @@ def readDirSetup():
 	standard_brain = FSLDIR + '/data/standard/MNI152_T1_%s_brain.nii.gz' %(standard_res)
 	logFile = parsermap['logfile']
 	recon_subjects = parsermap['recon_subjects']
-	HP = parsermap['_hp_']
-	LP = parsermap['_lp_']
-	hp = parsermap['hp']
-	lp = parsermap['lp']
+	HP = parsermap['alff_hp']
+	LP = parsermap['alff_lp']
+	hp = parsermap['rest_hp']
+	lp = parsermap['rest_lp']
+	FWHM = float(parsermap['fwhm'])
 	which_regression = parsermap['which_regression']
-	zeroSM = parsermap['0smooth']
 
 def main():
 
-	if ( len(sys.argv) < 2 ):
-		sys.stderr.write("./fcon_pipeline.py <Number_of_cores>")
+	if ( len(sys.argv) < 4 ):
+		sys.stderr.write("./nki_pipeline.py <Number_of_cores> </path/to/dir_setup_X.ini> <strategy-label>")
+	else:
+	
+		readDirSetup()
+		readSubjects()
+
+	
+
+if __name__ == "__main__":
+
+	sys.exit(main())
+	which_regression = parsermap['which_regression']
+
+def main():
+
+	if ( len(sys.argv) < 4 ):
+		sys.stderr.write("./nki_pipeline.py <Number_of_cores> </path/to/dir_setup_X.ini> <strategy-label>")
 	else:
 	
 		readDirSetup()

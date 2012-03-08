@@ -9,6 +9,7 @@ from string import Template
 from nipype.utils.filemanip import split_filename
 from nipype.interfaces.matlab import MatlabCommand
 from nipype.interfaces.base import BaseInterface, BaseInterfaceInputSpec
+from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.interfaces.afni.base import AFNITraitedSpec, AFNICommand, Info
 from nipype.interfaces.base import Bunch, TraitedSpec, File, Directory, traits, isdefined
 from nipype.interfaces.base import (CommandLineInputSpec, CommandLine, TraitedSpec, traits, isdefined, File)
@@ -1034,17 +1035,18 @@ For complete details, see the `3dfim+ Documentation.
     output_spec = ThreedTcorrelateOutputSpec
 
     def _list_outputs(self):
-        outputs = self.output_spec().get()
-        outputs['out_file'] = os.path.abspath(self.inputs.out_file)
-        if not isdefined(outputs['out_file']):
-            outputs['out_file'] = self._gen_filename('out_file')
-        return outputs
+		outputs = self.output_spec().get()
+		if not isdefined(self.inputs.out_file):
+			outputs['out_file'] = self._gen_filename('out_file')
+		else:
+			outputs['out_file'] = os.path.abspath(self.inputs.out_file)
+		return outputs
 
     def _gen_filename(self, name):
         """Generate output file name
 """
         if name == 'out_file':
-            _, fname, ext = split_filename(self.inputs.xset)
+            _, fname, ext = split_filename(os.path.abspath(self.inputs.xset))
             return os.path.join(os.getcwd(), ''.join((fname, '_3dTcor',ext)))
 
 
@@ -1382,6 +1384,60 @@ For complete details, see the `3dvolreg Documentation.
         if name == 'out_file':
             _, fname, ext = split_filename(self.inputs.in_file)
             return os.path.join(os.getcwd(), ''.join((fname, '_median_angle',ext)))
+    
+    
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        
+	if not isdefined(self.inputs.out_file):
+            outputs['out_file'] = self._gen_filename('out_file')
+	else:
+	    outputs['out_file'] = os.path.abspath(self.inputs.out_file)
+
+	return outputs
+
+
+class InvWarpInputSpec(FSLCommandInputSpec):
+
+    in_file = File(desc = 'filename for warp/shiftmap transform',
+                  argstr = ' -w %s',
+                  position = 1,
+                  mandatory = True,
+                  exists = True)
+
+
+    ref_file = File(desc = 'filename for new brain-extracted reference image',
+                    argstr = '-r %s',
+                    position = 2)
+    
+    options = traits.Str(desc = 'other options',
+                    argstr = '%s')
+
+	
+    out_file = File(desc = 'filename for output (inverse warped) image',
+                   argstr = '-o %s',
+                   position = 3,
+                   genfile = True)
+
+class InvWarpOutputSpec(TraitedSpec):
+    out_file = File(desc = 'Inverse warped image',
+                   exists = True)
+
+class InvWarp(FSLCommand):
+
+    _cmd = 'invwarp'
+
+    input_spec = InvWarpInputSpec
+    output_spec = InvWarpOutputSpec
+
+
+
+    def _gen_filename(self, name):
+        """Generate output file name
+"""
+        if name == 'out_file':
+            _, fname, ext = split_filename(self.inputs.in_file)
+            return os.path.join(os.getcwd(), ''.join((fname, '_invw',ext)))
     
     
     def _list_outputs(self):
