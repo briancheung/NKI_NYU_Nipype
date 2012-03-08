@@ -1645,16 +1645,16 @@ alff_sum = pe.MapNode(interface = fsl.ImageMaths(), name = 'alff_sum',iterfield 
 
 
 ## 0. Register Seed template in to native space
-#RSFC_warp = pe.MapNode(interface = fsl.ApplyWarp(), name = 'RSFC_warp', iterfield = ["ref_file","postmat"])
-#RSFC_warp.inputs.interp = 'nn'
-#RSFC_warp.inputs.iterables = ("in_file",seed_list)
+RSFC_warp = pe.MapNode(interface = fsl.ApplyWarp(), name = 'RSFC_warp', iterfield = ["ref_file","postmat"])
+RSFC_warp.inputs.interp = 'nn'
+RSFC_warp.iterables = ("in_file",seed_list)
 ## 1. Extract Timeseries
-RSFC_time_series = pe.MapNode(interface = e_afni.ThreedROIstats(), name = 'RSFC_time_series', iterfield = ["in_file"])
+RSFC_time_series = pe.MapNode(interface = e_afni.ThreedROIstats(), name = 'RSFC_time_series', iterfield = ["in_file","mask"])
 #RSFC_time_series.inputs.in_file = os.path.abspath(func_dir+'/rest_res2standard.nii.gz')
 #RSFC_time_series.inputs.mask = os.path.abspath(seed)
 RSFC_time_series.inputs.quiet = True
 RSFC_time_series.inputs.mask_f2short = True
-RSFC_time_series.iterables = ("mask",seed_list)
+#RSFC_time_series.iterables = ("mask",seed_list)
 #RSFC_(time_series.run()).outputs.stats
 
 ## 2. Compute voxel-wise correlation with Seed Timeseries
@@ -1668,7 +1668,7 @@ RSFC_corr.inputs.out_file = 's_corr.nii.gz'
 ## 3. Z-transform correlations
 RSFC_z_trans = pe.MapNode(interface = e_afni.Threedcalc(), name = 'RSFC_z_trans', iterfield = ["infile_a"])
 #RSFC_z_trans.inputs.infile_a = os.path.abspath(RSFC_dir+'/%s_corr.nii.gz'%(seed_name))
-RSFC_z_trans.inputs.expr = '\'log((a+1)/(a-1))/2\''
+RSFC_z_trans.inputs.expr = '\'log((1+a)/(1-a))/2\''
 RSFC_z_trans.inputs.out_file = 's_Z.nii.gz'
 
 ## 4. Register Z-transformed correlations to standard space
