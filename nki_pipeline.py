@@ -1410,6 +1410,26 @@ def setParameters(sublist):
 	nki_nodes.setParameters(FWHM)
 
 
+def getInputSpec():
+
+	
+	inputnode = pe.Node(util.IdentityInterface(fields= ['anat',
+														'rest',
+														'brain_symmetric',
+														'symm_standard',
+														'standard_res_brain',
+														'standard',
+														'standard_brain_mask_dil',
+														'twomm_brain_mask_dil',
+														'config_file_twomm',
+														'config_file',
+														'PRIOR_CSF',
+														'PRIOR_WHITE',
+														'hp',
+					 									'lp',]),
+												name = 'inputspec')
+
+
 def processS(sublist, analysisdirectory):
 
 	from nipype.utils.config import config
@@ -1425,6 +1445,7 @@ def processS(sublist, analysisdirectory):
 	getInfoSource(sublist, analysisdirectory)
 	getRenamer()
 	gatherData(sublist, analysisdirectory)
+	getInputSpec()
 	wfname =  'nki_nyu_'+ strategy
 	workflow = pe.Workflow(name=wfname)
 	workflow.base_dir = working_dir
