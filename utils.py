@@ -8,8 +8,6 @@ def pick_wm_0(probability_maps):
 
     import sys
     import os
-
-
     if(isinstance(probability_maps, list)):
 
         if(len(probability_maps) == 1):
