@@ -1,8 +1,4 @@
 # Utility Functions ---------------------------------------------------------
-import nipype.pipeline.engine as pe
-import nipype.interfaces.io as nio          # input/output
-import nipype.interfaces.utility as util
-import nipype.interfaces.fsl as fsl
 
 def pick_wm_0(probability_maps):
 
