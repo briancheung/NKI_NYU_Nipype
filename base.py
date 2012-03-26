@@ -15,7 +15,6 @@ def create_anat_preproc():
 
     preproc = pe.Workflow(name='anatpreproc')
 
-    #Node or MapNode ?
     inputNode = pe.Node(util.IdentityInterface(fields=['anat']),
                                                     name='inputspec')
 
