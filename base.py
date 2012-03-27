@@ -366,3 +366,106 @@ def create_seg_preproc():
     preproc.connect(seg_mask1, 'out_file', outputNode, 'wm_mask')
 
     return preproc
+
+
+def extract_signal_compcor():
+
+    preproc = pe.Workflow(name='es_compcor')
+    inputNode = pe.Node(util.IdentityInterface(fields=['regressors',
+                                                    'csf_mask',
+                                                    'wm_mask',
+                                                    'preprocessed',
+                                                    'template',
+                                                    'nvols',
+                                                    'TR',
+                                                    'oned_file',
+                                                    'ncomponents']),
+                        name='inputspec')
+
+    outputNode = pe.Node(util.IdentityInterface(fields=['processed_fsf',
+                                                            'EV_set',
+                                                            'preprocessed_compcor']),
+                        name='outputspec')
+
+
+
+    cc = compcor()
+
+
+    MC = pe.MapNode(util.Function(input_names=['in_file', 'pp'], output_names=['EV_Lists'],
+                                function=createMC), name='MC')
+
+    FSF = pe.Node(util.Function(input_names=['nuisance_template', 'rest_pp', 'TR', 'n_vols'],
+                                output_names=['nuisance_files'], function=createFSF), name='FSF')
+
+    copyS = pe.Node(util.Function(input_names=['EV_Lists', 'nuisance_files', 'global1Ds', 'csf1Ds', 'wm1Ds', 'regressors'],
+                                output_names=['EV_final_lists_set'], function=copyStuff), name='copyS')
+
+    preproc.connect(inputNode, 'csf_mask', cc, 'inputspec.csf_mask')
+    preproc.connect(inputNode, 'wm_mask', cc, 'inputspec.wm_mask')
+    preproc.connect(inputNode, 'preprocessed', cc, 'inputspec.preprocessed')
+    preproc.connect(inputNode, 'ncomponents', cc, 'inputspec.ncomponents')
+    preproc.connect(cc, 'outputspec.preprocessed_compcor', MC, 'pp')
+    preproc.connect(inputNode, 'oned_file', MC, 'in_file')
+    preproc.connect(inputNode, 'template', FSF, 'nuisance_template')
+    preproc.connect(cc, 'outputspec.preprocessed_compcor', FSF, 'rest_pp')
+    preproc.connect(inputNode, 'TR', FSF, 'TR')
+    preproc.connect(inputNode, 'nvols', FSF, 'n_vols')
+    preproc.connect(MC, 'EV_Lists', copyS, 'EV_Lists')
+    preproc.connect(FSF, 'nuisance_files', copyS, 'nuisance_files')
+    preproc.connect(inputNode, 'regressors', copyS, 'regressors')
+    preproc.connect(cc, 'outputspec.preprocessed_compcor', copyS, 'global1Ds')
+    preproc.connect(cc, 'outputspec.preprocessed_compcor', copyS, 'csf1Ds')
+    preproc.connect(cc, 'outputspec.preprocessed_compcor', copyS, 'wm1Ds')
+    preproc.connect(FSF, 'nuisance_files', outputNode, 'processed_fsf')
+    preproc.connect(copyS, 'EV_final_lists_set', outputNode, 'EV_set')
+    preproc.connect(cc, 'outputspec.preprocessed_compcor', outputNode, 'preprocessed_compcor')
+
+    return preproc
+
+#def extract_signal_median_angle():
+
+#def extract_signal_no_global_signal():
+
+#def extract_signal_default():
+
+
+def create_nuisance_preproc():
+
+    preproc = pe.Workflow(name='nuisancepreproc')
+    inputNode = pe.Node(util.IdentityInterface(fields=['global_mask',
+                                                    'csf_mask',
+                                                    'wm_mask',
+                                                    'standard',
+                                                    'preprocessed',
+                                                    'preprocessed_mask',
+                                                    'nvols',
+                                                    'oned_file',
+                                                    'TR']),
+                        name='inputspec')
+
+    outputNode = pe.Node(util.IdentityInterface(fields=['global_1D',
+                                                            'csf_1D',
+                                                            'wm_1D',
+                                                            'design_file',
+                                                            'rest_res',
+                                                            'residual4d',
+                                                            'residual4d_mean',
+                                                            'rest_res2standard',
+                                                            'rest_mask2standard',
+                                                            'preprocessed_compcor',
+                                                            'preprocessed_median_angle']),
+                        name='outputspec')
+
+    inputnode_template = pe.Node(util.IdentityInterface(fields=['template']),
+                             name='template_input')
+
+    inputnode_ncomponents = pe.Node(util.IdentityInterface(fields=['ncomponents']),
+                             name='ncomponents_input')
+
+    inputnode_regression = pe.Node(util.IdentityInterface(fields=['regression']),
+                             name='regression_input')
+
+    signal = extract_signal_compcor()
+
+    preproc.connect(inputNode, 'nvols', nuisance_poly, 'nvols')
