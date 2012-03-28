@@ -36,7 +36,99 @@ def pick_wm_1(probability_maps):
                 return file
     return None
 
+def getImgNVols(in_files):
 
+    out = []
+    from nibabel import load
+    if(isinstance(in_files, list)):
+        for in_file in in_files:
+            img = load(in_file)
+            hdr = img.get_header()
+            out.append(int(hdr.get_data_shape()[3]))
+        return out
+
+    else:
+        img = load(in_files)
+        hdr = img.get_header()
+        n_vol = int(hdr.get_data_shape()[3])
+        return [n_vol]
+
+def getN1(TR, nvols, HP):
+
+    n_lp = float(HP) * float(int(nvols)) * float (TR)
+    n1 = int("%1.0f" % (float(n_lp - 1.0)))
+
+    return n1
+
+def getN2(TR, nvols, LP, HP):
+
+    n_lp = float(HP) * float(int(nvols)) * float (TR)
+    n_hp = float(LP) * float(int(nvols)) * float (TR)
+    n2 = int("%1.0f" % (float(n_hp - n_lp + 1.0)))
+
+    return n2
+
+def takemod(nvols):
+
+    decisions = []
+    for vol in nvols:
+        mod = int (int(vol) % 2)
+
+        if mod == 1:
+            decisions.append([0])
+            #return [0]
+        else:
+            decisions.append([1])
+            #return [1]
+
+    return decisions
+
+
+def set_op_str(n2):
+
+    strs = []
+    for n in n2:
+        str = "-Tmean -mul %f" % (n)
+        strs.append(str)
+    return strs
+
+
+def set_op1_str(nvols):
+
+    strs = []
+    for vol in nvols:
+        str = '-Tmean -mul %d -div 2' % (int(vol))
+        strs.append(str)
+
+    return strs
+
+def set_gauss(fwhm):
+
+
+    op_string = []
+    if(not isinstance(fwhm, list)):
+
+        fwhm = [fwhm]
+
+    for fullwhm in fwhm:
+
+        fullwhm = float(fullwhm)
+
+        sigma = float(fullwhm/2.3548)
+
+        op = "-kernel gauss %f -fmean -mas " % (sigma) + "%s"
+        op_string.append(op)
+
+    return op_string
+
+def getEXP(nvols):
+
+    expr = []
+    for vol in nvols:
+        vol = int(vol)
+        expr.append("'a*sqrt('%d'-3)'" % vol)
+
+    return expr
 
 def compcor():
 
@@ -280,3 +372,16 @@ def copyStuff(EV_Lists, nuisance_files, global1Ds, csf1Ds, wm1Ds, regressors):
 
     return EV_final_lists_set
 
+def getStatsDir(in_files):
+
+    import os
+
+    stats_dir = []
+
+    for in_file in in_files:
+
+        parent_path = os.path.dirname(in_file)
+
+        stats_dir.append(parent_path + '/stats')
+
+    return stats_dir
