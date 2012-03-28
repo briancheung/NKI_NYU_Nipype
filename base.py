@@ -109,18 +109,6 @@ def create_func_preproc():
     func_mean = pe.MapNode(interface=afni.TStat(), name='func_mean', iterfield=['in_file'])
     func_mean.inputs.options = '-mean'
 
-#    func_calcI = pe.MapNode(interface=afni.Calc(), name='func_calcI', iterfield=['infile_a'])
-#    func_calcI.inputs.single_idx = 4
-#    func_calcI.inputs.expr = '\'a\''
-
-    #func_despike = pe.MapNode(interface=afni.Despike(), name='func_despike',
-     #                                                   iterfield=['in_file'])
-
-#    func_smooth = pe.MapNode(interface=fsl.MultiImageMaths(), name='func_smooth',
-#                                       iterfield=['in_file', 'operand_files'])
-    #Note: Ask Satra about setting about building op_string iterfield
-    #func_str1 = '-kernel gauss %f -fmean -mas' %(op_string)
-    #func_smooth.inputs.op_string = func_str1 + ' %s'
 
     func_scale = pe.MapNode(interface=fsl.ImageMaths(), name='func_scale', iterfield=['in_file'])
     func_scale.inputs.op_string = '-ing 10000'
@@ -369,9 +357,9 @@ def create_seg_preproc():
     return preproc
 
 
-def extract_signal_compcor():
+def calculate_compcor_residuals():
 
-    preproc = pe.Workflow(name='es_compcor')
+    preproc = pe.Workflow(name='calculate_compcor_residuals')
     inputNode = pe.Node(util.IdentityInterface(fields=['regressors',
                                                     'csf_mask',
                                                     'wm_mask',
@@ -384,14 +372,15 @@ def extract_signal_compcor():
                         name='inputspec')
 
     outputNode = pe.Node(util.IdentityInterface(fields=['processed_fsf',
-                                                            'EV_set',
+                                                            'design_file',
+                                                            'residual4d',
+                                                            'results_dir',
                                                             'preprocessed_compcor']),
                         name='outputspec')
 
 
 
     cc = compcor()
-
 
     MC = pe.MapNode(util.Function(input_names=['in_file', 'pp'], output_names=['EV_Lists'],
                                 function=createMC), name='MC')
@@ -401,6 +390,16 @@ def extract_signal_compcor():
 
     copyS = pe.Node(util.Function(input_names=['EV_Lists', 'nuisance_files', 'global1Ds', 'csf1Ds', 'wm1Ds', 'regressors'],
                                 output_names=['EV_final_lists_set'], function=copyStuff), name='copyS')
+
+    featM = pe.MapNode(interface=fsl.FEATModel(), name='featM', iterfield=['fsf_file', 'ev_files'])
+
+    fgls = pe.MapNode(interface=fsl.FILMGLS(), name='fgls', iterfield=['in_file', 'results_dir', 'design_file', 'threshold'])
+    fgls.inputs.mask_size = 5
+    fgls.inputs.smooth_autocorr = True
+    fgls.inputs.autocorr_noestimate = True
+
+    brick = pe.MapNode(interface=afni.BrickStat(), name='brick', iterfield=['in_file', 'mask'])
+    brick.inputs.min = True
 
     preproc.connect(inputNode, 'csf_mask', cc, 'inputspec.csf_mask')
     preproc.connect(inputNode, 'wm_mask', cc, 'inputspec.wm_mask')
@@ -418,55 +417,381 @@ def extract_signal_compcor():
     preproc.connect(cc, 'outputspec.preprocessed_compcor', copyS, 'global1Ds')
     preproc.connect(cc, 'outputspec.preprocessed_compcor', copyS, 'csf1Ds')
     preproc.connect(cc, 'outputspec.preprocessed_compcor', copyS, 'wm1Ds')
+    preproc.connect(FSF, 'nuisance_files', featM, 'fsf_file')
+    preproc.connect(copyS, 'EV_final_lists_set', featM, 'ev_files')
+    preproc.connect(inputNode, 'preprocessed_compcor', brick, 'in_file')
+    preproc.connect(inputNode, 'preprocessed_compcor', fgls, 'in_file')
+    preproc.connect(inputNode, 'preprocessed_mask', brick, 'mask')
+    preproc.connect(featM, 'design_file', fgls, 'design_file')
+    preproc.connect(inputNode, ('preprocessed_compcor', getStatsDir), fgls, 'results_dir' )
+    preproc.connect(brick, 'min_val', fgls, 'threshold')
     preproc.connect(FSF, 'nuisance_files', outputNode, 'processed_fsf')
-    preproc.connect(copyS, 'EV_final_lists_set', outputNode, 'EV_set')
     preproc.connect(cc, 'outputspec.preprocessed_compcor', outputNode, 'preprocessed_compcor')
+    preproc.connect(featM, 'design_file', outputNode, 'design_file')
+    preproc.connect(fgls, 'residual4d', outputNode, 'residual4d')
+    preproc.connect(fgls, 'results_dir', outputNode, 'results_dir')
+
 
     return preproc
 
-#def extract_signal_median_angle():
-
-#def extract_signal_no_global_signal():
-
-#def extract_signal_default():
+#def nuisance():
 
 
-def create_nuisance_preproc():
+def create_VMHC():
 
-    preproc = pe.Workflow(name='nuisancepreproc')
-    inputNode = pe.Node(util.IdentityInterface(fields=['global_mask',
-                                                    'csf_mask',
-                                                    'wm_mask',
-                                                    'standard',
-                                                    'preprocessed',
-                                                    'preprocessed_mask',
+
+    vmhc = pe.Workflow(name='vmhc_preproc')
+    inputNode = pe.Node(util.IdentityInterface(fields=['brain',
+                                                    'brain_symmetric',
+                                                    'rest_res',
+                                                    'reorient',
+                                                    'highres2standard_mat',
+                                                    'example_func2highres_mat',
+                                                    'symm_standard',
+                                                    'twomm_brain_mask_dil',
+                                                    'config_file_twomm',
+                                                    'standard']),
+                        name='inputspec')
+
+    outputNode = pe.Node(util.IdentityInterface(fields=['highres2symmstandard'
+                                                            'highres2symmstandard_mat',
+                                                            'highres2symmstandard_warp',
+                                                            'fnirt_highres2symmstandard',
+                                                            'highres2symmstandard_jac',
+                                                            'rest_res_2symmstandard',
+                                                            'VMHC_img',
+                                                            'VMHC_Z_img',
+                                                            'VMHC_Z_stat_img']),
+                        name='outputspec')
+
+    ## Linear registration of T1 --> symmetric standard
+    flirt = pe.Node(interface=fsl.FLIRT(), name='flirt')
+    flirt.inputs.cost = 'corratio'
+    flirt.inputs.cost_func = 'corratio'
+    flirt.inputs.dof = 12
+    flirt.inputs.interp = 'trilinear'
+
+    ## Perform nonlinear registration (higres to standard) to symmetric standard brain
+    fnt = pe.Node(interface=fsl.FNIRT(), name='fnt')
+    fnt.inputs.fieldcoeff_file = True
+    fnt.inputs.jacobian_file = True
+    fnt.inputs.warp_resolution = (10, 10, 10)
+
+    ## Apply nonlinear registration (func to standard)
+    warp = pe.MapNode(interface=fsl.ApplyWarp(), name='warp', iterfield=["in_file", "premat"])
+
+    ## copy and L/R swap file
+    swap = pe.MapNode(interface=fsl.SwapDimensions(), name='swap', iterfield=["in_file"])
+    swap.inputs.new_dims = ('-x', 'y', 'z')
+
+    ## caculate vmhc
+    corr = pe.MapNode(interface=e_afni.ThreedTcorrelate(), name='corr', iterfield=["xset"])
+    corr.inputs.pearson = True
+    corr.inputs.polort = -1
+
+    z_trans = pe.MapNode(interface=e_afni.Threedcalc(), name='z_trans', iterfield=["infile_a"])
+    z_trans.inputs.expr = '\'log((1+a)/(1-a))/2\''
+
+    z_stat = pe.MapNode(interface=e_afni.Threedcalc(), name='z_stat', iterfield=["infile_a", "expr"])
+
+    NVOLS = pe.Node(util.Function(input_names=['in_files'],
+                                output_names=['nvols'], function=getImgNVols), name='NVOLS')
+
+    generateEXP = pe.Node(util.Function(input_names=['nvols'],
+                                        output_names=['expr'], function=getEXP),
+                        name='generateEXP')
+
+
+    vmhc.connect(inputNode, 'brain', flirt, 'in_file')
+    vmhc.connect(inputNode, 'brain_symmetric', flirt, 'reference')
+    vmhc.connect(inputNode, 'reorient', fnt, 'in_file')
+    vmhc.connect(inputNode, 'highres2standard_mat', fnt, 'affine_file')
+    vmhc.connect(inputNode, 'symm_standard', fnt, 'ref_file')
+    vmhc.connect(inputNode, 'twomm_brain_mask_dil', fnt, 'refmask_file' )
+    vmhc.connect(inputNode, 'config_file_twomm', fnt, 'config_file')
+    vmhc.connect(inputNode, 'rest_res', warp, 'in_file')
+    vmhc.connect(inputNode, 'symm_standard', warp, 'ref_file')
+    vmhc.connect(fnt, 'fieldcoeff_file', warp, 'field_file')
+    vmhc.connect(inputNode, 'example_func2highres_mat', warp, 'premat')
+
+    vmhc.connect(warp, 'out_file', swap, 'in_file')
+    vmhc.connect(warp, 'out_file', corr, 'xset')
+    vmhc.connect(swap, 'out_file', corr, 'yset')
+    vmhc.connect(corr, 'out_file', z_trans, 'infile_a')
+    vmhc.connect(swap, 'out_file', NVOLS, 'in_files')
+    vmhc.connect(NVOLS, 'nvols', generateEXP, 'nvols')
+    vmhc.connect(z_trans, 'out_file', z_stat, 'infile_a')
+    vmhc.connect(generateEXP, 'expr', z_stat, 'expr')
+
+    vmhc.connect(flirt, 'out_file', outputNode, 'highres2symmstandard')
+    vmhc.connect(flirt, 'out_matrix_file', outputNode, 'highres2symmstandard_mat')
+    vmhc.connect(fnt, 'jacobian_file', outputNode, 'highres2symmstandard_jac')
+    vmhc.connect(fnt, 'fieldcoeff_file', outputNode, 'highres2symmstandard_warp')
+    vmhc.connect(fnt, 'warped_file', outputNode, 'fnirt_highres2symmstandard')
+    vmhc.connect(warp, 'out_file', outputNode, 'rest_res_2symmstandard')
+    vmhc.connect(corr, 'out_file', outputNode, 'VMHC_img')
+    vmhc.connect(z_trans, 'out_file', outputNode, 'VMHC_Z_img')
+    vmhc.connect(z_stat, 'out_file', outputNode, 'VMHC_Z_stat_img')
+
+    return vmhc
+
+def create_RSFC():
+
+    rsfc = pe.Workflow(name='rsfc_preproc')
+    inputNode = pe.Node(util.IdentityInterface(fields=['ref',
+                                                    'warp',
+                                                    'postmat',
+                                                    'rest_res_filt',
+                                                    'fieldcoeff_file',
+                                                    'rest_mask2standard',
+                                                    'standard']),
+                        name='inputspec')
+
+    inputnode_fwhm = pe.Node(util.IdentityInterface(fields=['fwhm']),
+                             name='fwhm_input')
+
+    inputnode_seed_list = pe.Node(util.IdentityInterface(fields=['seed_list']),
+                             name='seed_list_input')
+
+    outputNode = pe.Node(util.IdentityInterface(fields=['seed_mni2func'
+                                                            'correlations',
+                                                            'Z_trans_correlations',
+                                                            'Z_2standard',
+                                                            'Z_2standard_FWHM']),
+                        name='outputspec')
+
+    printToFile = pe.MapNode(util.Function(input_names=['time_series'],
+                                        output_names=['ts_oneD'], function=pToFile),
+                            name='printToFile', iterfield=['time_series'])
+
+    ## 0. Register Seed template in to native space
+    warp = pe.MapNode(interface=fsl.ApplyWarp(), name='warp', iterfield=['ref_file', 'postmat'])
+    warp.inputs.interp = 'nn'
+    warp.iterables = ('in_file', inputnode_seed_list.inputs.seed_list)
+
+    ## 1. Extract Timeseries
+    time_series = pe.MapNode(interface=afni.ROIStats(), name='time_series', iterfield=['in_file', 'mask'])
+    time_series.inputs.quiet = True
+    time_series.inputs.mask_f2short = True
+
+    ## 2. Compute voxel-wise correlation with Seed Timeseries
+    corr = pe.MapNode(interface=afni.Fim(), name='corr', iterfield=['in_file', 'ideal_file'])
+    corr.inputs.fim_thr = 0.0009
+    corr.inputs.out = 'Correlation'
+
+    ## 3. Z-transform correlations
+    z_trans = pe.MapNode(interface=afni.Calc(), name='z_trans', iterfield=['infile_a'])
+    z_trans.inputs.expr = '\'log((1+a)/(1-a))/2\''
+
+    ## 4. Register Z-transformed correlations to standard space
+    register = pe.MapNode(interface=fsl.ApplyWarp(), name='register', iterfield=['premat', 'in_file'])
+
+    smooth = pe.MapNode(interface=MultiImageMaths(), name='smooth', iterfield=['in_file', 'operand_files'])
+
+    rsfc.connect(inputNode, 'ref', warp, 'ref_file')
+    rsfc.connect(inputNode, 'warp', warp, 'field_file')
+    rsfc.connect(inputNode, 'postmat', warp, 'postmat')
+
+    rsfc.connect(inputNode, 'rest_res_filt', time_series, 'in_file')
+    rsfc.connect(warp, 'out_file', time_series, 'mask')
+    rsfc.connect(time_series, 'stats', printToFile, 'time_series')
+    rsfc.connect(printToFile, 'ts_oneD', corr, 'ideal_file')
+    rsfc.connect(inputNode, 'rest_res_filt', corr, 'in_file')
+    rsfc.connect(corr, 'out_file', z_trans, 'infile_a')
+    rsfc.connect(z_trans, 'out_file', register, 'in_file')
+    rsfc.connect(inputNode, 'standard', register, 'ref_file')
+    rsfc.connect(inputNode, 'fieldcoeff_file', register, 'field_file')
+    rsfc.connect(inputNode, 'premat', register, 'premat')
+    rsfc.connect(register, 'out_file', smooth, 'in_file')
+    rsfc.connect(inputnode_fwhm, ('fwhm', set_gauss), smooth, 'op_string')
+    rsfc.connect(inputNode, 'rest_mask2standard', smooth, 'operand_files')
+
+    rsfc.connect(warp, 'out_file', outputNode, 'seed_mni2func')
+    rsfc.connect(corr, 'out_file', outputNode, 'correlations')
+    rsfc.connect(z_trans, 'out_file', outputNode, 'Z_trans_correlations')
+    rsfc.connect(register, 'out_file', outputNode, 'Z_2standard')
+    rsfc.connect(smooth, 'out_file', outputNode, 'Z_2standard_FWHM')
+
+    return rsfc
+
+def create_alff():
+
+    alff = pe.Workflow(name='alff_preproc')
+    inputNode = pe.Node(util.IdentityInterface(fields=['rest_res',
+                                                    'rest_mask',
+                                                    'rest_mask2standard',
+                                                    'premat',
+                                                    'fieldcoeff_file',
                                                     'nvols',
-                                                    'oned_file',
                                                     'TR']),
                         name='inputspec')
 
-    outputNode = pe.Node(util.IdentityInterface(fields=['global_1D',
-                                                            'csf_1D',
-                                                            'wm_1D',
-                                                            'design_file',
-                                                            'rest_res',
-                                                            'residual4d',
-                                                            'residual4d_mean',
-                                                            'rest_res2standard',
-                                                            'rest_mask2standard',
-                                                            'preprocessed_compcor',
-                                                            'preprocessed_median_angle']),
+    outputNode = pe.Node(util.IdentityInterface(fields=['processed_alff',
+                                                            'processed_mean_alff',
+                                                            'power_spectrum_distribution',
+                                                            'alff_img',
+                                                            'falff_img',
+                                                            'alff_Z_img',
+                                                            'falff_Z_img',
+                                                            'alff_Z_2standard_img',
+                                                            'falff_Z_2standard_img',
+                                                            'alff_Z_2standard_fwhm_img',
+                                                            'falff_Z_2standard_fwhm_img']),
                         name='outputspec')
+    inputnode_hplp = pe.Node(util.IdentityInterface(fields=['hp', 'lp']),
+                             name='hplp_input')
 
-    inputnode_template = pe.Node(util.IdentityInterface(fields=['template']),
-                             name='template_input')
+    inputnode_fwhm = pe.Node(util.IdentityInterface(fields=['fwhm']),
+                             name='fwhm_input')
 
-    inputnode_ncomponents = pe.Node(util.IdentityInterface(fields=['ncomponents']),
-                             name='ncomponents_input')
+    TR = pe.Node(util.Function(input_names=['in_files'], output_names=['TR'], function=getImgTR), name='TR')
+    inputNode = pe.Node(util.Function(input_names=['in_files'], output_names=['nvols'], function=getImgNVols), name='inputNode')
 
-    inputnode_regression = pe.Node(util.IdentityInterface(fields=['regression']),
-                             name='regression_input')
+    ## 3. Spatial Smoothing
+    smooth = pe.MapNode(interface=fsl.MultiImageMaths(), name='smooth', iterfield=['in_file', 'operand_files', 'op_string'])
 
-    signal = extract_signal_compcor()
+    fsmooth = pe.MapNode(interface=fsl.MultiImageMaths(), name='fsmooth', iterfield=['in_file', 'operand_files', 'op_string'])
 
-    preproc.connect(inputNode, 'nvols', nuisance_poly, 'nvols')
+    cp = pe.MapNode(interface=fsl.ImageMaths(), name='cp', iterfield=['in_file'])
+
+    mean = pe.MapNode(interface=fsl.ImageMaths(), name='mean', iterfield=['in_file'])
+    mean.inputs.op_string = '-Tmean'
+
+    ## 4. Calculate fALFF
+    falff = pe.MapNode(interface=fsl.ImageMaths(), name='falff', iterfield=['in_file', 'op_string'])
+
+    falff1 = pe.MapNode(interface=fsl.MultiImageMaths(), name='falff1', iterfield=['in_file', 'operand_files'])
+    falff1.inputs.op_string = '-div %s'
+
+    ## 5. Z-normalisation across whole brain
+    normM = pe.MapNode(interface=fsl.ImageStats(), name='normM', iterfield=['in_file', 'mask_file'])
+    normM.inputs.op_string = '-k %s -m'
+
+    normS = pe.MapNode(interface=fsl.ImageStats(), name='normS', iterfield=['in_file', 'mask_file'])
+    normS.inputs.op_string = '-k %s -s'
+
+    normM1 = pe.MapNode(interface=fsl.ImageStats(), name='normM1', iterfield=['in_file', 'mask_file'])
+    normM1.inputs.op_string = '-k %s -m'
+
+    normS1 = pe.MapNode(interface=fsl.ImageStats(), name='normS1', iterfield=['in_file', 'mask_file'])
+    normS1.inputs.op_string = '-k %s -s'
+
+    Z_alff = pe.MapNode(interface=fsl.MultiImageMaths(), name='Z_alff', iterfield=['in_file', 'operand_files', 'op_string'])
+
+    Z_falff = pe.MapNode(interface=fsl.MultiImageMaths(), name='Z_falff', iterfield=['in_file', 'operand_files', 'op_string'])
+
+    #Registering Z-transformed ALFF to standard space
+    warp_alff = pe.MapNode(interface=fsl.ApplyWarp(), name='warp_alff', iterfield=['in_file', 'premat'])
+
+
+    warp_falff = pe.MapNode(interface=fsl.ApplyWarp(), name='warp_falff', iterfield=['in_file', 'premat'])
+
+    roi = pe.MapNode(interface=fsl.ExtractROI(), name='roi', iterfield=['in_file', 't_size'])
+    roi.inputs.t_min = 1
+
+    cp1 = pe.MapNode(interface=fsl.ImageMaths(), name='cp1', iterfield=['in_file'])
+
+    concatnode = pe.MapNode(interface=util.Merge(2), name='concatnode', iterfield=['in1', 'in2'])
+
+    selectnode = pe.MapNode(interface=util.Select(), name='selectnode', iterfield=['inlist', 'index'])
+
+    pspec = pe.MapNode(interface=fsl.PowerSpectrum(), name='pspec', iterfield=['in_file'])
+
+    ##compute sqrt of power spectrum
+    sqrt = pe.MapNode(interface=fsl.ImageMaths(), name='sqrt', iterfield=['in_file'])
+    sqrt.inputs.op_string = '-sqrt'
+
+    roi1 = pe.MapNode(interface=fsl.ExtractROI(), name='roi1', iterfield=['in_file', 't_min', 't_size'])
+
+    ## calculate ALFF as the _sum of the amplitudes in the low frequency band
+    _sum = pe.MapNode(interface=fsl.ImageMaths(), name='_sum', iterfield=['in_file', 'op_string'])
+
+    calcN1 = pe.MapNode(util.Function(input_names=['nvols', 'TR', 'HP'], output_names=['n1'], function=getN1), name='calcN1', iterfield=['nvols', 'TR'])
+
+    calcN2 = pe.MapNode(util.Function(input_names=['nvols', 'TR', 'LP', 'HP'], output_names=['n2'], function=getN2), name='calcN2', iterfield=['nvols', 'TR']
+
+
+    alff.connect(inputNode, 'rest_res', mean, 'in_file')
+    alff.connect(inputNode, 'rest_res', roi, 'in_file')
+    alff.connect(inputNode, 'nvols', roi, 't_size')
+    alff.connect(inputNode, 'rest_res', cp1, 'in_file')
+
+    alff.connect(roi, 'roi_file', concatnode, 'in1')
+    alff.connect(cp1, 'out_file', concatnode, 'in2')
+    alff.connect(concatnode, 'out', selectnode, 'inlist')
+    alff.connect(inputNode, ('nvols', takemod), selectnode, 'index')
+    alff.connect(selectnode, 'out', pspec, 'in_file')
+    alff.connect(pspec, 'out_file', sqrt, 'in_file')
+
+    alff.connect(inputNode, 'nvols', calcN1, 'nvols')
+    alff.connect(inputNode, 'TR', calcN1, 'TR')
+    alff.connect(inputnode_hplp, 'hp', calcN1, 'HP')
+
+    alff.connect(inputNode, 'nvols', calcN2, 'nvols')
+    alff.connect(inputNode, 'TR', calcN2, 'TR')
+    alff.connect(inputnode_hplp, 'lp', calcN2, 'LP')
+    alff.connect(inputnode_hplp, 'hp', calcN2, 'HP')
+
+    alff.connect(sqrt, 'out_file', roi1, 'in_file')
+    alff.connect(calcN1, 'n1', roi1, 't_min')
+    alff.connect(calcN2, 'n2', roi1, 't_size')
+    alff.connect(roi1, 'roi_file', _sum, 'in_file')
+    alff.connect(calcN2, ('n2', set_op_str), _sum, 'op_string')
+
+    alff.connect(sqrt, 'out_file', falff, 'in_file')
+    alff.connect(inputNode, ('nvols', set_op1_str), falff, 'op_string')
+    alff.connect(_sum, 'out_file', falff1, 'in_file')
+    alff.connect(falff, 'out_file', falff1, 'operand_files')
+
+    alff.connect(_sum, 'out_file', normM, 'in_file')
+    alff.connect(inputNode, 'rest_mask', normM, 'mask_file')
+    alff.connect(_sum, 'out_file', normS, 'in_file')
+    alff.connect(inputNode, 'rest_mask', normS, 'mask_file')
+    alff.connect(falff1, 'out_file', normM1, 'in_file')
+    alff.connect(inputNode, 'rest_mask', normM1, 'mask_file')
+    alff.connect(falff1, 'out_file', normS1, 'in_file')
+    alff.connect(inputNode, 'rest_mask', normS1, 'mask_file')
+
+    alff.connect(normM, 'out_stat', op_string, 'mean')
+    alff.connect(normS, 'out_stat', op_string, 'std_dev')
+    alff.connect(op_string, 'op_string', Z_alff, 'op_string')
+    alff.connect(_sum, 'out_file', Z_alff, 'in_file')
+    alff.connect(inputNode, 'rest_mask', Z_alff, 'operand_files')
+
+    alff.connect(normM1, 'out_stat', op_string1, 'mean')
+    alff.connect(normS1, 'out_stat', op_string1, 'std_dev')
+    alff.connect(op_string1, 'op_string', Z_falff, 'op_string')
+    alff.connect(falff1, 'out_file', Z_falff, 'in_file')
+    alff.connect(inputNode, 'rest_mask', Z_falff, 'operand_files')
+
+    alff.connect(inputNode, 'standard', warp_alff, 'ref_file')
+    alff.connect(Z_alff, 'out_file', warp_alff, 'in_file')
+    alff.connect(inputNode, 'fieldcoeff_file', warp_alff, 'field_file')
+    alff.connect(inputNode, 'premat', warp_alff, 'premat')
+
+    alff.connect(inputNode, 'standard', warp_falff, 'ref_file')
+    alff.connect(Z_falff, 'out_file', warp_falff, 'in_file')
+    alff.connect(inputNode, 'fieldcoeff_file', warp_falff, 'field_file')
+    alff.connect(inputNode, 'premat', warp_falff, 'premat')
+
+    alff.connect(warp_alff, 'out_file', smooth, 'in_file')
+    alff.connect(inputnode_fwhm, ('fwhm', set_gauss), smooth, 'op_string')
+    alff.connect(inputNode, 'rest_mask2standard', smooth, 'operand_files')
+
+    alff.connect(warp_falff, 'out_file', fsmooth, 'in_file')
+    alff.connect(inputnode_fwhm, ('fwhm', set_gauss), fsmooth, 'op_string')
+    alff.connect(inputNode, 'rest_mask2standard', fsmooth, 'operand_files')
+
+    alff.connect(cp, 'out_file', outputNode, 'processed_alff')
+    alff.connect(mean, 'out_file', outputNode, 'processed_mean_alff')
+    alff.connect(pspec, 'out_file', outputNode, 'power_spectrum_distribution')
+    alff.connect(_sum, 'out_file', outputNode, 'alff_img')
+    alff.connect(falff1, 'out_file', outputNode, 'falff_img')
+    alff.connect(Z_alff, 'out_file', outputNode, 'alff_Z_img')
+    alff.connect(Z_falff, 'out_file', outputNode, 'falff_Z_img')
+    alff.connect(warp_alff, 'out_file', outputNode, 'alff_Z_2standard_img')
+    alff.connect(warp_falff, 'out_file', outputNode, 'falff_Z_2standard_img')
+    alff.connect(smooth, 'out_file', outputNode, 'alff_Z_2standard_fwhm_img')
+    alff.connect(fsmooth, 'out_file', outputNode, 'falff_Z_2standard_fwhm_img')
+
+    return alff
