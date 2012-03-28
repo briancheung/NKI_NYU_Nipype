@@ -707,8 +707,7 @@ def create_alff():
 
     calcN1 = pe.MapNode(util.Function(input_names=['nvols', 'TR', 'HP'], output_names=['n1'], function=getN1), name='calcN1', iterfield=['nvols', 'TR'])
 
-    calcN2 = pe.MapNode(util.Function(input_names=['nvols', 'TR', 'LP', 'HP'], output_names=['n2'], function=getN2), name='calcN2', iterfield=['nvols', 'TR']
-
+    calcN2 = pe.MapNode(util.Function(input_names=['nvols', 'TR', 'LP', 'HP'], output_names=['n2'], function=getN2), name='calcN2', iterfield=['nvols', 'TR'])
 
     alff.connect(inputNode, 'rest_res', mean, 'in_file')
     alff.connect(inputNode, 'rest_res', roi, 'in_file')
