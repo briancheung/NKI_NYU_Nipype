@@ -262,13 +262,13 @@ def createFSF(nuisance_template, rest_pp, TR, n_vols):
     for rest_p in rest_pp:
         parent_path = os.path.dirname(rest_p)
 
-        cmd = "sed -e s:nuisance_dir:\"%s\":g <%s >%s/temp1"
-            % (parent_path, nuisance_template, parent_path)
+        cmd = "sed -e s:nuisance_dir:\"%s\":g <%s >%s/temp1"\
+            %(parent_path, nuisance_template, parent_path)
         print cmd
         sys.stderr.write(commands.getoutput(cmd))
 
 
-        cmd = "sed -e s:nuisance_model_outputdir:\"%s/residuals.feat\":g <%s/temp1 >%s/temp2"
+        cmd = "sed -e s:nuisance_model_outputdir:\"%s/residuals.feat\":g <%s/temp1 >%s/temp2"\
             % (parent_path, parent_path, parent_path)
         print cmd
         sys.stderr.write(commands.getoutput(cmd))
