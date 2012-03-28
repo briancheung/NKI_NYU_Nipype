@@ -17,8 +17,9 @@ alff_HP = [0.01]
 alff_LP[0.1]
 
 #defaulf,no_global,median_angle,compcor
-which_regression = [ ['default', '/home/sharad/nki_nyu_pipeline/templates/nuisance.fsf'], 
-['no_global_signal',/home/sharad/nki_nyu_pipeline/templates/nuisance_noglobal.fsf] ]
+which_regression = [['compcor', '/home/sharad/nki_nyu_pipeline/templates/nuisance_cc.fsf']]
+
+ncomponents = []
 
 #all, basic, nuisance,nuisance+alff,nuisance+alff+rsfc,nuisance+rsfc,rssc+alff,basic+alff,basic+rsfc
 analysis = ['basic']
