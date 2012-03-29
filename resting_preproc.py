@@ -25,8 +25,8 @@ def processS():
     funcpreproc.inputs.inputspec.stop_idx=175
 
     segpreproc=create_seg_preproc()
-    segpreproc.inputs.inputspec.PRIOR_CSF = os.path.abspath('/home/sharad/nki_nyu_pipeline/tissuepriors/avg152T1_csf_bin.nii.gz')
-    segpreproc.inputs.inputspec.PRIOR_WHITE = os.path.abspath('/home/sharad/nki_nyu_pipeline/tissuepriors/avg152T1_white_bin.nii.gz')
+    segpreproc.inputs.inputspec.PRIOR_CSF = os.path.abspath('./tissuepriors/3mm/avg152T1_csf_bin.nii.gz')
+    segpreproc.inputs.inputspec.PRIOR_WHITE = os.path.abspath('./tissuepriors/3mm/avg152T1_white_bin.nii.gz')
     segpreproc.inputs.inputspec.standard_res_brain=os.path.abspath('/frodo/shared/RH5_fsl/data/standard/MNI152_T1_3mm_brain.nii.gz')
 
     regpreproc=create_reg_preproc()
