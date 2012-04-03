@@ -3,13 +3,12 @@ import e_afni
 import nipype.pipeline.engine as pe
 import nipype.interfaces.utility as util
 
-<<<<<<< HEAD
 def mean_roi_signal(data_volume, roi_mask):
     import numpy as np
     Y = data_volume[roi_mask].T
     Yc = Y - np.tile(Y.mean(0), (Y.shape[0], 1))
     return Yc.mean(1)
-=======
+
 def get_standard_background_img(in_file):
     import os
 
