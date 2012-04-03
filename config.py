@@ -41,6 +41,8 @@ crash_dir = '/home/sharad/nki_nyu_pipeline/crash'
 """
 start_idx = 0
 stop_idx = 175
+n_vols = 175
+TR = 2.0
 
 """
 	Seed file
@@ -65,7 +67,7 @@ standard_res = '3mm'
 fwhm = [6.0, 5.0]
 rest_hp = [0.005, 0.01]
 rest_lp = [0.1]
-alff_HP = [0.01]
+alff_HP = [0.005, 0.01]
 alff_LP = [0.1]
 
 
@@ -123,7 +125,7 @@ rsfc_warp_template = '%s/*/*/*/%s'
 
 
 # all, basic, scrubbing, nuisance, alff, rsfc, vmhc, reho, group_analysis
-analysis = [False, True, False, False, False, False, False, False, False ]
+analysis = [False, False, False, False, True, False, False, False, False ]
 run_on_grid = False
 qsub_args = '-q all.q'
 num_cores = 8

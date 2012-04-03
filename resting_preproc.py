@@ -106,12 +106,21 @@ def prep_workflow(c):
         workflow.connect(regpreproc, 'outputspec.highres2example_func_mat', segpreproc, 'inputspec.highres2example_func_mat')
         workflow.connect(regpreproc, 'outputspec.stand2highres_warp', segpreproc, 'inputspec.stand2highres_warp')
 
-    #if((not c.analysis[0] and not c.analysis[1]) and c.analysis[4]):
-#
-     #   alffpreproc = create_alff_preproc()
-      #  flowAlff, flowAlffWarp = create_alff_dataflow('alff_flow', sublist, c.subj_dir, c.rest_name, c.func_template)
-#
-#		
+    if((not c.analysis[0] and not c.analysis[1]) and c.analysis[4]):
+
+        alffpreproc = create_alff_preproc()
+        alffpreproc.inputs.inputspec.n_vols = c.n_vols
+        alffpreproc.inputs.inputspec.TR = c.TR
+        alffpreproc.get_node('hplp_input').iterables = ('hp', c.alff_HP, 'lp', c.alff_LP)
+        alffpreproc.get_node('fwhm_input').iterables = ('fwhm', c.fwhm)
+
+        flowAlff, flowAlffWarp = create_alff_dataflow('alff_flow', sublist, c.subj_dir, c.rest_name, c.func_template)
+
+        workflow.connect(flowAlff, 'rest_res', alffpreproc, 'inputspec.rest_res')
+        workflow.connect(flowAlff, 'rest_mask', alffpreproc, 'inputspec.rest_mask')
+        workflow.connect(flowAlff, 'rest_mask2standard', alffpreproc, 'inputspec.rest_mask2standard')
+        workflow.connect(flowAlffWarp, 'premat', alffpreproc, 'inputspec.premat')
+        workflow.connect(flowAlffWarp, 'fieldcoeff_file', alffpreproc, 'inputspec.fieldcoeff_file')
 
     if(not c.run_on_grid):
         workflow.run(plugin='MultiProc', plugin_args={'n_procs': c.num_cores})

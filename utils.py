@@ -3,6 +3,44 @@ import e_afni
 import nipype.pipeline.engine as pe
 import nipype.interfaces.utility as util
 
+def get_standard_background_img(in_file):
+    import os
+
+    from nibabel import load
+    img = load(in_file)
+    hdr = img.get_header()
+    group_mm = int(hdr.get_zooms()[2])
+    print "gorup_mm -> ", group_mm
+    path = '/usr/local/fsl' + '/data/standard/MNI152_T1_%smm_brain.nii.gz' % (group_mm)
+    print "path ->", path
+    return os.path.abspath(path)
+
+def get_nvols(in_file):
+
+    from nibabel import load
+    img = load(in_file)
+    hdr = img.get_header()
+    n_vol = int(hdr.get_data_shape()[3])
+    op_string = '-abs -bin -Tmean -mul %d' % (n_vol)
+    return op_string
+
+def copyGeom(infile_a, infile_b):
+    import subprocess as sb
+    out_file = infile_b
+    cmd = sb.Popen(['fslcpgeom', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE,)
+    stdout_value, stderr_value = cmd.communicate()
+    return out_file
+
+def getTuple(infile_a, infile_b):
+
+    print "inisde getTuple"
+    print "infile_a -> ", infile_a
+    print "infile_b -> ", infile_b[1]
+
+    return (infile_a, infile_b[1])
+
+
+
 def pick_wm_0(probability_maps):
 
     import sys
