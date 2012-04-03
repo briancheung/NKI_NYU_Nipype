@@ -385,3 +385,98 @@ def getStatsDir(in_files):
         stats_dir.append(parent_path + '/stats')
 
     return stats_dir
+
+def create_anat_dataflow(name, sublist, analysisdirectory, anat_name, at):
+
+    import nipype.pipeline.engine as pe
+    import nipype.interfaces.io as nio
+
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['subject_id'], outfields=['anat']), name=name)
+    datasource.inputs.base_directory = analysisdirectory
+    #datasource.inputs.template = '%s/*/%s.nii.gz'
+    datasource.inputs.template = at
+    datasource.inputs.template_args = dict(anat=[['subject_id', anat_name]])
+    datasource.iterables = ('subject_id', sublist)
+
+    return datasource
+
+def create_func_dataflow(name, sublist, analysisdirectory, rest_name, rt):
+
+    import nipype.pipeline.engine as pe
+    import nipype.interfaces.io as nio
+
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['subject_id'], outfields=['rest']), name=name)
+    datasource.inputs.base_directory = analysisdirectory
+    #datasource.inputs.template = '%s/*/%s.nii.gz'
+    datasource.inputs.template = rt
+    datasource.inputs.template_args['rest'] = [['subject_id', rest_name]]
+    datasource.iterables = ('subject_id', sublist)
+
+    return datasource
+
+def create_alff_dataflow(name, sublist, analysisdirectory, at, atw):
+
+    import nipype.pipeline.engine as pe
+    import nipype.interfaces.io as nio
+
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
+                                                   outfields=['rest_res', 'rest_mask', 'rest_mask2standard' ]),
+                         name=name)
+    datasource.inputs.base_directory = analysisdirectory
+    #datasource.inputs.template = '%s/*/%s.nii.gz'
+    datasource.inputs.template = at
+    datasource.inputs.template_args = dict(rest_res=[['subject_id', rest_name +'_res' ]],
+                                           rest_mask=[['subject_id', rest_name + '_mask']],
+                                           rest_mask2standard=[['subject_id', rest_name + '_mask2standard']])
+    datasource.iterables = ('subject_id', sublist)
+
+    datasource_warp = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
+                                                        outfields=['premat', 'fieldcoeff_file' ]),
+                              name=name + '_warp')
+
+    datasource_warp.inputs.base_directory = analysisdirectory
+    #datasource_warp.inputs.template = '%s/*/%s.nii.gz'
+    datasource_warp.inputs.template = atw
+    datasource_warp.inputs.template_args = dict(premat=[['subject_id', 'example_func2highres.mat' ]],
+                                                fieldcoeff_file=[['subject_id', 'highres2standard_warp.nii.gz']])
+    datasource_warp.iterables = ('subject_id', sublist)
+
+    return datasource, datasource_warp
+
+def create_rsfc_dataflow(name, sublist, analysisdirectory, rt, rtw):
+
+    import nipype.pipeline.engine as pe
+    import nipype.interfaces.io as nio
+
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
+                                                   outfields=['rest_res2standard',
+                                                              'rest_res_filt',
+                                                              'rest_mask2standard',
+                                                              'ref' ]),
+                         name=name)
+    datasource.inputs.base_directory = analysisdirectory
+    #datasource.inputs.template = '%s/*/%s.nii.gz'
+    datasource.inputs.template = rt
+    datasource.inputs.template_args = dict(rest_res2standard=[['subject_id', rest_name + '_res2standard']],
+                                           rest_res_filt=[['subject_id', rest_name + '_res_filt']],
+                                           rest_mask2standard=[['subject_id', rest_name + '_mask2standard']],
+                                           ref=[['subject_id', 'example_func' ]])
+    datasource.iterables = ('subject_id', sublist)
+
+
+    datasource_warp = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
+                                                        outfields=['premat',
+                                                                   'fieldcoeff_file',
+                                                                   'warp',
+                                                                   'postmat']),
+                              name=name+'_warp')
+    datasource_warp.inputs.base_directory = analysisdirectory
+    #datasource_warp.inputs.template = '%s/*/%s.nii.gz'
+    datasource_warp.inputs.template = rtw
+    datasource_warp.inputs.template_args = dict(premat=[['subject_id', 'example_func2highres.mat' ]],
+                                                fieldcoeff_file=[['subject_id', 'highres2standard_warp.nii.gz']],
+                                                warp=[['subject_id', 'stand2highres_warp.nii.gz' ]],
+                                                postmat=[['subject_id', 'highres2example_func.mat' ]])
+    datasource_warp.iterables = ('subject_id', sublist)
+
+    return datasource, datasource_warp

@@ -1,4 +1,3 @@
-#!/frodo/shared/epd/bin/python
 import sys
 import e_afni
 import os
@@ -11,11 +10,12 @@ import nipype.interfaces.io as nio
 import nipype.interfaces.utility as util
 from utils import *
 
+
 def create_anat_preproc():
 
     preproc = pe.Workflow(name='anatpreproc')
 
-    #Node or MapNode ?
+    #Node or Node ?
     inputNode = pe.Node(util.IdentityInterface(fields=['anat']),
                                                     name='inputspec')
 
@@ -25,16 +25,16 @@ def create_anat_preproc():
                                                             'brain']),
                                                     name='outputspec')
 
-    anat_refit = pe.MapNode(interface=afni.Refit(), name='anat_refit', iterfield=['in_file'])
+    anat_refit = pe.Node(interface=afni.Refit(), name='anat_refit')
     anat_refit.inputs.deoblique = True
 
-    anat_reorient = pe.MapNode(interface=afni.Resample(), name='anat_reorient', iterfield=['in_file'])
+    anat_reorient = pe.Node(interface=afni.Resample(), name='anat_reorient')
     anat_reorient.inputs.orientation = 'RPI'
 
-    anat_skullstrip = pe.MapNode(interface=afni.SkullStrip(), name='anat_skullstrip', iterfield=['in_file'])
+    anat_skullstrip = pe.Node(interface=afni.SkullStrip(), name='anat_skullstrip')
     anat_skullstrip.inputs.options = '-o_ply'
 
-    anat_calc = pe.MapNode(interface=afni.Calc(), name='anat_calc', iterfield=['infile_a', 'infile_b'])
+    anat_calc = pe.Node(interface=afni.Calc(), name='anat_calc')
     anat_calc.inputs.expr = '\'a*step(b)\''
 
     preproc.connect(inputNode, 'anat', anat_refit, 'in_file')
@@ -177,7 +177,7 @@ def create_reg_preproc():
                                                             'example_func2standard_NL']),
                         name='outputspec')
 
-    reg_flirt = pe.MapNode(interface=fsl.FLIRT(), name='reg_flirt', iterfield=['in_file', 'reference'])
+    reg_flirt = pe.MapNode(interface=fsl.FLIRT(), name='reg_flirt', iterfield=['in_file'])
     reg_flirt.inputs.cost = 'corratio'
     reg_flirt.inputs.dof = 6
     reg_flirt.inputs.interp = 'nearestneighbour'
@@ -188,22 +188,21 @@ def create_reg_preproc():
 
     ## T1->STANDARD
     ## NOTE THAT THIS IS Linear registration, you may want to use FNIRT (non-linear)
-    reg_flirt1 = pe.MapNode(interface=fsl.FLIRT(), name='reg_flirt1', iterfield=['in_file'])
+    reg_flirt1 = pe.Node(interface=fsl.FLIRT(), name='reg_flirt1')
     reg_flirt1.inputs.cost = 'corratio'
     reg_flirt1.inputs.cost_func = 'corratio'
     reg_flirt1.inputs.dof = 12
     reg_flirt1.inputs.interp = 'nearestneighbour'
 
     ## Create mat file for conversion from standard to high res
-    reg_xfm2 = pe.MapNode(interface=fsl.ConvertXFM(), name='reg_xfm2', iterfield=['in_file'])
+    reg_xfm2 = pe.Node(interface=fsl.ConvertXFM(), name='reg_xfm2')
     reg_xfm2.inputs.invert_xfm = True
 
-    reg_inw = pe.MapNode(interface=e_afni.InvWarp(), name='reg_inw', iterfield=['in_file', 'ref_file'])
+    reg_inw = pe.Node(interface=e_afni.InvWarp(), name='reg_inw')
 
     ## T1->STANDARD NONLINEAR
     # Perform nonlinear registration (higres to standard)
-    reg_fnt = pe.MapNode(interface=fsl.FNIRT(), name='reg_fnt', iterfield=['in_file',
-                                                                        'affine_file'])
+    reg_fnt = pe.Node(interface=fsl.FNIRT(), name='reg_fnt')
     reg_fnt.inputs.fieldcoeff_file = True
     reg_fnt.inputs.jacobian_file = True
     reg_fnt.inputs.warp_resolution = (10, 10, 10)
@@ -211,8 +210,8 @@ def create_reg_preproc():
     ## Apply nonlinear registration (func to standard)
     reg_warp = pe.MapNode(interface=fsl.ApplyWarp(), name='reg_warp',
                                                     iterfield=['in_file',
-                                                                'premat',
-                                                                'field_file'])
+                                                                'premat'
+                                                              ])
 
     preproc.connect(inputNode, 'example_func', reg_flirt, 'in_file')
     preproc.connect(inputNode, 'brain', reg_flirt, 'reference')
@@ -264,6 +263,8 @@ def create_seg_preproc():
                                                             'csf_combo',
                                                             'csf_bin',
                                                             'csf_mask',
+                                                            'grey_bin',
+                                                            'grey_mask',
                                                             'global_mask',
                                                             'wm_t12func',
                                                             'wm_mni2func',
@@ -273,7 +274,7 @@ def create_seg_preproc():
                                                             'wm_mask']),
                         name='outputspec')
 
-    seg_segment = pe.MapNode(interface=fsl.FAST(), name='seg_segment', iterfield=['in_files'])
+    seg_segment = pe.Node(interface=fsl.FAST(), name='seg_segment')
     seg_segment.inputs.img_type = 1
     seg_segment.inputs.segments = True
     seg_segment.inputs.probability_maps = True
@@ -284,12 +285,12 @@ def create_seg_preproc():
     seg_flirt = pe.MapNode(interface=fsl.FLIRT(), name='seg_flirt', iterfield=['reference', 'in_matrix_file'])
     seg_flirt.inputs.apply_xfm = True
 
-    seg_warp = pe.MapNode(interface=fsl.ApplyWarp(), name='seg_warp', iterfield=['ref_file', 'postmat', 'field_file'])
+    seg_warp = pe.MapNode(interface=fsl.ApplyWarp(), name='seg_warp', iterfield=['ref_file', 'postmat'])
     seg_warp.inputs.interp = 'nn'
 
     seg_warp1 = seg_warp.clone('seg_warp1')
 
-    seg_smooth1 = pe.MapNode(interface=fsl.MultiImageMaths(), name='seg_smooth1', iterfield=['in_file'])
+    seg_smooth1 = pe.MapNode(interface=fsl.MultiImageMaths(), name='seg_smooth1', iterfield=['in_file', 'operand_files'])
     seg_str1 = '-mas %s '
     seg_smooth1.inputs.op_string = seg_str1
 
@@ -301,7 +302,7 @@ def create_seg_preproc():
     seg_str1 = '-mas %s '
     seg_mask.inputs.op_string = seg_str1
 
-    seg_prior1 = pe.MapNode(interface=fsl.MultiImageMaths(), name='seg_prior1', iterfield=['in_file'])
+    seg_prior1 = pe.MapNode(interface=fsl.MultiImageMaths(), name='seg_prior1', iterfield=['in_file', 'operand_files'])
     seg_str1 = '-mas %s '
     seg_prior1.inputs.op_string = seg_str1
 
@@ -340,6 +341,19 @@ def create_seg_preproc():
     preproc.connect(seg_prior1, 'out_file', seg_thresh1, 'in_file')
     preproc.connect(seg_thresh1, 'out_file', seg_mask1, 'in_file')
     preproc.connect(seg_copy, 'out_file', seg_mask1, 'operand_files')
+
+#    preproc.connect(seg_segment, ('probability_maps', pick_wm_2), seg_flirt4, 'in_file')
+#    preproc.connect(inputNode, 'example_func', seg_flirt4, 'reference')
+#    preproc.connect(inputNode, 'highres2example_func_mat', seg_flirt4, 'in_matrix_file')
+#    preproc.connect(inputNode, 'example_func', seg_warp2, 'ref_file')
+#    preproc.connect(inputNode, 'stand2highres_warp', seg_warp2, 'field_file')
+#    preproc.connect(inputNode, 'PRIOR_WHITE', seg_warp2, 'in_file')
+#    preproc.connect(inputNode, 'highres2example_func_mat', seg_warp2, 'postmat')
+#    preproc.connect(seg_flirt3, 'out_file', seg_prior2, 'in_file')
+#    preproc.connect(seg_warp1, 'out_file', seg_prior2, 'operand_files')
+#    preproc.connect(seg_prior1, 'out_file', seg_thresh2, 'in_file')
+#    preproc.connect(seg_thresh1, 'out_file', seg_mask2, 'in_file')
+#    preproc.connect(seg_copy, 'out_file', seg_mask2, 'operand_files')
 
     preproc.connect(seg_segment, 'probability_maps', outputNode, 'probability_maps')
     preproc.connect(seg_flirt, 'out_file', outputNode, 'csf_t12func')
@@ -434,10 +448,30 @@ def calculate_compcor_residuals():
 
     return preproc
 
-#def nuisance():
+def nuisance():
+
+    preproc = pe.Workflow(name='nuisance_preproc')
+    inputNode = pe.Node(util.IdentityInterface(fields=['regressors',
+                                                    'csf_mask',
+                                                    'wm_mask',
+                                                    'preprocessed',
+                                                    'template',
+                                                    'nvols',
+                                                    'TR',
+                                                    'oned_file',
+                                                    'ncomponents']),
+                        name='inputspec')
+
+    outputNode = pe.Node(util.IdentityInterface(fields=['processed_fsf',
+                                                            'design_file',
+                                                            'residual4d',
+                                                            'results_dir',
+                                                            'preprocessed_compcor']),
+                        name='outputspec')
 
 
-def create_VMHC():
+
+def create_VMHC_preproc():
 
 
     vmhc = pe.Workflow(name='vmhc_preproc')
@@ -535,7 +569,7 @@ def create_VMHC():
 
     return vmhc
 
-def create_RSFC():
+def create_RSFC_preproc():
 
     rsfc = pe.Workflow(name='rsfc_preproc')
     inputNode = pe.Node(util.IdentityInterface(fields=['ref',
@@ -614,7 +648,7 @@ def create_RSFC():
 
     return rsfc
 
-def create_alff():
+def create_alff_preproc():
 
     alff = pe.Workflow(name='alff_preproc')
     inputNode = pe.Node(util.IdentityInterface(fields=['rest_res',
