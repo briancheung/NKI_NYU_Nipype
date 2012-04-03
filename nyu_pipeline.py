@@ -2,7 +2,7 @@ import nipype.interfaces.io as nio
 import nipype.pipeline.engine as pe 
 from base import (create_anat_preproc, create_func_preproc,
                     create_reg_preproc, create_seg_preproc)
-
+from base_nuisance import create_nuisance_preproc
 import re
 import os
 import glob
@@ -64,6 +64,10 @@ segpreproc.inputs.inputspec.PRIOR_CSF = os.path.abspath('./tissuepriors/3mm/avg1
 segpreproc.inputs.inputspec.PRIOR_WHITE = os.path.abspath('./tissuepriors/3mm/avg152T1_white_bin.nii.gz')
 segpreproc.inputs.inputspec.standard_res_brain=os.path.abspath('/usr/share/fsl/4.1/data/standard/MNI152_T1_3mm_brain.nii.gz')
 
+nuisancepreproc = create_nuisance_preproc()
+nuisancepreproc.inputs.inputspec.selector = [True, True, True, True]
+nuisancepreproc.inputs.inputspec.num_components = 5
+
 workflow.connect(inputnode, 'session_id', datasource, 'session_id')
 workflow.connect(inputnode, 'subject_id', datasource, 'subject_id')
 #workflow.connect(datasource, 'func', st, 'in_file')
@@ -86,5 +90,9 @@ workflow.connect(funcpreproc, 'outputspec.preprocessed', datasink, 'preprocessed
 workflow.connect(segpreproc, 'outputspec.csf_mask', datasink, 'masks.csf')
 workflow.connect(segpreproc, 'outputspec.wm_mask', datasink, 'masks.wm')
 workflow.connect(segpreproc, 'outputspec.probability_maps', datasink, 'masks.probability')
+workflow.connect(segpreproc, 'outputspec.wm_mask', nuisancepreproc, 'inputspec.wm_mask')
+workflow.connect(segpreproc, 'outputspec.csf_mask', nuisancepreproc, 'inputspec.csf_mask')
+workflow.connect(funcpreproc, 'outputspec.preprocessed', nuisancepreproc, 'inputspec.realigned_file')
+workflow.connect(nuisancepreproc, 'outputspec.residual_file', datasink, 'nuisance_corrected')
 
 #workflow.connect(st, 'slice_time_corrected_file', datasink, 'slicecorrected')
