@@ -62,6 +62,7 @@ def create_func_preproc():
                                                             'reorient',
                                                             'reorient_mean',
                                                             'motion_correct',
+                                                            'motion_correct_ref',
                                                             'movement_parameters',
                                                             'max_displacement',
                                                             'mask',
@@ -139,7 +140,7 @@ def create_func_preproc():
     preproc.connect(func_calc, 'out_file', outputNode, 'drop_tr')
     preproc.connect(func_refit, 'out_file', outputNode, 'refit')
     preproc.connect(func_reorient, 'out_file', outputNode, 'reorient')
-    preproc.connect(func_tstat_1, 'out_file', outputNode, 'reorient_mean')
+    preproc.connect(func_tstat_1, 'out_file', outputNode, 'motion_correct_ref')
     preproc.connect(func_volreg_1, 'out_file', outputNode, 'motion_correct')
     preproc.connect(func_volreg_1, 'md1d_file', outputNode, 'max_displacement')
     preproc.connect(func_volreg_1, 'oned_file', outputNode, 'movement_parameters')
@@ -271,6 +272,9 @@ def create_seg_preproc():
                                                             'wm_combo',
                                                             'wm_bin',
                                                             'probability_maps',
+                                                            'mixeltype',
+                                                            'partial_volume_map',
+                                                            'partial_volume_files',
                                                             'wm_mask']),
                         name='outputspec')
 
@@ -356,6 +360,9 @@ def create_seg_preproc():
 #    preproc.connect(seg_copy, 'out_file', seg_mask2, 'operand_files')
 
     preproc.connect(seg_segment, 'probability_maps', outputNode, 'probability_maps')
+    preproc.connect(seg_segment, 'mixeltype', outputNode, 'mixeltype')
+    preproc.connect(seg_segment, 'partial_volume_files', outputNode, 'partial_volume_files')
+    preproc.connect(seg_segment, 'partial_volume_map', outputNode, 'partial_volume_map')
     preproc.connect(seg_flirt, 'out_file', outputNode, 'csf_t12func')
     preproc.connect(seg_warp, 'out_file', outputNode, 'csf_mni2func')
     preproc.connect(seg_smooth1, 'out_file', outputNode, 'csf_combo')
@@ -471,7 +478,7 @@ def nuisance():
 
 
 
-def create_VMHC_preproc():
+def create_vmhc_preproc():
 
 
     vmhc = pe.Workflow(name='vmhc_preproc')
@@ -569,7 +576,7 @@ def create_VMHC_preproc():
 
     return vmhc
 
-def create_rsfc_preproc():
+def create_ifc_preproc():
 
     rsfc = pe.Workflow(name='rsfc_preproc')
     inputNode = pe.Node(util.IdentityInterface(fields=['ref',
