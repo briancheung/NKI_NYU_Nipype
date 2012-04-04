@@ -45,6 +45,14 @@ def getTuple(infile_a, infile_b):
 
     return (infile_a, infile_b[1])
 
+def getOpString(mean, std_dev):
+
+    str1 = "-sub %f -div %f" % (float(mean), float(std_dev))
+
+    op_string = str1 + " -mas %s"
+
+    return op_string
+
 def pick_wm_0(probability_maps):
 
     import sys
@@ -95,10 +103,35 @@ def getImgNVols(in_files):
         n_vol = int(hdr.get_data_shape()[3])
         return [n_vol]
 
+def getImgTR(in_files):
+
+    out = []
+    from nibabel import load
+    if(isinstance(in_files,list)):
+        for in_file in in_files:
+            img = load(in_file)
+            hdr = img.get_header()
+            tr = float(hdr.get_zooms()[3])
+            if tr > 10:
+                tr = float(float(tr)/1000.0)
+            out.append(tr)
+        return out
+    else:
+        img = load(in_files)
+        hdr = img.get_header()
+        tr = float(hdr.get_zooms()[3])
+        if tr > 10:
+            tr = float(float(tr)/1000.0)
+        return [tr]
+
+
 def getN1(TR, nvols, HP):
 
     n_lp = float(HP) * float(int(nvols)) * float (TR)
     n1 = int("%1.0f" % (float(n_lp - 1.0)))
+
+    print '>>>n_lp ', n_lp
+    print '>>>n1 ', n1
 
     return n1
 
@@ -147,19 +180,14 @@ def set_op1_str(nvols):
 def set_gauss(fwhm):
 
 
-    op_string = []
-    if(not isinstance(fwhm, list)):
+    op_string = ""
 
-        fwhm = [fwhm]
+    fwhm = float(fwhm)
 
-    for fullwhm in fwhm:
+    sigma = float(fwhm/2.3548)
 
-        fullwhm = float(fullwhm)
-
-        sigma = float(fullwhm/2.3548)
-
-        op = "-kernel gauss %f -fmean -mas " % (sigma) + "%s"
-        op_string.append(op)
+    op = "-kernel gauss %f -fmean -mas " % (sigma) + "%s"
+    op_string = op
 
     return op_string
 
@@ -456,7 +484,7 @@ def create_func_dataflow(name, sublist, analysisdirectory, rest_name, rt):
 
     return datasource
 
-def create_alff_dataflow(name, sublist, analysisdirectory, at, atw):
+def create_alff_dataflow(name, sublist, analysisdirectory, rest_name, at, atw):
 
     import nipype.pipeline.engine as pe
     import nipype.interfaces.io as nio

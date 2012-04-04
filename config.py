@@ -4,35 +4,35 @@
 """
 	Set which FSL to use
 """
-FSLDIR = '/frodo/shared/RH5_fsl/'
+FSLDIR = '/usr/share/fsl/'
 
 """
 	Point to directory where your subjects reside
 """
-subj_dir = '/home/sharad/Resources'
+subj_dir = '/home/ssikka/nki_nyu_pipeline/data'
 
 """
 	Point to directory where pipeline can store results 
 """
-sink_dir = '/home/sharad/Resources/'
+sink_dir = '/home/ssikka/nki_nyu_pipeline/data'
 
 """
 	Set Temporary Directory where Nipype can store
     temporary results
 """
-working_dir = '/home/sharad/nki_nyu_pipeline/working_dir/'
+working_dir = '/home/ssikka/nki_nyu_pipeline/working_dir/'
 
 """
 	Set the location where 3mm and 2mm Tissue Priors
     located.
 """
-prior_dir = '/home/sharad/nki_nyu_pipeline/tissuepriors'
+prior_dir = '/home/ssikka/nki_nyu_pipeline/tissuepriors'
 
 """
 	Point to directory where pipeline can store crash .npz files
 	if it crashes
 """
-crash_dir = '/home/sharad/nki_nyu_pipeline/crash'
+crash_dir = '/home/ssikka/nki_nyu_pipeline/crash'
 
 """
 	Functional volumes to keep
@@ -40,9 +40,9 @@ crash_dir = '/home/sharad/nki_nyu_pipeline/crash'
 	stop_idx : Last volume
 """
 start_idx = 0
-stop_idx = 175
-n_vols = 175
-TR = 2.0
+stop_idx = 119
+n_vols = 120
+TR = 2.5
 
 """
 	Seed file
@@ -50,7 +50,7 @@ TR = 2.0
 	Each line contains full path to seed file
 
 """
-seed_file = 'seed_list.txt'
+seed_file = '/home/ssikka/nki_nyu_pipeline/seed_list.txt'
 
 """
 	subj_file : '/data/ADHD200/docs/subjects.txt'
@@ -59,16 +59,16 @@ seed_file = 'seed_list.txt'
 	0010002
 	etc.
 """
-subj_file = '/home/sharad/Resources/subjects.txt'
+subj_file = '/home/ssikka/nki_nyu_pipeline/data/subjects.txt'
 log_file = None
 rest_name = 'rest'
 anat_name = 'mprage'
 standard_res = '3mm'
-fwhm = [6.0, 5.0]
+fwhm = [6]
 rest_hp = [0.005, 0.01]
-rest_lp = [0.1]
-alff_HP = [0.005, 0.01]
-alff_LP = [0.1]
+rest_lp = 0.1
+alff_HP = [0.005]
+alff_LP = 0.1
 
 
 """
@@ -82,15 +82,13 @@ anat_template = '%s/*/*/%s.nii.gz'
 	Mandatory
 	where are your functional scans located relative to your Subjects Directory
 """
-func_template = '%s/*/*/%s.nii.gz'
-
 """
 	SET ONLY when analysis is not set to 'all' and u need to run alff
 
 	where are  rest_res, rest_mask, rest_mask2standard  scans located
 	relative to your Subjects Directory
 """
-alff_template = '%s/*/*/%s.nii.gz'
+alff_template = '%s/*/%s.nii.gz'
 
 """
 	SET ONLY when analysis is not set to 'all' and u need to run alff
@@ -98,7 +96,7 @@ alff_template = '%s/*/*/%s.nii.gz'
 	where are  example_func2highres.mat, highres2standard_warp.nii.gz scans located
 	relative to your Subjects Directory
 """
-alff_warp_template = '%s/*/*/*/%s'
+alff_warp_template = '%s/*/*/%s'
 
 """
 	SET ONLY when analysis is not set to 'all' and u need to run 
@@ -125,7 +123,7 @@ rsfc_warp_template = '%s/*/*/*/%s'
 
 
 # all, basic, scrubbing, nuisance, alff, rsfc, vmhc, reho, group_analysis
-analysis = [False, False, False, False, True, False, False, False, False ]
+analysis = [False, False, False, False, False, True, False, False, False ]
 run_on_grid = False
 qsub_args = '-q all.q'
 num_cores = 8
