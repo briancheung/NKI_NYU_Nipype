@@ -3,6 +3,12 @@ import e_afni
 import nipype.pipeline.engine as pe
 import nipype.interfaces.utility as util
 
+def mean_roi_signal(data_volume, roi_mask):
+    import numpy as np
+    Y = data_volume[roi_mask].T
+    Yc = Y - np.tile(Y.mean(0), (Y.shape[0], 1))
+    return Yc.mean(1)
+
 def get_standard_background_img(in_file):
     import os
 
@@ -40,6 +46,7 @@ def getTuple(infile_a, infile_b):
     return (infile_a, infile_b[1])
 
 
+<<<<<<< HEAD
 def getOpString(mean, std_dev):
 
     str1 = "-sub %f -div %f" % (float(mean), float(std_dev))
@@ -47,6 +54,9 @@ def getOpString(mean, std_dev):
     op_string = str1 + " -mas %s"
 
     return op_string
+=======
+>>>>>>> bbcc9914736a4409c929b787373228ffc02c1997
+>>>>>>> 92fe22bd7e36254702cc333d005d1403c094195e
 
 def pick_wm_0(probability_maps):
 
