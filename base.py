@@ -512,21 +512,21 @@ def create_VMHC_preproc():
     fnt.inputs.warp_resolution = (10, 10, 10)
 
     ## Apply nonlinear registration (func to standard)
-    warp = pe.MapNode(interface=fsl.ApplyWarp(), name='warp', iterfield=["in_file", "premat"])
+    warp = pe.MapNode(interface=fsl.ApplyWarp(), name='warp', iterfield=['in_file', 'premat'])
 
     ## copy and L/R swap file
-    swap = pe.MapNode(interface=fsl.SwapDimensions(), name='swap', iterfield=["in_file"])
+    swap = pe.MapNode(interface=fsl.SwapDimensions(), name='swap', iterfield=['in_file'])
     swap.inputs.new_dims = ('-x', 'y', 'z')
 
     ## caculate vmhc
-    corr = pe.MapNode(interface=e_afni.ThreedTcorrelate(), name='corr', iterfield=["xset"])
+    corr = pe.MapNode(interface=e_afni.ThreedTcorrelate(), name='corr', iterfield=['xset'])
     corr.inputs.pearson = True
     corr.inputs.polort = -1
 
-    z_trans = pe.MapNode(interface=e_afni.Threedcalc(), name='z_trans', iterfield=["infile_a"])
+    z_trans = pe.MapNode(interface=e_afni.Threedcalc(), name='z_trans', iterfield=['infile_a'])
     z_trans.inputs.expr = '\'log((1+a)/(1-a))/2\''
 
-    z_stat = pe.MapNode(interface=e_afni.Threedcalc(), name='z_stat', iterfield=["infile_a", "expr"])
+    z_stat = pe.MapNode(interface=e_afni.Threedcalc(), name='z_stat', iterfield=['infile_a', 'expr'])
 
     NVOLS = pe.Node(util.Function(input_names=['in_files'],
                                 output_names=['nvols'], function=getImgNVols), name='NVOLS')
@@ -569,7 +569,7 @@ def create_VMHC_preproc():
 
     return vmhc
 
-def create_RSFC_preproc():
+def create_rsfc_preproc():
 
     rsfc = pe.Workflow(name='rsfc_preproc')
     inputNode = pe.Node(util.IdentityInterface(fields=['ref',
@@ -694,22 +694,22 @@ def create_group_analysis():
 
     gp_smooth_estimate = pe.MapNode(interface=fsl.SmoothEstimate(),
                                     name='gp_smooth_estimate',
-                                    iterfield=["zstat_file"])
+                                    iterfield=['zstat_file'])
 
     gp_fslmultimaths = pe.MapNode(interface=fsl.MultiImageMaths(),
                                   name='gp_fslmultimaths',
-                                  iterfield=["in_file"])
-    gp_fslmultimaths.inputs.op_string = "-mas %s"
+                                  iterfield=['in_file'])
+    gp_fslmultimaths.inputs.op_string = '-mas %s'
 
     gp_fslcpgeom = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'],
                                             output_names=['out_file'],
                                             function=copyGeom),
                               name='gp_fslcpgeom',
-                              iterfield=["infile_a", "infile_b"])
+                              iterfield=['infile_a', 'infile_b'])
 
     gp_cluster = pe.MapNode(interface=fsl.Cluster(),
                             name='gp_cluster',
-                            iterfield=["in_file", "volume", "dlh"])
+                            iterfield=['in_file', 'volume', 'dlh'])
     gp_cluster.inputs.out_index_file = True
     gp_cluster.inputs.out_threshold_file = True
     gp_cluster.inputs.out_localmax_txt_file = True
@@ -721,18 +721,18 @@ def create_group_analysis():
 
     gp_fslstats = pe.MapNode(interface=fsl.ImageStats(),
                              name='gp_fslstats',
-                             iterfield=["in_file"])
+                             iterfield=['in_file'])
     gp_fslstats.inputs.op_string = '-R'
 
     gp_merge = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'],
                                         output_names=['out_file'],
                                         function=getTuple),
-                          name='gp_merge', iterfield=["infile_b"])
+                          name='gp_merge', iterfield=['infile_b'])
 
 
     gp_overlay = pe.MapNode(interface=fsl.Overlay(),
                             name='gp_overlay',
-                            iterfield=["stat_image", "stat_thresh"])
+                            iterfield=['stat_image', 'stat_thresh'])
     gp_overlay.inputs.transparency = True
     gp_overlay.inputs.auto_thresh_bg = True
     gp_overlay.inputs.out_type = 'float'
@@ -740,7 +740,7 @@ def create_group_analysis():
 
 
     gp_slicer = pe.MapNode(interface=fsl.Slicer(), name='gp_slicer',
-                           iterfield=["in_file"])
+                           iterfield=['in_file'])
     gp_slicer.inputs.image_width = 750
     gp_slicer.inputs.all_axial = True
 
@@ -753,7 +753,7 @@ def create_group_analysis():
     gp_getbackgroundimage = pe.MapNode(util.Function(input_names=['in_file'],
                                                      output_names=['out_file'],
                             function=get_standard_background_img),
-                            name='gp_getbackgroundimage', iterfield=["in_file"])
+                            name='gp_getbackgroundimage', iterfield=['in_file'])
 
     grp_analysis.connect(inputnode, 'seed_files', gp_fslmerge, 'in_files')
     grp_analysis.connect(gp_fslmerge, 'merged_file', gp_fslmaths, 'in_file')
@@ -815,8 +815,6 @@ def create_group_analysis():
     grp_analysis.connect(gp_slicer, 'out_file', outputnode, 'picture')
     grp_analysis.connect(gp_fslmultimaths2, 'out_file', outputnode, 'multi_math_mask2')
 
-    return grp_analysis
-
 
 
 def create_alff_preproc():
@@ -826,9 +824,9 @@ def create_alff_preproc():
                                                     'rest_mask',
                                                     'rest_mask2standard',
                                                     'premat',
+                                                    'standard',
                                                     'fieldcoeff_file',
-                                                    'nvols',
-                                                    'TR']),
+                                                    ]),
                         name='inputspec')
 
     outputNode = pe.Node(util.IdentityInterface(fields=['processed_alff',
@@ -849,18 +847,42 @@ def create_alff_preproc():
     inputnode_fwhm = pe.Node(util.IdentityInterface(fields=['fwhm']),
                              name='fwhm_input')
 
-    TR = pe.Node(util.Function(input_names=['in_files'], output_names=['TR'], function=getImgTR), name='TR')
-    inputNode = pe.Node(util.Function(input_names=['in_files'], output_names=['nvols'], function=getImgNVols), name='inputNode')
-
-    ## 3. Spatial Smoothing
-    smooth = pe.MapNode(interface=fsl.MultiImageMaths(), name='smooth', iterfield=['in_file', 'operand_files', 'op_string'])
-
-    fsmooth = pe.MapNode(interface=fsl.MultiImageMaths(), name='fsmooth', iterfield=['in_file', 'operand_files', 'op_string'])
+    TR = pe.Node(util.Function(input_names=['in_files'],
+                               output_names=['TR'],
+                               function=getImgTR), name='TR')
+    NVOLS = pe.Node(util.Function(input_names=['in_files'],
+                                  output_names=['nvols'],
+                                  function=getImgNVols), name='NVOLS')
 
     cp = pe.MapNode(interface=fsl.ImageMaths(), name='cp', iterfield=['in_file'])
 
+    cp1 = pe.MapNode(interface=fsl.ImageMaths(), name='cp1', iterfield=['in_file'])
+
     mean = pe.MapNode(interface=fsl.ImageMaths(), name='mean', iterfield=['in_file'])
     mean.inputs.op_string = '-Tmean'
+
+    roi = pe.MapNode(interface=fsl.ExtractROI(), name='roi', iterfield=['in_file', 't_size'])
+    roi.inputs.t_min = 1
+
+    concatnode = pe.MapNode(interface=util.Merge(2), name='concatnode', iterfield=['in1', 'in2'])
+
+    selectnode = pe.MapNode(interface=util.Select(), name='selectnode', iterfield=['inlist', 'index'])
+
+    pspec = pe.MapNode(interface=fsl.PowerSpectrum(), name='pspec', iterfield=['in_file'])
+
+    ##compute sqrt of power spectrum
+    sqrt = pe.MapNode(interface=fsl.ImageMaths(), name='sqrt', iterfield=['in_file'])
+    sqrt.inputs.op_string = '-sqrt'
+
+    calcN1 = pe.MapNode(util.Function(input_names=['nvols', 'TR', 'HP'], output_names=['n1'],
+                                      function=getN1), name='calcN1', iterfield=['nvols', 'TR'])
+
+    calcN2 = pe.MapNode(util.Function(input_names=['nvols', 'TR', 'LP', 'HP'], output_names=['n2'],
+                                      function=getN2), name='calcN2', iterfield=['nvols', 'TR'])
+    roi1 = pe.MapNode(interface=fsl.ExtractROI(), name='roi1', iterfield=['in_file', 't_min', 't_size'])
+
+    ## calculate ALFF as the _sum of the amplitudes in the low frequency band
+    _sum = pe.MapNode(interface=fsl.ImageMaths(), name='_sum', iterfield=['in_file', 'op_string'])
 
     ## 4. Calculate fALFF
     falff = pe.MapNode(interface=fsl.ImageMaths(), name='falff', iterfield=['in_file', 'op_string'])
@@ -881,6 +903,12 @@ def create_alff_preproc():
     normS1 = pe.MapNode(interface=fsl.ImageStats(), name='normS1', iterfield=['in_file', 'mask_file'])
     normS1.inputs.op_string = '-k %s -s'
 
+    op_string = pe.MapNode(util.Function(input_names=['mean', 'std_dev'], output_names=['op_string'],
+                                         function=getOpString),
+                           name='alff_op_string', iterfield=['mean', 'std_dev'])
+
+    op_string1 = op_string.clone('op_string1')
+
     Z_alff = pe.MapNode(interface=fsl.MultiImageMaths(), name='Z_alff', iterfield=['in_file', 'operand_files', 'op_string'])
 
     Z_falff = pe.MapNode(interface=fsl.MultiImageMaths(), name='Z_falff', iterfield=['in_file', 'operand_files', 'op_string'])
@@ -891,48 +919,30 @@ def create_alff_preproc():
 
     warp_falff = pe.MapNode(interface=fsl.ApplyWarp(), name='warp_falff', iterfield=['in_file', 'premat'])
 
-    roi = pe.MapNode(interface=fsl.ExtractROI(), name='roi', iterfield=['in_file', 't_size'])
-    roi.inputs.t_min = 1
+    ## 3. Spatial Smoothing
+    smooth = pe.MapNode(interface=fsl.MultiImageMaths(), name='smooth', iterfield=['in_file', 'operand_files'])
 
-    cp1 = pe.MapNode(interface=fsl.ImageMaths(), name='cp1', iterfield=['in_file'])
+    fsmooth = pe.MapNode(interface=fsl.MultiImageMaths(), name='fsmooth', iterfield=['in_file', 'operand_files'])
 
-    concatnode = pe.MapNode(interface=util.Merge(2), name='concatnode', iterfield=['in1', 'in2'])
-
-    selectnode = pe.MapNode(interface=util.Select(), name='selectnode', iterfield=['inlist', 'index'])
-
-    pspec = pe.MapNode(interface=fsl.PowerSpectrum(), name='pspec', iterfield=['in_file'])
-
-    ##compute sqrt of power spectrum
-    sqrt = pe.MapNode(interface=fsl.ImageMaths(), name='sqrt', iterfield=['in_file'])
-    sqrt.inputs.op_string = '-sqrt'
-
-    roi1 = pe.MapNode(interface=fsl.ExtractROI(), name='roi1', iterfield=['in_file', 't_min', 't_size'])
-
-    ## calculate ALFF as the _sum of the amplitudes in the low frequency band
-    _sum = pe.MapNode(interface=fsl.ImageMaths(), name='_sum', iterfield=['in_file', 'op_string'])
-
-    calcN1 = pe.MapNode(util.Function(input_names=['nvols', 'TR', 'HP'], output_names=['n1'], function=getN1), name='calcN1', iterfield=['nvols', 'TR'])
-
-    calcN2 = pe.MapNode(util.Function(input_names=['nvols', 'TR', 'LP', 'HP'], output_names=['n2'], function=getN2), name='calcN2', iterfield=['nvols', 'TR'])
-
+    alff.connect(inputNode, 'rest_res', TR, 'in_files')
+    alff.connect(inputNode, 'rest_res', NVOLS, 'in_files')
     alff.connect(inputNode, 'rest_res', mean, 'in_file')
     alff.connect(inputNode, 'rest_res', roi, 'in_file')
-    alff.connect(inputNode, 'nvols', roi, 't_size')
+    alff.connect(NVOLS, 'nvols', roi, 't_size')
     alff.connect(inputNode, 'rest_res', cp1, 'in_file')
-
     alff.connect(roi, 'roi_file', concatnode, 'in1')
     alff.connect(cp1, 'out_file', concatnode, 'in2')
     alff.connect(concatnode, 'out', selectnode, 'inlist')
-    alff.connect(inputNode, ('nvols', takemod), selectnode, 'index')
+    alff.connect(NVOLS, ('nvols', takemod), selectnode, 'index')
     alff.connect(selectnode, 'out', pspec, 'in_file')
     alff.connect(pspec, 'out_file', sqrt, 'in_file')
 
-    alff.connect(inputNode, 'nvols', calcN1, 'nvols')
-    alff.connect(inputNode, 'TR', calcN1, 'TR')
+    alff.connect(NVOLS, 'nvols', calcN1, 'nvols')
+    alff.connect(TR, 'TR', calcN1, 'TR')
     alff.connect(inputnode_hplp, 'hp', calcN1, 'HP')
 
-    alff.connect(inputNode, 'nvols', calcN2, 'nvols')
-    alff.connect(inputNode, 'TR', calcN2, 'TR')
+    alff.connect(NVOLS, 'nvols', calcN2, 'nvols')
+    alff.connect(TR, 'TR', calcN2, 'TR')
     alff.connect(inputnode_hplp, 'lp', calcN2, 'LP')
     alff.connect(inputnode_hplp, 'hp', calcN2, 'HP')
 
@@ -943,7 +953,7 @@ def create_alff_preproc():
     alff.connect(calcN2, ('n2', set_op_str), _sum, 'op_string')
 
     alff.connect(sqrt, 'out_file', falff, 'in_file')
-    alff.connect(inputNode, ('nvols', set_op1_str), falff, 'op_string')
+    alff.connect(NVOLS, ('nvols', set_op1_str), falff, 'op_string')
     alff.connect(_sum, 'out_file', falff1, 'in_file')
     alff.connect(falff, 'out_file', falff1, 'operand_files')
 
@@ -985,6 +995,7 @@ def create_alff_preproc():
     alff.connect(warp_falff, 'out_file', fsmooth, 'in_file')
     alff.connect(inputnode_fwhm, ('fwhm', set_gauss), fsmooth, 'op_string')
     alff.connect(inputNode, 'rest_mask2standard', fsmooth, 'operand_files')
+
 
     alff.connect(cp, 'out_file', outputNode, 'processed_alff')
     alff.connect(mean, 'out_file', outputNode, 'processed_mean_alff')

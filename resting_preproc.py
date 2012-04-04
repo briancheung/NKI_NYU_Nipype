@@ -5,7 +5,7 @@ import os
 import nipype.pipeline.engine as pe
 from base import (create_anat_preproc, create_func_preproc,
                     create_reg_preproc, create_seg_preproc,
-                    create_alff_preproc, create_RSFC_preproc)
+                    create_alff_preproc, create_rsfc_preproc)
 
 from utils import (create_anat_dataflow, create_func_dataflow,
                     create_alff_dataflow, create_rsfc_dataflow)
@@ -40,15 +40,18 @@ def getSubjectAndSeedLists(c):
     return subj_list, seed_list
 
 
-def prep_workflow(c):
+def get_seed_list(seed_file):
 
-    wfname = 'resting_preproc'
-    workflow = pe.Workflow(name=wfname)
-    workflow.base_dir = c.working_dir
-    workflow.crash_dir = c.crash_dir
+    f = open(seed_file, 'r')
 
-    sublist, seed_list = getSubjectAndSeedLists(c)
+    seeds = f.readlines()
 
+    for seed in seeds:
+        
+
+def get_workflow(wf_name, c):
+
+    preproc = None
     """ 
         setup standard file paths
     """
@@ -61,6 +64,72 @@ def prep_workflow(c):
     standard_brain_mask_dil = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s_brain_mask_dil.nii.gz' % (c.standard_res))
     config_file = os.path.join(c.FSLDIR, 'etc/flirtsch/T1_2_MNI152_%s.cnf' % (c.standard_res))
 
+    if wf_name.lower == 'anat':
+        preproc = create_anat_preproc()
+        return preproc
+
+
+    if wf_name.lower == 'func':
+
+        preproc = create_func_preproc()
+        preproc.inputs.inputspec.start_idx = c.start_idx
+        preproc.inputs.inputspec.stop_idx = c.stop_idx
+
+        return preproc
+
+    if wf_name.lower == 'seg':
+
+        preproc = create_seg_preproc()
+        preproc.inputs.inputspec.prior_csf  = prior_csf
+        preproc.inputs.inputspec.prior_white  = prior_white
+        preproc.inputs.inputspec.standard_res_brain = standard_res_brain
+
+        return preproc
+
+    if wf_name.lower == 'reg':
+
+        preproc = create_reg_preproc()
+        preproc.inputs.inputspec.standard_res_brain = standard_res_brain
+        preproc.inputs.inputspec.standard = standard
+        preproc.inputs.inputspec.config_file = config_file
+        preproc.inputs.inputspec.standard_brain_mask_dil = standard_brain_mask_dil
+
+        return preproc
+
+    if wf_name.lower == 'alff':
+
+        preproc = create_alff_preproc()
+        preproc.inputs.inputspec.standard = standard
+        preproc.inputs.hplp_input.hp = c.alff_hp
+        preproc.inputs.hplp_input.lp = c.alff_lp
+        preproc.inputs.fwhm_input.fwhm = c.fwhm
+        preproc.get_node('hplp_input').iterables = ('hp', c.alff_HP, 'lp', c.alff_LP)
+        preproc.get_node('fwhm_input').iterables = ('fwhm', c.fwhm)
+
+        return preproc
+
+    if wf_name.lower == 'rsfc':
+
+        preproc = create_rsfc_preproc()
+        seeds = get_seed_list(c.seed_file)
+
+
+        return preproc
+
+
+
+def prep_workflow(c):
+
+    wfname = 'resting_preproc'
+    workflow = pe.Workflow(name=wfname)
+    workflow.base_dir = c.working_dir
+    workflow.crash_dir = c.crash_dir
+
+    sublist, seed_list = getSubjectAndSeedLists(c)
+
+    """
+        BASIC and ALL preprocessing paths implemented below
+    """
     if(c.analysis[0] or c.analysis[1]):
 
         """
@@ -73,23 +142,10 @@ def prep_workflow(c):
         """
             Define workflows and set parameters
         """
-        anatpreproc = create_anat_preproc()
-
-        funcpreproc = create_func_preproc()
-        funcpreproc.inputs.inputspec.start_idx = c.start_idx
-        funcpreproc.inputs.inputspec.stop_idx = c.stop_idx
-
-        segpreproc = create_seg_preproc()
-        segpreproc.inputs.inputspec.PRIOR_CSF  = PRIOR_CSF
-        segpreproc.inputs.inputspec.PRIOR_WHITE  = PRIOR_WHITE
-        segpreproc.inputs.inputspec.standard_res_brain = standard_res_brain
-
-        regpreproc = create_reg_preproc()
-        regpreproc.inputs.inputspec.standard_res_brain = standard_res_brain
-        regpreproc.inputs.inputspec.standard = standard
-        regpreproc.inputs.inputspec.config_file = config_file
-        regpreproc.inputs.inputspec.standard_brain_mask_dil = standard_brain_mask_dil
-
+        anatpreproc = get_workflow('anat', c)
+        funcpreproc = get_workflow('func', c)
+        regpreproc = get_workflow('reg', c)
+        segpreproc = get_workflow('seg', c)
 
         """
             Make Connections
@@ -106,21 +162,31 @@ def prep_workflow(c):
         workflow.connect(regpreproc, 'outputspec.highres2example_func_mat', segpreproc, 'inputspec.highres2example_func_mat')
         workflow.connect(regpreproc, 'outputspec.stand2highres_warp', segpreproc, 'inputspec.stand2highres_warp')
 
+
+    """
+        ALFF Analysis
+    """
     if((not c.analysis[0] and not c.analysis[1]) and c.analysis[4]):
 
-        alffpreproc = create_alff_preproc()
-        alffpreproc.inputs.inputspec.n_vols = c.n_vols
-        alffpreproc.inputs.inputspec.TR = c.TR
-        alffpreproc.get_node('hplp_input').iterables = ('hp', c.alff_HP, 'lp', c.alff_LP)
-        alffpreproc.get_node('fwhm_input').iterables = ('fwhm', c.fwhm)
+        alffpreproc = get_workflow('alff', c)
 
-        flowAlff, flowAlffWarp = create_alff_dataflow('alff_flow', sublist, c.subj_dir, c.rest_name, c.func_template)
+        flowAlff, flowAlffWarp = create_alff_dataflow('alff_flow', sublist, c.subj_dir, c.rest_name, c.alff_template, c.alff_warp_template)
 
         workflow.connect(flowAlff, 'rest_res', alffpreproc, 'inputspec.rest_res')
         workflow.connect(flowAlff, 'rest_mask', alffpreproc, 'inputspec.rest_mask')
         workflow.connect(flowAlff, 'rest_mask2standard', alffpreproc, 'inputspec.rest_mask2standard')
         workflow.connect(flowAlffWarp, 'premat', alffpreproc, 'inputspec.premat')
         workflow.connect(flowAlffWarp, 'fieldcoeff_file', alffpreproc, 'inputspec.fieldcoeff_file')
+
+    """
+        RSFC Analysis
+    """
+    if((not c.analysis[0] and not c.analysis[1]) and c.analysis[5]):
+
+        rsfcpreproc = get_workflow('rsfc', c)
+
+        flowRsfc, flowRsfcWarp = create_rsfc_dataflow('rsfc_flow', sublist, c.subj_dir, c.rest_name, c.rsfc_template, c.rsfc_warp_template)
+
 
     if(not c.run_on_grid):
         workflow.run(plugin='MultiProc', plugin_args={'n_procs': c.num_cores})
