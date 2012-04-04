@@ -67,6 +67,7 @@ segpreproc.inputs.inputspec.standard_res_brain=os.path.abspath('/usr/share/fsl/4
 nuisancepreproc = create_nuisance_preproc()
 nuisancepreproc.inputs.inputspec.selector = [True, True, True, True]
 nuisancepreproc.inputs.inputspec.num_components = 5
+nuisancepreproc.inputs.inputspec.target_angle_deg = 85
 
 workflow.connect(inputnode, 'session_id', datasource, 'session_id')
 workflow.connect(inputnode, 'subject_id', datasource, 'subject_id')

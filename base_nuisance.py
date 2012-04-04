@@ -127,6 +127,66 @@ def create_filter_matrix(global_component, compcor_components,
     np.savetxt(filter_file, z)
     return filter_file 
 
+def median_angle_correct(target_angle_deg, realigned_file):
+    import numpy as np
+    import nibabel as nb
+    import os 
+    from scipy.stats.stats import pearsonr
+
+    def shiftCols(pc, A, dtheta):
+        pcxA = np.dot(pc,A) 
+        x = A-np.dot(pc[:,np.newaxis],pcxA[np.newaxis,:])
+
+        theta = np.arccos(np.dot(pc.T, A))
+        theta_new = theta + dtheta
+
+        x /= np.tile(np.sqrt((x*x).sum(0)), (x.shape[0], 1))
+        v_new = np.dot(pc[:,np.newaxis], np.cos(theta_new)[np.newaxis,:]) + (np.sin(theta_new)*x)
+
+        return v_new
+
+    def writeToFile(data, nii, fname):
+        img_whole_y = nb.Nifti1Image(data, header=nii.get_header(), affine=nii.get_affine())
+        img_whole_y.to_filename(fname)
+
+
+    nii = nb.load(os.path.join(realigned_file))
+    data = nii.get_data().astype(np.float64)
+    print realigned_file, "subject data dimensions:", data.shape
+
+    mask = (data != 0).sum(-1) != 0
+
+    Y = data[mask].T
+
+    Yc = Y - np.tile(Y.mean(0), (Y.shape[0], 1))
+    Yn = Yc/np.tile(np.sqrt((Yc*Yc).sum(0)), (Yc.shape[0], 1))
+    U,S,Vh = np.linalg.svd(Yn, full_matrices=False)
+    
+    G = Yc.mean(1)
+    corr_gu = pearsonr(G,U[:,0])
+    PC1 = U[:,0] if corr_gu[0] >= 0 else -U[:,0] 
+    print 'Correlation of Global and U:',corr_gu
+
+    median_angle = np.median(np.arccos(np.dot(PC1.T, Yn)))
+    print 'Median Angle:', (180.0/np.pi)*median_angle, 'Target Angle:', target_angle_deg
+    angle_shift = (np.pi/180)*target_angle_deg - median_angle
+    if(angle_shift > 0):
+        print 'Shifting all vectors by', (180.0/np.pi)*angle_shift, 'degrees.'
+        Ynf = shiftCols(PC1, Yn, angle_shift) 
+    else:
+        print 'Median Angle >= Target Angle, skipping correction'
+        Ynf = Yn
+
+    corrected_file = os.path.join(os.getcwd(), 'median_angle_corrected.nii.gz')
+    print 'Writing correction to file...', corrected_file
+    data = np.zeros_like(data)
+    data[mask] = Ynf.T
+    writeToFile(data, nii, corrected_file)
+    data[mask] = Yn.T
+    writeToFile(data, nii, os.path.join(os.getcwd(), 'uncorrected_normalized.nii.gz'))
+
+    return corrected_file
+
 def create_compcor_extraction(name='compcor_extract'):
     inputspec = pe.Node(util.IdentityInterface(fields=['num_components',
                                                        'realigned_file',
@@ -157,15 +217,24 @@ def create_compcor_extraction(name='compcor_extract'):
 
 def create_nuisance_preproc(name='nuisance_preproc'):
     inputspec = pe.Node(util.IdentityInterface(fields=['num_components',
+                                                       'target_angle_deg',
                                                        'realigned_file',
                                                        'wm_mask',
                                                        'csf_mask',
                                                        'selector']),
                         name='inputspec')
-    outputspec = pe.Node(util.IdentityInterface(fields=['residual_file']),
+    outputspec = pe.Node(util.IdentityInterface(fields=['residual_file',
+                                                        'median_angle_corrected_file']),
                          name='outputspec')
 
     nuisance_preproc = pe.Workflow(name=name)
+
+    median_angle = pe.MapNode(util.Function(input_names=['target_angle_deg',
+                                                         'realigned_file'],
+                                            output_names=['corrected_file'],
+                                            function=median_angle_correct),
+                                            name='median_angle',
+                                            iterfield=['realigned_file'])
 
     compcor = pe.MapNode(util.Function(input_names=['num_components',
                                                     'realigned_file',
@@ -177,11 +246,13 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                        iterfield=['realigned_file',
                                                   'wm_mask',
                                                   'csf_mask'])
+
     glb_sig = pe.MapNode(util.Function(input_names=['realigned_file'],
                                        output_names=['global_component'],
                                        function=extract_global_component),
                                        name='glb_sig',
                                        iterfield=['realigned_file'])
+
     wmcsf_sig = pe.MapNode(util.Function(input_names=['realigned_file',
                                                       'wm_mask',
                                                       'csf_mask'],
@@ -191,6 +262,7 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                          iterfield=['realigned_file',
                                                     'wm_mask',
                                                     'csf_mask'])
+
     fp1_sig = pe.MapNode(util.Function(input_names=['realigned_file'],
                                        output_names=['firstprinc_component'],
                                        function=extract_firstprinc_component),
@@ -214,6 +286,10 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                               name='regress_nuisance',
                               iterfield=['design_file','in_file'])
 
+    nuisance_preproc.connect(inputspec, 'realigned_file',
+                             median_angle, 'realigned_file')
+    nuisance_preproc.connect(inputspec, 'target_angle_deg',
+                             median_angle, 'target_angle_deg')
     nuisance_preproc.connect(inputspec, 'realigned_file',
                              compcor, 'realigned_file')
     nuisance_preproc.connect(inputspec, 'num_components',
@@ -247,6 +323,10 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                              remove_noise, 'design_file')
     nuisance_preproc.connect(inputspec, 'realigned_file',
                              remove_noise, 'in_file')
+
+    nuisance_preproc.connect(median_angle, 'corrected_file',
+                             outputspec, 'median_angle_corrected_file')
+
     nuisance_preproc.connect(remove_noise, 'out_file',
                              outputspec, 'residual_file')
 

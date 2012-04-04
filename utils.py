@@ -45,9 +45,6 @@ def getTuple(infile_a, infile_b):
 
     return (infile_a, infile_b[1])
 
-
->>>>>>> bbcc9914736a4409c929b787373228ffc02c1997
-
 def pick_wm_0(probability_maps):
 
     import sys
