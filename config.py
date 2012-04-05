@@ -70,6 +70,23 @@ rest_lp = 0.1
 alff_HP = [0.005]
 alff_LP = 0.1
 
+"""
+	Number of components to regress with compcor
+"""
+ncomponents = [5, 6]
+
+"""
+	Target Angle in Degree for Median Angle Correction
+"""
+
+target_angle_deg = [90, 60]
+
+
+""""
+	Which Signals do you which to regress out
+""""
+#global_signal, compcor, wmcsf, firstprinc
+regressors = [True, False, True, False]
 
 """
 	Mandatory
@@ -106,7 +123,7 @@ alff_warp_template = '%s/*/*/%s'
 	rest_mask2standard.nii.gz, example_func.nii.gz scans located
 	relative to your Subjects Directory
 """
-rsfc_template = '%s/*/*/%s.nii.gz'
+ifc_template = '%s/*/%s.nii.gz'
 
 """
 	SET ONLY when analysis is not set to 'all' and u need to run 
@@ -119,10 +136,10 @@ rsfc_template = '%s/*/*/%s.nii.gz'
 	scans located
 	relative to your Subjects Directory
 """
-rsfc_warp_template = '%s/*/*/*/%s'
+ifc_warp_template = '%s/*/*/%s'
 
 
-# all, basic, scrubbing, nuisance, alff, rsfc, vmhc, reho, group_analysis
+# all, basic, scrubbing, nuisance, alff, ifc, vmhc, reho, group_analysis
 analysis = [False, False, False, False, False, True, False, False, False ]
 run_on_grid = False
 qsub_args = '-q all.q'
