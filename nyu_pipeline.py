@@ -65,7 +65,7 @@ segpreproc.inputs.inputspec.PRIOR_WHITE = os.path.abspath('./tissuepriors/3mm/av
 segpreproc.inputs.inputspec.standard_res_brain=os.path.abspath('/usr/share/fsl/4.1/data/standard/MNI152_T1_3mm_brain.nii.gz')
 
 nuisancepreproc = create_nuisance_preproc()
-nuisancepreproc.inputs.inputspec.selector = [True, True, True, True]
+nuisancepreproc.inputs.inputspec.selector = [True, True, True, True, True]
 nuisancepreproc.inputs.inputspec.num_components = 5
 nuisancepreproc.inputs.inputspec.target_angle_deg = 85
 
@@ -94,6 +94,7 @@ workflow.connect(segpreproc, 'outputspec.probability_maps', datasink, 'masks.pro
 workflow.connect(segpreproc, 'outputspec.wm_mask', nuisancepreproc, 'inputspec.wm_mask')
 workflow.connect(segpreproc, 'outputspec.csf_mask', nuisancepreproc, 'inputspec.csf_mask')
 workflow.connect(funcpreproc, 'outputspec.preprocessed', nuisancepreproc, 'inputspec.realigned_file')
+workflow.connect(funcpreproc, 'outputspec.movement_parameters', nuisancepreproc, 'inputspec.motion_components')
 workflow.connect(nuisancepreproc, 'outputspec.residual_file', datasink, 'nuisance_corrected')
 
 #workflow.connect(st, 'slice_time_corrected_file', datasink, 'slicecorrected')

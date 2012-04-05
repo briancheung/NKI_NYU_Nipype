@@ -92,6 +92,7 @@ def extract_firstprinc_component(realigned_file):
 #Nuisance selection structure based on https://github.com/satra/BrainImagingPipelines/tree/master/fmri
 def create_filter_matrix(global_component, compcor_components, 
                          wmcsf_components, firstprinc_component,
+                         motion_components,
                          selector):
     import numpy as np
     import os
@@ -103,8 +104,8 @@ def create_filter_matrix(global_component, compcor_components,
         except:
             return np.array([])
     
-    options = np.array([global_component, compcor_components, wmcsf_components, firstprinc_component])
-    fieldnames = ['global', 'compcor', 'wmcsf', 'firstprinc']
+    options = np.array([global_component, compcor_components, wmcsf_components, firstprinc_component, motion_components])
+    fieldnames = ['global', 'compcor', 'wmcsf', 'firstprinc', 'motion']
 
     selector = np.array(selector) #Use selector as an index mask
     #Grab component filenames of according to selector
@@ -221,6 +222,7 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                                        'realigned_file',
                                                        'wm_mask',
                                                        'csf_mask',
+                                                       'motion_components',
                                                        'selector']),
                         name='inputspec')
     outputspec = pe.Node(util.IdentityInterface(fields=['residual_file',
@@ -273,6 +275,7 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                                         'compcor_components', 
                                                         'wmcsf_components',
                                                         'firstprinc_component',
+                                                        'motion_components',
                                                         'selector'],
                                            output_names=['filter_file'],
                                            function=create_filter_matrix),
@@ -280,7 +283,8 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                            iterfield=['global_component', 
                                                       'compcor_components',
                                                       'wmcsf_components',
-                                                      'firstprinc_component'])
+                                                      'firstprinc_component',
+                                                      'motion_components'])
 
     remove_noise = pe.MapNode(fsl.FilterRegressor(filter_all=True),
                               name='regress_nuisance',
@@ -317,6 +321,8 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                              addoutliers, 'wmcsf_components')
     nuisance_preproc.connect(fp1_sig, 'firstprinc_component',
                              addoutliers, 'firstprinc_component')
+    nuisance_preproc.connect(inputspec, 'motion_components',
+                             addoutliers, 'motion_components')
     nuisance_preproc.connect(inputspec, 'selector',
                              addoutliers, 'selector')
     nuisance_preproc.connect(addoutliers, 'filter_file',
