@@ -3,6 +3,30 @@ import e_afni
 import nipype.pipeline.engine as pe
 import nipype.interfaces.utility as util
 
+def pToFile(time_series):
+
+    import os
+    import re
+    import commands
+    import sys
+
+    dir  = os.path.dirname(time_series)
+
+    dir1 = re.sub(r'(.)+_subject_id_(.)+/_mask', '', dir)
+
+    dir1 = dir1.split('..')
+    dir1 = dir1[len(dir1) -1]
+    dir1 = dir1.split('.nii.gz')
+    dir1 = dir1[0]
+
+    ts_oneD = os.path.join(os.getcwd(), dir1 + '.1D')
+    cmd = "cp %s %s" % (time_series, ts_oneD)
+    print cmd
+
+    sys.stderr.write('\n'+ commands.getoutput(cmd))
+    return os.path.abspath(ts_oneD)
+
+
 def mean_roi_signal(data_volume, roi_mask):
     import numpy as np
     Y = data_volume[roi_mask].T
