@@ -3,29 +3,11 @@ import e_afni
 import nipype.pipeline.engine as pe
 import nipype.interfaces.utility as util
 
-def pToFile(time_series):
-
-    import os
-    import re
-    import commands
-    import sys
-
-    dir  = os.path.dirname(time_series)
-
-    dir1 = re.sub(r'(.)+_subject_id_(.)+/_mask', '', dir)
-
-    dir1 = dir1.split('..')
-    dir1 = dir1[len(dir1) -1]
-    dir1 = dir1.split('.nii.gz')
-    dir1 = dir1[0]
-
-    ts_oneD = os.path.join(os.getcwd(), dir1 + '.1D')
-    cmd = "cp %s %s" % (time_series, ts_oneD)
-    print cmd
-
-    sys.stderr.write('\n'+ commands.getoutput(cmd))
-    return os.path.abspath(ts_oneD)
-
+def mean_roi_signal(data_volume, roi_mask):
+    import numpy as np
+    Y = data_volume[roi_mask].T
+    Yc = Y - np.tile(Y.mean(0), (Y.shape[0], 1))
+    return Yc.mean(1)
 
 def get_standard_background_img(in_file):
     import os
@@ -62,7 +44,6 @@ def getTuple(infile_a, infile_b):
     print "infile_b -> ", infile_b[1]
 
     return (infile_a, infile_b[1])
-
 
 def getOpString(mean, std_dev):
 
@@ -126,7 +107,7 @@ def getImgTR(in_files):
 
     out = []
     from nibabel import load
-    if(isinstance(in_files, list)):
+    if(isinstance(in_files,list)):
         for in_file in in_files:
             img = load(in_file)
             hdr = img.get_header()
@@ -532,7 +513,7 @@ def create_alff_dataflow(name, sublist, analysisdirectory, rest_name, at, atw):
 
     return datasource, datasource_warp
 
-def create_ifc_dataflow(name, sublist, analysisdirectory, rest_name, rt, rtw):
+def create_rsfc_dataflow(name, sublist, analysisdirectory, rt, rtw):
 
     import nipype.pipeline.engine as pe
     import nipype.interfaces.io as nio
