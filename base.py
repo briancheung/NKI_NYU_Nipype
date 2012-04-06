@@ -256,6 +256,7 @@ def create_seg_preproc():
                                                     'highres2example_func_mat',
                                                     'stand2highres_warp',
                                                     'PRIOR_CSF',
+                                                    'PRIOR_GRAY',
                                                     'PRIOR_WHITE']),
                         name='inputspec')
 
@@ -264,8 +265,11 @@ def create_seg_preproc():
                                                             'csf_combo',
                                                             'csf_bin',
                                                             'csf_mask',
-                                                            'grey_bin',
-                                                            'grey_mask',
+                                                            'gm_t12func',
+                                                            'gm_mni2func',
+                                                            'gm_combo',
+                                                            'gm_bin',
+                                                            'gm_mask',
                                                             'global_mask',
                                                             'wm_t12func',
                                                             'wm_mni2func',
@@ -317,7 +321,15 @@ def create_seg_preproc():
     seg_flirt3 = pe.MapNode(interface=fsl.FLIRT(), name='seg_flirt3', iterfield=['reference', 'in_matrix_file'])
     seg_flirt3.inputs.apply_xfm = True
 
+
     seg_mask1 = seg_mask.clone('seg_mask1')
+
+    seg_flirt4 = seg_flirt3.clone('seg_flirt4')
+    seg_thresh2 = seg_thresh.clone('seg_thresh2')
+    seg_thresh2.inputs.op_string = '-thr 0.2 -bin '
+    seg_warp2 = seg_warp1.clone('seg_warp2')
+    seg_prior2 = seg_prior1.clone('seg_prior2')
+    seg_mask2 = seg_mask.clone('seg_mask2')
 
     preproc.connect(inputNode, 'brain', seg_segment, 'in_files')
     preproc.connect(seg_segment, ('probability_maps', pick_wm_0), seg_flirt, 'in_file')
@@ -333,7 +345,7 @@ def create_seg_preproc():
     preproc.connect(seg_thresh, 'out_file', seg_mask, 'in_file')
     preproc.connect(inputNode, 'preprocessed_mask', seg_copy, 'in_file')
     preproc.connect(seg_copy, 'out_file', seg_mask, 'operand_files')
-    preproc.connect(seg_segment, ('probability_maps', pick_wm_1), seg_flirt3, 'in_file')
+    preproc.connect(seg_segment, ('probability_maps', pick_wm_2), seg_flirt3, 'in_file')
     preproc.connect(inputNode, 'example_func', seg_flirt3, 'reference')
     preproc.connect(inputNode, 'highres2example_func_mat', seg_flirt3, 'in_matrix_file')
     preproc.connect(inputNode, 'example_func', seg_warp1, 'ref_file')
@@ -346,18 +358,19 @@ def create_seg_preproc():
     preproc.connect(seg_thresh1, 'out_file', seg_mask1, 'in_file')
     preproc.connect(seg_copy, 'out_file', seg_mask1, 'operand_files')
 
-#    preproc.connect(seg_segment, ('probability_maps', pick_wm_2), seg_flirt4, 'in_file')
-#    preproc.connect(inputNode, 'example_func', seg_flirt4, 'reference')
-#    preproc.connect(inputNode, 'highres2example_func_mat', seg_flirt4, 'in_matrix_file')
-#    preproc.connect(inputNode, 'example_func', seg_warp2, 'ref_file')
-#    preproc.connect(inputNode, 'stand2highres_warp', seg_warp2, 'field_file')
-#    preproc.connect(inputNode, 'PRIOR_WHITE', seg_warp2, 'in_file')
-#    preproc.connect(inputNode, 'highres2example_func_mat', seg_warp2, 'postmat')
-#    preproc.connect(seg_flirt3, 'out_file', seg_prior2, 'in_file')
-#    preproc.connect(seg_warp1, 'out_file', seg_prior2, 'operand_files')
-#    preproc.connect(seg_prior1, 'out_file', seg_thresh2, 'in_file')
-#    preproc.connect(seg_thresh1, 'out_file', seg_mask2, 'in_file')
-#    preproc.connect(seg_copy, 'out_file', seg_mask2, 'operand_files')
+    ##gray matter mask
+    preproc.connect(seg_segment, ('probability_maps', pick_wm_1), seg_flirt4, 'in_file')
+    preproc.connect(inputNode, 'example_func', seg_flirt4, 'reference')
+    preproc.connect(inputNode, 'highres2example_func_mat', seg_flirt4, 'in_matrix_file')
+    preproc.connect(inputNode, 'example_func', seg_warp2, 'ref_file')
+    preproc.connect(inputNode, 'stand2highres_warp', seg_warp2, 'field_file')
+    preproc.connect(inputNode, 'PRIOR_GRAY', seg_warp2, 'in_file')
+    preproc.connect(inputNode, 'highres2example_func_mat', seg_warp2, 'postmat')
+    preproc.connect(seg_flirt3, 'out_file', seg_prior2, 'in_file')
+    preproc.connect(seg_warp1, 'out_file', seg_prior2, 'operand_files')
+    preproc.connect(seg_prior1, 'out_file', seg_thresh2, 'in_file')
+    preproc.connect(seg_thresh1, 'out_file', seg_mask2, 'in_file')
+    preproc.connect(seg_copy, 'out_file', seg_mask2, 'operand_files')
 
     preproc.connect(seg_segment, 'probability_maps', outputNode, 'probability_maps')
     preproc.connect(seg_segment, 'mixeltype', outputNode, 'mixeltype')
@@ -374,6 +387,11 @@ def create_seg_preproc():
     preproc.connect(seg_prior1, 'out_file', outputNode, 'wm_combo')
     preproc.connect(seg_thresh1, 'out_file', outputNode, 'wm_bin')
     preproc.connect(seg_mask1, 'out_file', outputNode, 'wm_mask')
+    preproc.connect(seg_flirt4, 'out_file', outputNode, 'gm_t12func')
+    preproc.connect(seg_warp2, 'out_file', outputNode, 'gm_mni2func')
+    preproc.connect(seg_prior2, 'out_file', outputNode, 'gm_combo')
+    preproc.connect(seg_thresh2, 'out_file', outputNode, 'gm_bin')
+    preproc.connect(seg_mask2, 'out_file', outputNode, 'gm_mask')
 
     return preproc
 

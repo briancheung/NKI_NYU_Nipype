@@ -65,6 +65,7 @@ def get_workflow(wf_name, c):
     print 'inside get_wf ', '-->'+wf_name+'<--'
     prior_path = os.path.join(c.prior_dir, c.standard_res)
     PRIOR_CSF = os.path.join(prior_path, 'avg152T1_csf_bin.nii.gz')
+    PRIOR_GRAY = os.path.join(prior_path, 'avg152T1_gray_bin.nii.gz')
     PRIOR_WHITE = os.path.join(prior_path, 'avg152T1_white_bin.nii.gz')
     standard_res_brain = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s_brain.nii.gz' % (c.standard_res))
     standard = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s.nii.gz' % (c.standard_res))
@@ -91,8 +92,9 @@ def get_workflow(wf_name, c):
     if wf_name.lower() == 'seg':
 
         preproc = create_seg_preproc()
-        preproc.inputs.inputspec.prior_csf  = prior_csf
-        preproc.inputs.inputspec.prior_white  = prior_white
+        preproc.inputs.inputspec.PRIOR_CSF  = PRIOR_CSF
+        preproc.inputs.inputspec.PRIOR_WHITE  = PRIOR_WHITE
+        preproc.inputs.inputspec.PRIOR_GRAY  = PRIOR_GRAY
         preproc.inputs.inputspec.standard_res_brain = standard_res_brain
 
         return preproc
