@@ -5,10 +5,11 @@ import os
 import nipype.pipeline.engine as pe
 from base import (create_anat_preproc, create_func_preproc,
                     create_reg_preproc, create_seg_preproc,
-                    create_alff_preproc, create_rsfc_preproc)
+                    create_alff_preproc, create_ifc_preproc,
+                    create_vmhc_preproc)
 
 from utils import (create_anat_dataflow, create_func_dataflow,
-                    create_alff_dataflow, create_rsfc_dataflow)
+                    create_alff_dataflow, create_ifc_dataflow)
 
 
 def getSubjectAndSeedLists(c):
@@ -44,10 +45,15 @@ def get_seed_list(seed_file):
 
     f = open(seed_file, 'r')
 
+    seed_list = []
     seeds = f.readlines()
-
     for seed in seeds:
-        
+        seed = seed.rstrip('\r\n')
+        seed_list.append(seed)
+
+    return seed_list
+
+
 
 def get_workflow(wf_name, c):
 
@@ -55,7 +61,7 @@ def get_workflow(wf_name, c):
     """ 
         setup standard file paths
     """
-
+    print 'inside get_wf ', '-->'+wf_name+'<--'
     prior_path = os.path.join(c.prior_dir, c.standard_res)
     PRIOR_CSF = os.path.join(prior_path, 'avg152T1_csf_bin.nii.gz')
     PRIOR_WHITE = os.path.join(prior_path, 'avg152T1_white_bin.nii.gz')
@@ -64,12 +70,12 @@ def get_workflow(wf_name, c):
     standard_brain_mask_dil = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s_brain_mask_dil.nii.gz' % (c.standard_res))
     config_file = os.path.join(c.FSLDIR, 'etc/flirtsch/T1_2_MNI152_%s.cnf' % (c.standard_res))
 
-    if wf_name.lower == 'anat':
+    if wf_name.lower() == 'anat':
         preproc = create_anat_preproc()
         return preproc
 
 
-    if wf_name.lower == 'func':
+    if wf_name.lower() == 'func':
 
         preproc = create_func_preproc()
         preproc.inputs.inputspec.start_idx = c.start_idx
@@ -77,7 +83,7 @@ def get_workflow(wf_name, c):
 
         return preproc
 
-    if wf_name.lower == 'seg':
+    if wf_name.lower() == 'seg':
 
         preproc = create_seg_preproc()
         preproc.inputs.inputspec.prior_csf  = prior_csf
@@ -86,7 +92,7 @@ def get_workflow(wf_name, c):
 
         return preproc
 
-    if wf_name.lower == 'reg':
+    if wf_name.lower() == 'reg':
 
         preproc = create_reg_preproc()
         preproc.inputs.inputspec.standard_res_brain = standard_res_brain
@@ -96,7 +102,7 @@ def get_workflow(wf_name, c):
 
         return preproc
 
-    if wf_name.lower == 'alff':
+    if wf_name.lower() == 'alff':
 
         preproc = create_alff_preproc()
         preproc.inputs.inputspec.standard = standard
@@ -108,12 +114,18 @@ def get_workflow(wf_name, c):
 
         return preproc
 
-    if wf_name.lower == 'rsfc':
+    if wf_name.lower() == 'ifc':
 
-        preproc = create_rsfc_preproc()
+        print 'inside ifc returning ifcpreproc'
+        preproc = create_ifc_preproc()
         seeds = get_seed_list(c.seed_file)
 
-
+        print seeds
+        preproc.inputs.seed_list_input.seed_list = seeds
+        preproc.get_node('seed_list_input').iterables = ('seed_list', seeds)
+        preproc.inputs.fwhm_input.fwhm = c.fwhm
+        preproc.get_node('fwhm_input').iterables = ('fwhm', c.fwhm)
+        preproc.inputs.inputspec.standard = standard
         return preproc
 
 
@@ -170,7 +182,12 @@ def prep_workflow(c):
 
         alffpreproc = get_workflow('alff', c)
 
-        flowAlff, flowAlffWarp = create_alff_dataflow('alff_flow', sublist, c.subj_dir, c.rest_name, c.alff_template, c.alff_warp_template)
+        flowAlff, flowAlffWarp = create_alff_dataflow('alff_flow',
+                                                      sublist,
+                                                      c.subj_dir,
+                                                      c.rest_name,
+                                                      c.alff_template,
+                                                      c.alff_warp_template)
 
         workflow.connect(flowAlff, 'rest_res', alffpreproc, 'inputspec.rest_res')
         workflow.connect(flowAlff, 'rest_mask', alffpreproc, 'inputspec.rest_mask')
@@ -179,14 +196,27 @@ def prep_workflow(c):
         workflow.connect(flowAlffWarp, 'fieldcoeff_file', alffpreproc, 'inputspec.fieldcoeff_file')
 
     """
-        RSFC Analysis
+        iFC Analysis
     """
     if((not c.analysis[0] and not c.analysis[1]) and c.analysis[5]):
 
-        rsfcpreproc = get_workflow('rsfc', c)
+        ifcpreproc = get_workflow('ifc', c)
 
-        flowRsfc, flowRsfcWarp = create_rsfc_dataflow('rsfc_flow', sublist, c.subj_dir, c.rest_name, c.rsfc_template, c.rsfc_warp_template)
+        flowIfc, flowIfcWarp = create_ifc_dataflow('ifc_flow',
+                                                      sublist,
+                                                      c.subj_dir,
+                                                      c.rest_name,
+                                                      c.ifc_template,
+                                                      c.ifc_warp_template)
 
+        workflow.connect(flowIfc, 'ref', ifcpreproc, 'inputspec.ref')
+        workflow.connect(flowIfcWarp, 'warp', ifcpreproc, 'inputspec.warp')
+        workflow.connect(flowIfcWarp, 'postmat', ifcpreproc, 'inputspec.postmat')
+        workflow.connect(flowIfcWarp, 'premat', ifcpreproc, 'inputspec.premat')
+        workflow.connect(flowIfc, 'rest_res_filt', ifcpreproc, 'inputspec.rest_res_filt')
+        workflow.connect(flowIfcWarp, 'fieldcoeff_file', ifcpreproc, 'inputspec.fieldcoeff_file')
+#        workflow.connect(flowIfc, 'rest_res2standard', ifcpreproc, 'inputspec.rest_res2standard')
+        workflow.connect(flowIfc, 'rest_mask2standard', ifcpreproc, 'inputspec.rest_mask2standard')
 
     if(not c.run_on_grid):
         workflow.run(plugin='MultiProc', plugin_args={'n_procs': c.num_cores})

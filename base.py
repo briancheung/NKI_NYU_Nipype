@@ -582,6 +582,7 @@ def create_ifc_preproc():
     inputNode = pe.Node(util.IdentityInterface(fields=['ref',
                                                     'warp',
                                                     'postmat',
+                                                    'premat',
                                                     'rest_res_filt',
                                                     'fieldcoeff_file',
                                                     'rest_mask2standard',
@@ -594,7 +595,7 @@ def create_ifc_preproc():
     inputnode_seed_list = pe.Node(util.IdentityInterface(fields=['seed_list']),
                              name='seed_list_input')
 
-    outputNode = pe.Node(util.IdentityInterface(fields=['seed_mni2func'
+    outputNode = pe.Node(util.IdentityInterface(fields=['seed_mni2func',
                                                             'correlations',
                                                             'Z_trans_correlations',
                                                             'Z_2standard',
@@ -608,7 +609,7 @@ def create_ifc_preproc():
     ## 0. Register Seed template in to native space
     warp = pe.MapNode(interface=fsl.ApplyWarp(), name='warp', iterfield=['ref_file', 'postmat'])
     warp.inputs.interp = 'nn'
-    warp.iterables = ('in_file', inputnode_seed_list.inputs.seed_list)
+#    warp.iterables = ('in_file', inputnode_seed_list.inputs.seed_list)
 
     ## 1. Extract Timeseries
     time_series = pe.MapNode(interface=afni.ROIStats(), name='time_series', iterfield=['in_file', 'mask'])
@@ -627,11 +628,12 @@ def create_ifc_preproc():
     ## 4. Register Z-transformed correlations to standard space
     register = pe.MapNode(interface=fsl.ApplyWarp(), name='register', iterfield=['premat', 'in_file'])
 
-    smooth = pe.MapNode(interface=MultiImageMaths(), name='smooth', iterfield=['in_file', 'operand_files'])
+    smooth = pe.MapNode(interface=fsl.MultiImageMaths(), name='smooth', iterfield=['in_file', 'operand_files'])
 
     rsfc.connect(inputNode, 'ref', warp, 'ref_file')
     rsfc.connect(inputNode, 'warp', warp, 'field_file')
     rsfc.connect(inputNode, 'postmat', warp, 'postmat')
+    rsfc.connect(inputnode_seed_list, 'seed_list', warp, 'in_file')
 
     rsfc.connect(inputNode, 'rest_res_filt', time_series, 'in_file')
     rsfc.connect(warp, 'out_file', time_series, 'mask')
