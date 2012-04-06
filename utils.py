@@ -537,7 +537,7 @@ def create_alff_dataflow(name, sublist, analysisdirectory, rest_name, at, atw):
 
     return datasource, datasource_warp
 
-def create_rsfc_dataflow(name, sublist, analysisdirectory, rt, rtw):
+def create_ifc_dataflow(name, sublist, analysisdirectory, rt, rtw):
 
     import nipype.pipeline.engine as pe
     import nipype.interfaces.io as nio
@@ -574,3 +574,40 @@ def create_rsfc_dataflow(name, sublist, analysisdirectory, rt, rtw):
     datasource_warp.iterables = ('subject_id', sublist)
 
     return datasource, datasource_warp
+
+
+
+def create_vmhc_dataflow(name, sublist, analysisdirectory, anat_name, rest_name, vt, vta, vtw):
+
+    import nipype.pipeline.engine as pe
+    import nipype.interfaces.io as nio
+
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
+                                                   outfields=['rest_res']),
+                         name=name+'_res')
+    datasource.inputs.base_directory = analysisdirectory
+    #datasource.inputs.template = '%s/*/%s.nii.gz'
+    datasource.inputs.template = vt
+    datasource.inputs.template_args = dict(rest_res=[['subject_id', rest_name + '_res']])
+    datasource.iterables = ('subject_id', sublist)
+
+
+    da = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
+                                           outfields=['reorient', 'brain']),
+                 name=name+'_RPI')
+    da.inputs.base_directory = analysisdirectory
+    da.inputs.template = vta
+    da.inputs.template_args = dict(reorient=[['subject_id', anat_name + '_RPI']], brain=[['subject_id', anat_name + '_brain']])
+    da.iterables = ('subject_id', sublist)
+
+
+    datasource_warp = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
+                                                        outfields=['example_func2highres_mat']),
+                              name=name+'_example_func')
+    datasource_warp.inputs.base_directory = analysisdirectory
+    #datasource_warp.inputs.template = '%s/*/%s.nii.gz'
+    datasource_warp.inputs.template = vtw
+    datasource_warp.inputs.template_args = dict(example_func2highres_mat=[['subject_id', 'example_func2highres.mat' ]])
+    datasource_warp.iterables = ('subject_id', sublist)
+
+    return datasource, da, datasource_warp

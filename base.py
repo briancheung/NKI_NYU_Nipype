@@ -486,7 +486,6 @@ def create_vmhc_preproc():
                                                     'brain_symmetric',
                                                     'rest_res',
                                                     'reorient',
-                                                    'highres2standard_mat',
                                                     'example_func2highres_mat',
                                                     'symm_standard',
                                                     'twomm_brain_mask_dil',
@@ -494,7 +493,7 @@ def create_vmhc_preproc():
                                                     'standard']),
                         name='inputspec')
 
-    outputNode = pe.Node(util.IdentityInterface(fields=['highres2symmstandard'
+    outputNode = pe.Node(util.IdentityInterface(fields=['highres2symmstandard',
                                                             'highres2symmstandard_mat',
                                                             'highres2symmstandard_warp',
                                                             'fnirt_highres2symmstandard',
@@ -526,14 +525,14 @@ def create_vmhc_preproc():
     swap.inputs.new_dims = ('-x', 'y', 'z')
 
     ## caculate vmhc
-    corr = pe.MapNode(interface=e_afni.ThreedTcorrelate(), name='corr', iterfield=['xset'])
+    corr = pe.MapNode(interface=afni.TCorrelate(), name='corr', iterfield=['xset', 'yset'])
     corr.inputs.pearson = True
     corr.inputs.polort = -1
 
-    z_trans = pe.MapNode(interface=e_afni.Threedcalc(), name='z_trans', iterfield=['infile_a'])
+    z_trans = pe.MapNode(interface=afni.Calc(), name='z_trans', iterfield=['infile_a'])
     z_trans.inputs.expr = '\'log((1+a)/(1-a))/2\''
 
-    z_stat = pe.MapNode(interface=e_afni.Threedcalc(), name='z_stat', iterfield=['infile_a', 'expr'])
+    z_stat = pe.MapNode(interface=afni.Calc(), name='z_stat', iterfield=['infile_a', 'expr'])
 
     NVOLS = pe.Node(util.Function(input_names=['in_files'],
                                 output_names=['nvols'], function=getImgNVols), name='NVOLS')
@@ -546,7 +545,7 @@ def create_vmhc_preproc():
     vmhc.connect(inputNode, 'brain', flirt, 'in_file')
     vmhc.connect(inputNode, 'brain_symmetric', flirt, 'reference')
     vmhc.connect(inputNode, 'reorient', fnt, 'in_file')
-    vmhc.connect(inputNode, 'highres2standard_mat', fnt, 'affine_file')
+    vmhc.connect(flirt, 'out_matrix_file', fnt, 'affine_file')
     vmhc.connect(inputNode, 'symm_standard', fnt, 'ref_file')
     vmhc.connect(inputNode, 'twomm_brain_mask_dil', fnt, 'refmask_file' )
     vmhc.connect(inputNode, 'config_file_twomm', fnt, 'config_file')

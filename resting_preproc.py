@@ -9,7 +9,8 @@ from base import (create_anat_preproc, create_func_preproc,
                     create_vmhc_preproc)
 
 from utils import (create_anat_dataflow, create_func_dataflow,
-                    create_alff_dataflow, create_ifc_dataflow)
+                    create_alff_dataflow, create_ifc_dataflow,
+                    create_vmhc_dataflow)
 
 
 def getSubjectAndSeedLists(c):
@@ -69,6 +70,10 @@ def get_workflow(wf_name, c):
     standard = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s.nii.gz' % (c.standard_res))
     standard_brain_mask_dil = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s_brain_mask_dil.nii.gz' % (c.standard_res))
     config_file = os.path.join(c.FSLDIR, 'etc/flirtsch/T1_2_MNI152_%s.cnf' % (c.standard_res))
+    brain_symmetric = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_2mm_brain_symmetric.nii.gz')
+    symm_standard = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_2mm_symmetric.nii.gz')
+    twomm_brain_mask_dil = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_2mm_brain_mask_symmetric_dil.nii.gz')
+    config_file_twomm = os.path.join(c.FSLDIR, 'etc/flirtsch/T1_2_MNI152_2mm.cnf')
 
     if wf_name.lower() == 'anat':
         preproc = create_anat_preproc()
@@ -116,7 +121,6 @@ def get_workflow(wf_name, c):
 
     if wf_name.lower() == 'ifc':
 
-        print 'inside ifc returning ifcpreproc'
         preproc = create_ifc_preproc()
         seeds = get_seed_list(c.seed_file)
 
@@ -127,6 +131,17 @@ def get_workflow(wf_name, c):
         preproc.get_node('fwhm_input').iterables = ('fwhm', c.fwhm)
         preproc.inputs.inputspec.standard = standard
         return preproc
+
+    if wf_name.lower() == 'vmhc':
+
+        preproc = create_vmhc_preproc()
+        preproc.inputs.inputspec.brain_symmetric = brain_symmetric
+        preproc.inputs.inputspec.symm_standard = symm_standard
+        preproc.inputs.inputspec.twomm_brain_mask_dil = twomm_brain_mask_dil
+        preproc.inputs.inputspec.config_file_twomm = config_file_twomm
+        preproc.inputs.inputspec.standard = standard
+        return preproc
+
 
 
 
@@ -217,6 +232,28 @@ def prep_workflow(c):
         workflow.connect(flowIfcWarp, 'fieldcoeff_file', ifcpreproc, 'inputspec.fieldcoeff_file')
 #        workflow.connect(flowIfc, 'rest_res2standard', ifcpreproc, 'inputspec.rest_res2standard')
         workflow.connect(flowIfc, 'rest_mask2standard', ifcpreproc, 'inputspec.rest_mask2standard')
+
+
+    """
+        VMHC Analysis
+    """
+    if((not c.analysis[0] and not c.analysis[1]) and c.analysis[6]):
+
+        vmhcpreproc = get_workflow('vmhc', c)
+
+        flowVmhc_rest_res, flowVmhc_reorient, flowVmhc_example_func2highres_mat = create_vmhc_dataflow('vmhc_flow',
+                                                      sublist,
+                                                      c.subj_dir,
+                                                      c.anat_name,
+                                                      c.rest_name,
+                                                      c.vmhc_rest_res_template,
+                                                      c.vmhc_anat_reorient_template,
+                                                      c.vmhc_example_func2highres_mat_template)
+
+        workflow.connect(flowVmhc_rest_res, 'rest_res', vmhcpreproc, 'inputspec.rest_res')
+        workflow.connect(flowVmhc_reorient, 'reorient', vmhcpreproc, 'inputspec.reorient')
+        workflow.connect(flowVmhc_reorient, 'brain', vmhcpreproc, 'inputspec.brain')
+        workflow.connect(flowVmhc_example_func2highres_mat, 'example_func2highres_mat', vmhcpreproc, 'inputspec.example_func2highres_mat')
 
     if(not c.run_on_grid):
         workflow.run(plugin='MultiProc', plugin_args={'n_procs': c.num_cores})

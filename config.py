@@ -4,7 +4,7 @@
 """
     Set which FSL to use
 """
-FSLDIR = '/usr/share/fsl/'
+FSLDIR = '/usr/share/fsl/4.1/'
 
 """
     Point to directory where your subjects reside
@@ -138,9 +138,12 @@ ifc_template = '%s/*/%s.nii.gz'
 """
 ifc_warp_template = '%s/*/*/%s'
 
+vmhc_rest_res_template = '%s/*/%s.nii.gz'
+vmhc_anat_reorient_template = '%s/*/%s.nii.gz'
+vmhc_example_func2highres_mat_template = '%s/*/*/%s'
 
 # all, basic, scrubbing, nuisance, alff, ifc, vmhc, reho, group_analysis
-analysis = [False, False, False, False, False, True, False, False, False ]
+analysis = [False, False, False, False, False, False, True, False, False ]
 run_on_grid = False
 qsub_args = '-q all.q'
 num_cores = 8
