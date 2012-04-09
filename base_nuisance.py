@@ -46,27 +46,25 @@ def extract_global_component(realigned_file):
     print 'Saving components file:', components_file
     np.savetxt(components_file, glb_comp)
 
-    return components_file 
+    return components_file
 
-def extract_wmcsf_components(realigned_file, wm_mask, csf_mask):
+def extract_frommask_component(realigned_file, mask_file):
     import os
     import nibabel as nb
     import numpy as np
     from utils import mean_roi_signal
-
+    from nipype import logging
+    iflogger = logging.getLogger('interface')
+    
     data = nb.load(realigned_file).get_data().astype('float64')
-    wm_mask = nb.load(wm_mask).get_data().astype('float64')
-    csf_mask = nb.load(csf_mask).get_data().astype('float64')
-    print 'Data and masks loaded.'
-    wm_comp = mean_roi_signal(data, wm_mask.astype('bool'))
-    csf_comp = mean_roi_signal(data, csf_mask.astype('bool')) 
-
-    wmcsf_comp = np.vstack((wm_comp,csf_comp)).T
-
-    components_file = os.path.join(os.getcwd(), 'wmcsf_components.txt') 
-    print 'Saving components file:', components_file
-    np.savetxt(components_file, wmcsf_comp)
-
+    mask = nb.load(mask_file).get_data().astype('float64')
+    iflogger.info('Data and mask loaded.')
+    mask_comp = mean_roi_signal(data, mask.astype('bool'))
+    
+    components_file = os.path.join(os.getcwd(), 'mask_mean_component.txt')
+    iflogger.info('Saving components file:'+ components_file)
+    np.savetxt(components_file, mask_comp)
+    
     return components_file
 
 def extract_firstprinc_component(realigned_file):
@@ -90,8 +88,12 @@ def extract_firstprinc_component(realigned_file):
     return components_file 
  
 #Nuisance selection structure based on https://github.com/satra/BrainImagingPipelines/tree/master/fmri
-def create_filter_matrix(global_component, compcor_components, 
-                         wmcsf_components, firstprinc_component,
+def create_filter_matrix(global_component, 
+                         compcor_components, 
+                         wm_component,
+                         csf_component,
+                         gm_component,
+                         firstprinc_component,
                          motion_components,
                          selector):
     import numpy as np
@@ -104,8 +106,14 @@ def create_filter_matrix(global_component, compcor_components,
         except:
             return np.array([])
     
-    options = np.array([global_component, compcor_components, wmcsf_components, firstprinc_component, motion_components])
-    fieldnames = ['global', 'compcor', 'wmcsf', 'firstprinc', 'motion']
+    options = np.array([global_component, 
+                         compcor_components, 
+                         wm_component,
+                         csf_component,
+                         gm_component,
+                         firstprinc_component,
+                         motion_components])
+    fieldnames = ['global', 'compcor', 'wm', 'csf', 'gm', 'firstprinc', 'motion']
 
     selector = np.array(selector) #Use selector as an index mask
     #Grab component filenames of according to selector
@@ -168,6 +176,7 @@ def median_angle_correct(target_angle_deg, realigned_file):
     PC1 = U[:,0] if corr_gu[0] >= 0 else -U[:,0] 
     print 'Correlation of Global and U:',corr_gu
 
+
     median_angle = np.median(np.arccos(np.dot(PC1.T, Yn)))
     print 'Median Angle:', (180.0/np.pi)*median_angle, 'Target Angle:', target_angle_deg
     angle_shift = (np.pi/180)*target_angle_deg - median_angle
@@ -179,14 +188,18 @@ def median_angle_correct(target_angle_deg, realigned_file):
         Ynf = Yn
 
     corrected_file = os.path.join(os.getcwd(), 'median_angle_corrected.nii.gz')
+    angles_file = os.path.join(os.getcwd(), 'angles_U5_Yn.npy')
+    
+    print 'Writing U[:,0:5] angles to file...', angles_file
+    angles_U5_Yn = np.arccos(np.dot(U[:,0:5].T, Yn))  
+    np.save(angles_file, angles_U5_Yn)
+    
     print 'Writing correction to file...', corrected_file
     data = np.zeros_like(data)
     data[mask] = Ynf.T
     writeToFile(data, nii, corrected_file)
-    data[mask] = Yn.T
-    writeToFile(data, nii, os.path.join(os.getcwd(), 'uncorrected_normalized.nii.gz'))
 
-    return corrected_file
+    return corrected_file, angles_file
 
 def create_compcor_extraction(name='compcor_extract'):
     inputspec = pe.Node(util.IdentityInterface(fields=['num_components',
@@ -222,18 +235,21 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                                        'realigned_file',
                                                        'wm_mask',
                                                        'csf_mask',
+                                                       'gm_mask',
                                                        'motion_components',
                                                        'selector']),
                         name='inputspec')
     outputspec = pe.Node(util.IdentityInterface(fields=['residual_file',
-                                                        'median_angle_corrected_file']),
+                                                        'median_angle_corrected_file',
+                                                        'angles']),
                          name='outputspec')
 
     nuisance_preproc = pe.Workflow(name=name)
 
     median_angle = pe.MapNode(util.Function(input_names=['target_angle_deg',
                                                          'realigned_file'],
-                                            output_names=['corrected_file'],
+                                            output_names=['corrected_file',
+                                                          'angles'],
                                             function=median_angle_correct),
                                             name='median_angle',
                                             iterfield=['realigned_file'])
@@ -254,16 +270,16 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                        function=extract_global_component),
                                        name='glb_sig',
                                        iterfield=['realigned_file'])
-
-    wmcsf_sig = pe.MapNode(util.Function(input_names=['realigned_file',
-                                                      'wm_mask',
-                                                      'csf_mask'],
-                                         output_names=['wmcsf_components'],
-                                         function=extract_wmcsf_components),
-                                         name='wmcsf_sig',
-                                         iterfield=['realigned_file',
-                                                    'wm_mask',
-                                                    'csf_mask'])
+    
+    gm_sig = pe.MapNode(util.Function(input_names=['realigned_file',
+                                                   'mask_file'],
+                                      output_names=['mask_mean_component'],
+                                      function=extract_frommask_component),
+                                      name='gm_sig',
+                                      iterfield=['realigned_file',
+                                                 'mask_file'])
+    wm_sig = gm_sig.clone(name='wm_sig')
+    csf_sig = gm_sig.clone(name='csf_sig')
 
     fp1_sig = pe.MapNode(util.Function(input_names=['realigned_file'],
                                        output_names=['firstprinc_component'],
@@ -273,7 +289,9 @@ def create_nuisance_preproc(name='nuisance_preproc'):
 
     addoutliers = pe.MapNode(util.Function(input_names=['global_component', 
                                                         'compcor_components', 
-                                                        'wmcsf_components',
+                                                        'wm_component',
+                                                        'csf_component',
+                                                        'gm_component',
                                                         'firstprinc_component',
                                                         'motion_components',
                                                         'selector'],
@@ -281,8 +299,10 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                            function=create_filter_matrix),
                                            name='create_nuisance_filter',
                                            iterfield=['global_component', 
-                                                      'compcor_components',
-                                                      'wmcsf_components',
+                                                      'compcor_components', 
+                                                      'wm_component',
+                                                      'csf_component',
+                                                      'gm_component',
                                                       'firstprinc_component',
                                                       'motion_components'])
 
@@ -303,22 +323,31 @@ def create_nuisance_preproc(name='nuisance_preproc'):
     nuisance_preproc.connect(inputspec, 'csf_mask',
                              compcor, 'csf_mask')
     nuisance_preproc.connect(inputspec, 'realigned_file',
-                             glb_sig, 'realigned_file') 
+                             glb_sig, 'realigned_file')
     nuisance_preproc.connect(inputspec, 'realigned_file',
-                             wmcsf_sig, 'realigned_file')
+                             gm_sig, 'realigned_file')
+    nuisance_preproc.connect(inputspec, 'gm_mask',
+                             gm_sig, 'mask_file')
+    nuisance_preproc.connect(inputspec, 'realigned_file',
+                             wm_sig, 'realigned_file')
+    nuisance_preproc.connect(inputspec, 'realigned_file',
+                             csf_sig, 'realigned_file')
     nuisance_preproc.connect(inputspec, 'wm_mask',
-                             wmcsf_sig, 'wm_mask')
+                             wm_sig, 'mask_file')
     nuisance_preproc.connect(inputspec, 'csf_mask',
-                             wmcsf_sig, 'csf_mask')
+                             csf_sig, 'mask_file')
     nuisance_preproc.connect(inputspec, 'realigned_file',
                              fp1_sig, 'realigned_file')
-
     nuisance_preproc.connect(glb_sig, 'global_component',
                              addoutliers, 'global_component')
+    nuisance_preproc.connect(gm_sig, 'mask_mean_component',
+                             addoutliers, 'gm_component')
     nuisance_preproc.connect(compcor, 'noise_components',
                              addoutliers, 'compcor_components')
-    nuisance_preproc.connect(wmcsf_sig, 'wmcsf_components',
-                             addoutliers, 'wmcsf_components')
+    nuisance_preproc.connect(wm_sig, 'mask_mean_component',
+                             addoutliers, 'wm_component')
+    nuisance_preproc.connect(csf_sig, 'mask_mean_component',
+                             addoutliers, 'csf_component')
     nuisance_preproc.connect(fp1_sig, 'firstprinc_component',
                              addoutliers, 'firstprinc_component')
     nuisance_preproc.connect(inputspec, 'motion_components',
@@ -332,7 +361,8 @@ def create_nuisance_preproc(name='nuisance_preproc'):
 
     nuisance_preproc.connect(median_angle, 'corrected_file',
                              outputspec, 'median_angle_corrected_file')
-
+    nuisance_preproc.connect(median_angle, 'angles',
+                             outputspec, 'angles')
     nuisance_preproc.connect(remove_noise, 'out_file',
                              outputspec, 'residual_file')
 

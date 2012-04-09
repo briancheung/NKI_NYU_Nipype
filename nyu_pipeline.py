@@ -13,7 +13,7 @@ from nipype.interfaces import fsl
 
 subject_paths = glob.glob('/home/data/Originals/NYU_TRT/NYU_TRT_session1/sub*')
 subject_ids = [re.search('(sub\w+)',sp).group(1) for sp in subject_paths]
-session_ids = ['NYU_TRT_session1', 'NYU_TRT_session2']
+session_ids = ['NYU_TRT_session1', 'NYU_TRT_session2', 'NYU_TRT_session3']
 data_path = os.path.abspath('/home/data/Originals/NYU_TRT/')
 output_path = os.path.abspath('/home/data/Projects/nuisance_reliability_paper/')
 start_volume = 0
@@ -23,7 +23,7 @@ inputnode = pe.Node(interface=IdentityInterface(fields=['session_id', 'subject_i
                                                 mandatory_inputs=True),
                     name='inputnode')
 inputnode.iterables = [('session_id', session_ids),
-                       ('subject_id', subject_ids[0:5])]
+                       ('subject_id', subject_ids)]
 
 datasource = pe.Node(interface=nio.DataGrabber(infields=['session_id','subject_id'],
                                                outfields=['func', 'struct']),
@@ -65,9 +65,19 @@ segpreproc.inputs.inputspec.PRIOR_WHITE = os.path.abspath('./tissuepriors/3mm/av
 segpreproc.inputs.inputspec.standard_res_brain=os.path.abspath('/usr/share/fsl/4.1/data/standard/MNI152_T1_3mm_brain.nii.gz')
 
 nuisancepreproc = create_nuisance_preproc()
-nuisancepreproc.inputs.inputspec.selector = [True, True, True, True, True]
+nuisancepreproc.inputs.inputspec.selector = [False, False, False, False, False, False, True]
 nuisancepreproc.inputs.inputspec.num_components = 5
 nuisancepreproc.inputs.inputspec.target_angle_deg = 85
+
+npbm = create_nuisance_preproc(name='nuisance_preproc_bm')
+npbm.inputs.inputspec.selector = [True, True, True, True, True, True, True]
+npbm.inputs.inputspec.num_components = 5
+npbm.inputs.inputspec.target_angle_deg = 85
+
+nppm = create_nuisance_preproc(name='nuisance_preproc_postmotion')
+nppm.inputs.inputspec.selector = [True, True, True, True, True, True, True]
+nppm.inputs.inputspec.num_components = 5
+nppm.inputs.inputspec.target_angle_deg = 85
 
 workflow.connect(inputnode, 'session_id', datasource, 'session_id')
 workflow.connect(inputnode, 'subject_id', datasource, 'subject_id')
@@ -93,8 +103,21 @@ workflow.connect(segpreproc, 'outputspec.wm_mask', datasink, 'masks.wm')
 workflow.connect(segpreproc, 'outputspec.probability_maps', datasink, 'masks.probability')
 workflow.connect(segpreproc, 'outputspec.wm_mask', nuisancepreproc, 'inputspec.wm_mask')
 workflow.connect(segpreproc, 'outputspec.csf_mask', nuisancepreproc, 'inputspec.csf_mask')
+workflow.connect(segpreproc, 'outputspec.csf_mask', nuisancepreproc, 'inputspec.gm_mask')
 workflow.connect(funcpreproc, 'outputspec.preprocessed', nuisancepreproc, 'inputspec.realigned_file')
 workflow.connect(funcpreproc, 'outputspec.movement_parameters', nuisancepreproc, 'inputspec.motion_components')
+
+workflow.connect(segpreproc, 'outputspec.wm_mask', npbm, 'inputspec.wm_mask')
+workflow.connect(segpreproc, 'outputspec.csf_mask', npbm, 'inputspec.csf_mask')
+workflow.connect(segpreproc, 'outputspec.csf_mask', npbm, 'inputspec.gm_mask')
+workflow.connect(funcpreproc, 'outputspec.preprocessed', npbm, 'inputspec.realigned_file')
+workflow.connect(funcpreproc, 'outputspec.movement_parameters', npbm, 'inputspec.motion_components')
+
+workflow.connect(segpreproc, 'outputspec.wm_mask', nppm, 'inputspec.wm_mask')
+workflow.connect(segpreproc, 'outputspec.csf_mask', nppm, 'inputspec.csf_mask')
+workflow.connect(segpreproc, 'outputspec.csf_mask', nppm, 'inputspec.gm_mask')
+workflow.connect(nuisancepreproc, 'outputspec.residual_file', nppm, 'inputspec.realigned_file')
+workflow.connect(funcpreproc, 'outputspec.movement_parameters', nppm, 'inputspec.motion_components')
 workflow.connect(nuisancepreproc, 'outputspec.residual_file', datasink, 'nuisance_corrected')
 
 #workflow.connect(st, 'slice_time_corrected_file', datasink, 'slicecorrected')
