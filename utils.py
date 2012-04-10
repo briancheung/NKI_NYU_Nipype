@@ -1,4 +1,3 @@
-#!/Library/Frameworks/EPD64.framework/Versions/Current/bin/python
 # Utility Functions ---------------------------------------------------------
 import e_afni
 import nipype.pipeline.engine as pe
