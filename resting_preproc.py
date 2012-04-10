@@ -1,16 +1,20 @@
+#!/Library/Frameworks/EPD64.framework/Versions/Current/bin/python
 import argparse
 import e_afni
 import sys
 import os
 import nipype.pipeline.engine as pe
+import nipype.interfaces.utility as util
 from base import (create_anat_preproc, create_func_preproc,
                     create_reg_preproc, create_seg_preproc,
                     create_alff_preproc, create_ifc_preproc,
-                    create_vmhc_preproc)
+                    create_vmhc_preproc, create_mnioutputs,
+                    create_timeseries_preproc)
 
 from utils import (create_anat_dataflow, create_func_dataflow,
                     create_alff_dataflow, create_ifc_dataflow,
-                    create_vmhc_dataflow)
+                    create_vmhc_dataflow, create_parc_dataflow, 
+                    create_mask_dataflow)
 
 
 def getSubjectAndSeedLists(c):
@@ -41,6 +45,36 @@ def getSubjectAndSeedLists(c):
 
     return subj_list, seed_list
 
+def getModelandSeedList(c):
+
+    modelist=[]
+    seedlist=[]
+
+    try:
+        fp = open(c.model_file,'r')
+        models = fp.readlines()
+        fp.close()
+
+        for model in models:
+            model = model.rstrip('\r\n')
+            modelist.append(os.path.basename(model))
+        
+        print 'checking for models ', modelist
+                
+        f= open(c.seed_file, 'r')
+        seeds=f.readlines()
+        f.close()
+        
+        for seed in seeds:
+            seed = os.path.basename(seed.rstrip('\r\n'))
+            seed=os.path.splitext(os.path.splitext(seed)[0])[0]
+            seedlist.append(seed)
+            
+        print 'checking for seeds ',seedlist
+    except:
+        raise
+    
+    return  modelist, seedlist
 
 def get_seed_list(seed_file):
 
@@ -65,7 +99,7 @@ def get_workflow(wf_name, c):
     print 'inside get_wf ', '-->'+wf_name+'<--'
     prior_path = os.path.join(c.prior_dir, c.standard_res)
     PRIOR_CSF = os.path.join(prior_path, 'avg152T1_csf_bin.nii.gz')
-    PRIOR_GRAY = os.path.join(prior_path, 'avg152T1_gray_bin.nii.gz')
+    PRIOR_GRAY = os.path.join(prior_path, 'avg152T1_csf_bin.nii.gz')
     PRIOR_WHITE = os.path.join(prior_path, 'avg152T1_white_bin.nii.gz')
     standard_res_brain = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s_brain.nii.gz' % (c.standard_res))
     standard = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s.nii.gz' % (c.standard_res))
@@ -75,6 +109,7 @@ def get_workflow(wf_name, c):
     symm_standard = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_2mm_symmetric.nii.gz')
     twomm_brain_mask_dil = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_2mm_brain_mask_symmetric_dil.nii.gz')
     config_file_twomm = os.path.join(c.FSLDIR, 'etc/flirtsch/T1_2_MNI152_2mm.cnf')
+    identity_matrix=os.path.join(c.FSLDIR,'etc/flirtsch/ident.mat')
 
     if wf_name.lower() == 'anat':
         preproc = create_anat_preproc()
@@ -144,8 +179,22 @@ def get_workflow(wf_name, c):
         preproc.inputs.inputspec.standard = standard
         return preproc
 
-
-
+    if wf_name.lower() =='mni':
+        
+        preproc= create_mnioutputs()
+        preproc.inputs.inputspec.reference_file = standard
+        return preproc
+    
+    if wf_name.lower() == 'ts' :
+        
+        preproc=create_timeseries_preproc(c.derivatives[4], c.derivatives[5], c.derivatives[6])
+        preproc.inputs.inputspec.recon_subjects=c.reconSubjectsDirectory
+        preproc.inputs.inputspec.standard = standard
+        preproc.inputs.inputspec.identity_matrix=identity_matrix
+        preproc.inputs.inputspec.unitTSOutputs=c.unitTSOutputs
+        preproc.inputs.inputspec.voxelTSOutputs=c.voxelTSOutputs
+        preproc.inputs.inputspec.verticesTSOutputs=c.verticesTSOutputs
+        return preproc
 
 def prep_workflow(c):
 
@@ -191,7 +240,43 @@ def prep_workflow(c):
         workflow.connect(regpreproc, 'outputspec.highres2example_func_mat', segpreproc, 'inputspec.highres2example_func_mat')
         workflow.connect(regpreproc, 'outputspec.stand2highres_warp', segpreproc, 'inputspec.stand2highres_warp')
 
+        """
+            Mni Outputs, SurfaceRegistration and timeseries
+        """
+        mnipreproc= get_workflow('mni', c)
+        tspreproc=  get_workflow('ts',c)
+        
+        print mnipreproc
+        print tspreproc
+        """
+            Connections
+        """
+        #getting mni outputs after segmentation
+        merge = pe.Node(interface=util.Merge(3), name = 'outmni_concatnode')
+        workflow.connect(segpreproc,'outputspec.partial_volume_files', merge, 'in1' )
+        workflow.connect(segpreproc, 'outputspec.partial_volume_map', merge, 'in2')
+        workflow.connect(segpreproc, 'outputspec.mixeltype', merge, 'in3')
+        workflow.connect(merge, 'out',mnipreproc, 'inputspec.in_file' )
+        workflow.connect(regpreproc,'outputspec.highres2standard_warp', mnipreproc, 'inputspec.warp_file')
+        
+        #timeseries preproc
+        workflow.connect(flowFunc,'rest',tspreproc, 'inputspec.rest' )
+        workflow.connect(anatpreproc,'outputspec.brain', tspreproc, 'inputspec.brain')
+        workflow.connect(anatpreproc,'outputspec.reorient',tspreproc, 'inputspec.reorient')
+        workflow.connect(funcpreproc, 'outputspec.motion_correct', tspreproc, 'inputspec.motion_correct')
+        workflow.connect(regpreproc,'outputspec.highres2standard_warp',tspreproc, 'inputspec.warp_file')
+        workflow.connect(regpreproc,'outputspec.example_func2highres',tspreproc, 'inputspec.premat')
+        
+        if c.derivatives[5]:
+            pflow=create_parc_dataflow(c.unitDefinitionsDirectory)
+            workflow.connect(pflow,'out_file',tspreproc, 'getparc.parcelations')
+            
+        if c.derivatives[6]:
+            mflow=create_mask_dataflow(c.voxelMasksDirectory)
+            workflow.connect(mflow, 'out_file', tspreproc,'getmask.masks')
 
+        
+        
     """
         ALFF Analysis
     """
