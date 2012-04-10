@@ -232,8 +232,8 @@ def create_reg_preproc():
     preproc.connect(reg_fnt, 'fieldcoeff_file', reg_warp, 'field_file')
     preproc.connect(reg_flirt, 'out_matrix_file', reg_warp, 'premat')
 
-    preproc.connect(reg_flirt, 'out_matrix_file', outputNode, 'example_func2highres')
-    preproc.connect(reg_flirt, 'out_file', outputNode, 'example_func2highres_mat')
+    preproc.connect(reg_flirt, 'out_file', outputNode, 'example_func2highres')
+    preproc.connect(reg_flirt, 'out_matrix_file', outputNode, 'example_func2highres_mat')
     preproc.connect(reg_xfm1, 'out_file', outputNode, 'highres2example_func_mat')
     preproc.connect(reg_warp, 'out_file', outputNode, 'example_func2standard_NL')
     preproc.connect(reg_flirt1, 'out_file', outputNode, 'highres2standard')
