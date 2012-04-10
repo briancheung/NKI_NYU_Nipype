@@ -3,6 +3,504 @@ import e_afni
 import nipype.pipeline.engine as pe
 import nipype.interfaces.utility as util
 
+def getStartIdx(in_file):
+
+    print "in_file -->", in_file[0]
+    f = open(in_file[0], 'r')
+
+    myList = []
+
+    line = f.readline()
+
+    myList.extend(line.split(","))
+
+    f.close()
+
+    print "start index-->", int (myList[0])
+    return int (myList[0])
+
+def getStopIdx(in_file):
+
+    print "in_file -->", in_file[0]
+    f = open(in_file[0], 'r')
+
+    myList = []
+
+    line = f.readline()
+
+    myList.extend(line.split(","))
+
+    length = len(myList)
+    f.close()
+
+    print "length -->", length
+    if str(myList[length-1]) == "":
+        print "stop indec-->", int(myList[length-2])
+        return int(myList[length-2])
+    else:
+        print "stop indec-->", int(myList[length-1])
+        return int(myList[length-1])
+
+
+def last_vol(vols):
+
+    v = []
+    for vol in vols:
+        v.append(int(vol) - 1)
+
+    return v
+
+def TRendminus1(vols):
+    v = []
+    for vol in vols:
+        v.append(int(vol) - 2)
+
+    return v
+
+
+def scCopy(in_file):
+
+    import os
+
+    cwd = os.getcwd()
+    print "****************************** l -->", cwd
+
+    out_file = 'pow_params.txt'
+    path = os.path.join(cwd, out_file)
+    print "##########path --->", path
+    out_file = path
+
+    dir_name = os.path.dirname(in_file)
+    rest_name = os.path.basename(dir_name)
+    subject_id = os.path.basename(os.path.dirname(dir_name))
+
+    f = open(out_file, 'a')
+
+    f.write("%s," % subject_id)
+    f.write("%s," % rest_name)
+
+    f.close()
+
+    return out_file
+
+def createSC(in_file):
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'FD.1D')
+
+
+    print "outfile ", out_file
+
+    cmd1 = sb.Popen(['awk', '{x=$4} {y=$5} {z=$6} {a=$1} {b=$2} {c=$3} '+
+                    '{print 2*3.142*50*(a/360),2*3.142*50*(b/360), 2*3.142*50*(c/360), x, y, z}',
+                    in_file], stdin=sb.PIPE, stdout=sb.PIPE,)
+    cmd2 = sb.Popen(['awk', '{a=$1} {b=$2} {c=$3} {x=$4} {y=$5} {z=$6} '+
+                    'NR>1{print a-d, b-e, c-f, x-u, y-v, z-w}{d=a} {e=b} {f=c} {u=x} {v=y} {w=z}'],
+                    stdin=cmd1.stdout, stdout=sb.PIPE,)
+    cmd3 = sb.Popen(['awk', '{ for (i=1; i<=NF; i=i+1) {if ($i < 0) $i = -$i} print}'],
+                    stdin=cmd2.stdout, stdout=sb.PIPE,)
+    cmd4 = sb.Popen(['awk', '{a=$1+$2+$3+$4+$5+$6} {print a}'],
+                    stdin=cmd3.stdout, stdout=sb.PIPE,)
+
+
+    stdout_value, stderr_value = cmd4.communicate()
+
+    output = stdout_value.split()
+    f = open(out_file, 'w')
+
+    for out in output:
+      print >>f, float(out)
+
+    f.close()
+
+    print "stdout in createSC --> ", stdout_value
+    print "stderr in createSC ---> ", stderr_value
+
+    return out_file
+
+
+def setMeanFD(infile_a, infile_b):
+
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'pow_params.txt')
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
+    out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
+
+
+    cmd = sb.Popen(['awk', '{a += $1} END {print a/NR}', infile_b],
+                   stdin=sb.PIPE, stdout=sb.PIPE,)
+    stdout_value, stderr_value = cmd.communicate()
+
+    output = stdout_value.split()
+    f = open(out_file, 'a')
+
+    for out in output:
+        f.write('%.4f,' % float(out))
+
+    f.close()
+
+    print "stdout in setMeanFD --> ", stdout_value
+    print "stderr in setMeanFD---> ", stderr_value
+
+    return out_file
+
+def setNumFD(infile_a, infile_b):
+
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'pow_params.txt')
+
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
+    out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
+
+    cmd = sb.Popen(['awk', '{ if($1>=0.5) {a += 1}} END {print a}',
+                    infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
+
+    stdout_value, stderr_value = cmd.communicate()
+    output = stdout_value.split()
+
+    f = open(out_file, 'a')
+
+    for out in output:
+        f.write('%.4f,' % float(out))
+
+    f.close()
+
+    print "stdout in setNumFD --> ", stdout_value
+    print "stderr in setNumFD---> ", stderr_value
+
+    return out_file
+
+def setPercentFD(infile_a, infile_b):
+
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'pow_params.txt')
+
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
+    out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
+
+    cmd = sb.Popen(['awk', '{ if($1>=0.5) {a += 1}} END {print (a/(NR+1)*100)}',
+                   infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
+    stdout_value, stderr_value = cmd.communicate()
+
+    output = stdout_value.split()
+    f = open(out_file, 'a')
+
+    for out in output:
+       f.write('%.4f,' % float(out))
+
+    f.close()
+
+    print "stdout in setPercentFD --> ", stdout_value
+    print "stderr in setPercentFD---> ", stderr_value
+
+    return out_file
+
+def setFramesEx(in_file):
+
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'frames_ex.1D')
+
+    cmd = sb.Popen(['awk', '{ if($1>=0.5) {print NR}}', in_file],
+                   stdin=sb.PIPE, stdout=sb.PIPE,)
+
+    stdout_value, stderr_value = cmd.communicate()
+
+    output = stdout_value.split()
+    f = open(out_file, 'a')
+
+    for out in output:
+       f.write('%s,' % int(out))
+
+    f.close()
+
+    print "stdout in setFramesEx --> ", stdout_value
+    print "stderr in setFramesEx---> ", stderr_value
+
+    return out_file
+
+def setFramesIN(in_file):
+
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'frames_in.1D')
+
+    cmd = sb.Popen(['awk', '{ if($1<0.5) {print NR}}', in_file],
+                   stdin=sb.PIPE, stdout=sb.PIPE,)
+
+    stdout_value, stderr_value = cmd.communicate()
+
+    output = stdout_value.split()
+    f = open(out_file, 'a')
+
+    for out in output:
+       f.write('%s,' % int(out))
+
+    f.close()
+
+    print "stdout in setFramesIn --> ", stdout_value
+    print "stderr in setFramesIn---> ", stderr_value
+
+    return out_file
+
+
+def setFramesInList(in_file):
+
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'frames_in.1D')
+
+    cmd = sb.Popen(['awk', '{ if($1<0.5) {print NR}}', in_file],
+                   stdin=sb.PIPE, stdout=sb.PIPE,)
+
+    stdout_value, stderr_value = cmd.communicate()
+
+    output = stdout_value.split()
+    f = open(out_file, 'a')
+
+    for out in output:
+       print >>f, int(out)
+
+    f.close()
+
+    print "stdout in setFramesInList --> ", stdout_value
+    print "stderr in setFramesInList---> ", stderr_value
+
+    return out_file
+
+def setMeanDVARS(infile_a, infile_b):
+
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'pow_params.txt')
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
+    out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
+
+    cmd = sb.Popen(['awk', '{a += $1} END {print a/NR}',
+                    infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
+
+    stdout_value, stderr_value = cmd.communicate()
+
+    output = stdout_value.split()
+    f = open(out_file, 'a')
+
+    for out in output:
+      f.write('%.4f,' % float(out))
+
+    f.close()
+
+    print "stdout in setMeanDVARS --> ", stdout_value
+    print "stderr in setMeanDVARS---> ", stderr_value
+
+    return out_file
+
+def setNUM5(infile_a, infile_b):
+
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'pow_params.txt')
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
+    out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
+
+    cmd = sb.Popen(['awk', '{ if($1>=5) {a += 1}} END {print a}',
+                    infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
+
+    stdout_value, stderr_value = cmd.communicate()
+
+    output = stdout_value.split()
+    f = open(out_file, 'a')
+
+    for out in output:
+      f.write('%.4f,' % float(out))
+
+    f.close()
+
+    print "stdout in setNUM5 --> ", stdout_value
+    print "stderr in setNUM5---> ", stderr_value
+
+    return out_file
+
+def setNUM10(infile_a, infile_b):
+
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'pow_params.txt')
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
+    out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
+
+    cmd = sb.Popen(['awk', '{ if($1>=10) {a += 1}} END {print a}',
+                    infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
+
+    stdout_value, stderr_value = cmd.communicate()
+
+    output = stdout_value.split()
+    f = open(out_file, 'a')
+
+    for out in output:
+      f.write('%.4f,' % float(out))
+
+    f.close()
+
+    print "stdout in setNUM5 --> ", stdout_value
+    print "stderr in setNUM5---> ", stderr_value
+
+    return out_file
+
+
+def setSqrtMeanDeriv (in_file):
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'sqrt_mean_deriv_sq.1D')
+
+    cmd = sb.Popen(['awk', '{x=$1} {printf( "%.6f ", sqrt(x))}',
+                    in_file], stdin=sb.PIPE, stdout=sb.PIPE,)
+
+    stdout_value, stderr_value = cmd.communicate()
+
+    output = stdout_value.split()
+    f = open(out_file, 'a')
+
+    for out in output:
+      print >>f, float(out)
+
+    f.close()
+
+    print "stdout in setSqrtMeanDeriv --> ", stdout_value
+    print "stderr in setSqrtMeanDeriv---> ", stderr_value
+
+    return out_file
+
+def setSqrtMeanRaw(in_file):
+
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'sqrt_mean_raw_sq.1D')
+
+    cmd = sb.Popen(['awk', '{x=$1} {printf( "%.6f ", sqrt(x))}',
+                    in_file], stdin=sb.PIPE, stdout=sb.PIPE,)
+
+    stdout_value, stderr_value = cmd.communicate()
+
+    output = stdout_value.split()
+    f = open(out_file, 'a')
+
+    for out in output:
+      print >>f, float(out)
+
+    f.close()
+
+    print "stdout in setSqrtMeanRaw --> ", stdout_value
+    print "stderr in setSqrtMeanRaw---> ", stderr_value
+
+    return out_file
+
+
+def setFtoFPercentChange(infile_a, infile_b):
+
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'ftof_percent_change.1D')
+
+    cmd1 = sb.Popen(['awk', 'NR==FNR{a[NR]=$1; next} {print a[FNR], $1}',
+                     infile_a, infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
+
+    cmd2 = sb.Popen(['awk', '{x=$1} {y=$2} {printf( "%.6f ", ((x/y)*100))}'],
+                    stdin=cmd1.stdout, stdout=sb.PIPE,)
+
+    stdout_value, stderr_value = cmd2.communicate()
+
+    output = stdout_value.split()
+    f = open(out_file, 'a')
+
+    for out in output:
+      print >>f, float(out)
+
+    f.close()
+
+    print "stdout in ftofPercentChange --> ", stdout_value
+    print "stderr in ftofPercentChange---> ", stderr_value
+
+    return out_file
+
+
+
+def setNUMFD(in_file):
+
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'numFD')
+
+    cmd = sb.Popen(['awk', '{ if($1>=0.5) {a += 1}} END {print a}',
+                   in_file], stdin=sb.PIPE, stdout=sb.PIPE,)
+
+    stdout_value, stderr_value = cmd.communicate()
+
+    output = stdout_value.split()
+    f = open(out_file, 'a')
+
+    for out in output:
+      f.write('%.4f,' % float(out))
+
+    f.close()
+
+    print "stdout in setNUMFD --> ", stdout_value
+    print "stderr in setNUMFD---> ", stderr_value
+
+    return out_file
+
+def setScrubbedMotion(infile_a, infile_b):
+
+    import subprocess as sb
+    import os
+
+    out_file = os.path.join(os.getcwd(), 'rest_mc_scrubbed.1D')
+
+    cmd = sb.Popen(['awk', 'FNR==NR{a[$1];next}(FNR in a){print}',
+                   infile_a, infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
+
+    stdout_value, stderr_value = cmd.communicate()
+
+    f = open(out_file, 'a')
+
+    f.write(stdout_value)
+
+    f.close()
+
+    print "stdout in setScrubbedMotion --> ", stdout_value
+    print "stderr in setScrubbedMotion---> ", stderr_value
+
+    return out_file
+
+
 def pToFile(time_series):
 
     import os

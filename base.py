@@ -232,8 +232,8 @@ def create_reg_preproc():
     preproc.connect(reg_fnt, 'fieldcoeff_file', reg_warp, 'field_file')
     preproc.connect(reg_flirt, 'out_matrix_file', reg_warp, 'premat')
 
-    preproc.connect(reg_flirt, 'out_matrix_file', outputNode, 'example_func2highres')
-    preproc.connect(reg_flirt, 'out_file', outputNode, 'example_func2highres_mat')
+    preproc.connect(reg_flirt, 'out_file', outputNode, 'example_func2highres')
+    preproc.connect(reg_flirt, 'out_matrix_file', outputNode, 'example_func2highres_mat')
     preproc.connect(reg_xfm1, 'out_file', outputNode, 'highres2example_func_mat')
     preproc.connect(reg_warp, 'out_file', outputNode, 'example_func2standard_NL')
     preproc.connect(reg_flirt1, 'out_file', outputNode, 'highres2standard')
@@ -513,6 +513,7 @@ def create_scrubbing_preproc():
 
     sc.connect(inputNode, 'rest', sc_automask, 'in_file')
 
+    """
     sc.connect(sc_automask, 'brik_file', sc_3dROIstats_1, 'mask')
     sc.connect(sc_calc2, 'brik_file', sc_3dROIstats_1, 'in_file')
 
@@ -568,7 +569,7 @@ def create_scrubbing_preproc():
     sc.connect(sc_3dROIstats_1, 'stats', outputNode, 'mean_deriv_sq_1D')
     sc.connect(sc_3dROIstats_2, 'stats', outputNode, 'mean_raw_sq_1D')
     sc.connect(sc_calc_scrub, 'out_file', outputNode, 'scrubbed_preprocessed_func')
-
+    """
     return sc
 
 
