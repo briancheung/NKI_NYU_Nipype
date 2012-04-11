@@ -259,7 +259,6 @@ def prep_workflow(c):
         workflow.connect(regpreproc, 'outputspec.highres2standard_warp', mnipreproc, 'inputspec.warp_file')
 
         #timeseries preproc
-        workflow.connect(flowFunc, 'rest', tspreproc, 'inputspec.rest')
         workflow.connect(anatpreproc, 'outputspec.brain', tspreproc, 'inputspec.brain')
         workflow.connect(anatpreproc, 'outputspec.reorient', tspreproc, 'inputspec.reorient')
         workflow.connect(funcpreproc, 'outputspec.motion_correct', tspreproc, 'inputspec.motion_correct')

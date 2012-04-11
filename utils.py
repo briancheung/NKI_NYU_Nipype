@@ -706,7 +706,7 @@ def create_mask_dataflow(voxelMasksDirectory):
 
     return datasource
 
-def gen_csv_for_parcelation(data_file, template, csv_file_name, unitTSOutputs):
+def gen_csv_for_parcelation(data_file, template, unitTSOutputs):
 
     import nibabel as nib
     import csv
@@ -738,12 +738,10 @@ def gen_csv_for_parcelation(data_file, template, csv_file_name, unitTSOutputs):
                 list1.append(avg)
             sorted_list.append(list1)
 
-    sub_file = os.path.splitext(os.path.basename(csv_file_name))[0]
-    sub_file = os.path.splitext(sub_file)[0]
     tmp_file = os.path.splitext(os.path.basename(template))[0]
     tmp_file = os.path.splitext(tmp_file)[0]
-    csv_file = os.path.abspath(sub_file+'_'+tmp_file+'.csv')
-    numpy_file = os.path.abspath(sub_file+'_'+tmp_file+'.npz')
+    csv_file = os.path.abspath('parc_'+tmp_file+'.csv')
+    numpy_file = os.path.abspath('parc_'+tmp_file+'.npz')
 
     if unitTSOutputs[0]:
         f = open(csv_file, 'wt')
@@ -762,7 +760,7 @@ def gen_csv_for_parcelation(data_file, template, csv_file_name, unitTSOutputs):
 
     return out_list
 
-def gen_csv_for_mask(data_file, template, csv_file_name, voxelTSOutputs):
+def gen_csv_for_mask(data_file, template, voxelTSOutputs):
 
     import nibabel as nib
     import numpy as np
@@ -790,12 +788,10 @@ def gen_csv_for_mask(data_file, template, csv_file_name, voxelTSOutputs):
         val.insert(0, t)
         sorted_list.append(val)
 
-    sub_file = os.path.splitext(os.path.basename(csv_file_name))[0]
-    sub_file = os.path.splitext(sub_file)[0]
     tmp_file = os.path.splitext(os.path.basename(template))[0]
     tmp_file = os.path.splitext(tmp_file)[0]
-    csv_file = os.path.abspath(sub_file+'_'+tmp_file+'.csv')
-    numpy_file = os.path.abspath(sub_file+'_'+tmp_file+'.npz')
+    csv_file = os.path.abspath('mask_'+tmp_file+'.csv')
+    numpy_file = os.path.abspath('mask_'+tmp_file+'.npz')
 
     if voxelTSOutputs[0]:
         f = open(csv_file, 'wt')

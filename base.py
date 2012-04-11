@@ -1143,8 +1143,7 @@ def create_timeseries_preproc(unit_time_series_extraction, voxel_time_series_ext
 
     preproc = pe.Workflow(name='timeseries_preproc')
 
-    inputNode = pe.Node(util.IdentityInterface(fields=['rest',
-                                                       'standard',
+    inputNode = pe.Node(util.IdentityInterface(fields=['standard',
                                                        'recon_subjects',
                                                        'brain',
                                                        'reorient',
@@ -1197,13 +1196,13 @@ def create_timeseries_preproc(unit_time_series_extraction, voxel_time_series_ext
 
     timeseries_flirt1 = timeseries_flirt.clone('timeseries_flirt1')
 
-    timeseries_gen_parc = pe.MapNode(util.Function(input_names=['data_file', 'template', 'csv_file_name', 'unitTSOutputs'],
+    timeseries_gen_parc = pe.MapNode(util.Function(input_names=['data_file', 'template', 'unitTSOutputs'],
                                                   output_names=['out_file'],
                                                   function=gen_csv_for_parcelation),
                                                   name='timeseries_gen_parc',
                                                   iterfield=["data_file"])
 
-    timeseries_gen_mask = pe.MapNode(util.Function(input_names=['data_file', 'template', 'csv_file_name', 'voxelTSOutputs'],
+    timeseries_gen_mask = pe.MapNode(util.Function(input_names=['data_file', 'template', 'voxelTSOutputs'],
                                                  output_names=['out_file'],
                                                  function=gen_csv_for_mask),
                                                  name='timeseries_gen_mask',
@@ -1242,7 +1241,6 @@ def create_timeseries_preproc(unit_time_series_extraction, voxel_time_series_ext
         preproc.connect(inputNode, 'identity_matrix', timeseries_flirt, 'in_matrix_file')
         preproc.connect(inputnode_getparc, 'parcelations', timeseries_flirt, 'reference')
 
-        preproc.connect(inputNode, 'rest', timeseries_gen_parc, 'csv_file_name')
         preproc.connect(timeseries_flirt, 'out_file', timeseries_gen_parc, 'data_file')
         preproc.connect(inputNode, 'unitTSOutputs', timeseries_gen_parc, 'unitTSOutputs'  )
         preproc.connect(inputnode_getparc, 'parcelations', timeseries_gen_parc, 'template')
@@ -1254,7 +1252,6 @@ def create_timeseries_preproc(unit_time_series_extraction, voxel_time_series_ext
         preproc.connect(inputNode, 'identity_matrix', timeseries_flirt1, 'in_matrix_file')
         preproc.connect(inputNode_getmask, 'masks', timeseries_flirt1, 'reference')
 
-        preproc.connect(inputNode, 'rest', timeseries_gen_mask, 'csv_file_name')
         preproc.connect(timeseries_flirt1, 'out_file', timeseries_gen_mask, 'data_file')
         preproc.connect(inputNode, 'voxelTSOutputs', timeseries_gen_mask, 'voxelTSOutputs')
         preproc.connect(inputNode_getmask, 'masks', timeseries_gen_mask, 'template')
