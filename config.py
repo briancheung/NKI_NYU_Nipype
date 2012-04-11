@@ -70,6 +70,14 @@ rest_lp = 0.1
 alff_HP = [0.005]
 alff_LP = 0.1
 
+""" 
+Scrub data prior to derivate generation: In accord with Power et al. (2012); forking not enable yet for this step (next version).
+Default value True/False
+"""
+scrubData = [True, False]
+
+
+
 """
     Number of components to regress with compcor
 """
@@ -85,8 +93,8 @@ target_angle_deg = [90, 60]
 """
     Which Signals do you which to regress out
 """
-#global_signal, compcor, wmcsf, firstprinc
-regressors = [True, False, True, False]
+#['global', 'compcor', 'wm', 'csf', 'gm', 'firstprinc', 'motion']
+regressors = [True, False, True, True, False, True]
 
 """
     Mandatory
@@ -144,7 +152,7 @@ vmhc_anat_reorient_template = '%s/*/%s.nii.gz'
 vmhc_example_func2highres_mat_template = '%s/*/*/%s'
 
 # all, basic, scrubbing, nuisance, alff, ifc, vmhc, reho, group_analysis
-analysis = [False, True, False, False, False, False, True, False, False ]
+analysis = [False, True, False, False, False, False, False, False, False ]
 run_on_grid = False
 qsub_args = '-q all.q'
 num_cores = 8
