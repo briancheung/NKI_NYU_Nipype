@@ -3,6 +3,7 @@ import e_afni
 import nipype.pipeline.engine as pe
 import nipype.interfaces.utility as util
 
+
 def pToFile(time_series):
 
     import os
@@ -10,7 +11,7 @@ def pToFile(time_series):
     import commands
     import sys
 
-    dir  = os.path.dirname(time_series)
+    dir = os.path.dirname(time_series)
 
     dir1 = re.sub(r'(.)+_subject_id_(.)+/_mask', '', dir)
 
@@ -82,7 +83,6 @@ def pick_wm_0(probability_maps):
     import sys
     import os
 
-
     if(isinstance(probability_maps, list)):
 
         if(len(probability_maps) == 1):
@@ -149,7 +149,7 @@ def getImgTR(in_files):
 
     out = []
     from nibabel import load
-    if(isinstance(in_files,list)):
+    if(isinstance(in_files, list)):
         for in_file in in_files:
             img = load(in_file)
             hdr = img.get_header()
@@ -630,37 +630,37 @@ def create_vmhc_dataflow(name, sublist, analysisdirectory, anat_name, rest_name,
 
     return datasource, da, datasource_warp
 
-def create_gp_dataflow(base_dir, modelist, seedlist, wfname= "datasource"):
+def create_gp_dataflow(base_dir, modelist, seedlist, wfname="datasource"):
     import nipype.pipeline.engine as pe
     import nipype.interfaces.io as nio
-    
+
     #define your subject directory structure inside the base directory folder
-    subject_dir='*/*/%s.nii.gz'
-    
-    datasource = pe.Node( interface = nio.DataGrabber(infields=['model_name','seed'], outfields = ['mat','con','fts','grp','seedfiles']) , name= 'datasource')
+    subject_dir = '*/*/%s.nii.gz'
+
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['model_name', 'seed'], outfields=['mat', 'con', 'fts', 'grp', 'seedfiles']), name='datasource')
     datasource.inputs.base_directory = base_dir
-    datasource.inputs.template= '*'
+    datasource.inputs.template = '*'
     datasource.inputs.field_template = dict(mat='*/%s/%s.mat',
                                         con='*/%s/%s.con',
                                         fts='*/%s/%s.fts',
                                         grp='*/%s/%s.grp',
                                         seedfiles=subject_dir)
-    
+
     datasource.inputs.template_args = dict(mat=[['model_name', 'model_name']],
                                            con=[['model_name', 'model_name']],
                                            fts=[['model_name', 'model_name']],
                                            grp=[['model_name', 'model_name']],
                                            seedfiles=[['seed']])
-    
-    datasource.iterables = [('model_name',modelist),('seed',seedlist)]
-    
+
+    datasource.iterables = [('model_name', modelist), ('seed', seedlist)]
+
     return datasource
 
 
 def extract_subjectID(out_file):
-    
+
     import sys
-    
+
     outs = (out_file.split('_subject_id_'))[1]
     out_file = (outs.split('/'))[0]
     print "extract_subjectID out_file", out_file
@@ -670,186 +670,184 @@ def extract_subjectID(out_file):
 
 
 def create_parc_dataflow(unitDefinitionsDirectory):
-    
+
     import nipype.interfaces.io as nio
     import os
-    
-    unitlist=[os.path.splitext(os.path.splitext(f)[0])[0] for f in os.listdir(unitDefinitionsDirectory)]
+
+    unitlist = [os.path.splitext(os.path.splitext(f)[0])[0] for f in os.listdir(unitDefinitionsDirectory)]
     print "unitList ->", unitlist
     datasource = pe.Node(interface=nio.DataGrabber(infields=['parcelation'],
                                                    outfields=['out_file']),
                          name="datasource_parc")
     datasource.inputs.base_directory = unitDefinitionsDirectory
-    datasource.inputs.template='*'
-    datasource.inputs.field_template=dict(out_file='%s.nii.gz')
-    datasource.inputs.template_args=dict(out_file=[['parcelation']])
-    datasource.iterables= ('parcelation', unitlist)
+    datasource.inputs.template = '*'
+    datasource.inputs.field_template = dict(out_file='%s.nii.gz')
+    datasource.inputs.template_args = dict(out_file=[['parcelation']])
+    datasource.iterables = ('parcelation', unitlist)
 
 
     return datasource
 
 def create_mask_dataflow(voxelMasksDirectory):
-    
+
     import nipype.interfaces.io as nio
     import os
-    
-    masklist=[os.path.splitext(os.path.splitext(f)[0])[0] for f in os.listdir(voxelMasksDirectory)]
+
+    masklist = [os.path.splitext(os.path.splitext(f)[0])[0] for f in os.listdir(voxelMasksDirectory)]
     print masklist
     datasource = pe.Node(interface=nio.DataGrabber(infields=['mask'],
                                                    outfields=['out_file']),
                          name="datasource_mask")
     datasource.inputs.base_directory = voxelMasksDirectory
-    datasource.inputs.template='*'
-    datasource.inputs.field_template=dict(out_file='%s.nii.gz')
-    datasource.inputs.template_args=dict(out_file=[['mask']])
-    datasource.iterables= ('mask', masklist)
+    datasource.inputs.template = '*'
+    datasource.inputs.field_template = dict(out_file='%s.nii.gz')
+    datasource.inputs.template_args = dict(out_file=[['mask']])
+    datasource.iterables = ('mask', masklist)
 
     return datasource
 
 def gen_csv_for_parcelation(data_file, template, csv_file_name, unitTSOutputs):
-    
+
     import nibabel as nib
     import csv
     import numpy as np
     import os
 
-    unit=nib.load(template)
-    unit_data=unit.get_data()
-    datafile= nib.load(data_file)
-    img_data=datafile.get_data()
-    vol=img_data.shape[3]
-    
-    nodes=np.unique(unit_data).tolist()
-    sorted_list=[]
-    node_dict={}
-    out_list=[]
-    
+    unit = nib.load(template)
+    unit_data = unit.get_data()
+    datafile = nib.load(data_file)
+    img_data = datafile.get_data()
+    vol = img_data.shape[3]
+
+    nodes = np.unique(unit_data).tolist()
+    sorted_list = []
+    node_dict = {}
+    out_list = []
+
     for n in nodes:
-        if n>0:
-            node_array=img_data[unit_data==n]
-            node_array=node_array.T
-            time_points, no_of_voxels=node_array.shape
-            list1=[n]
-            node_str='node %s' %(n)
-            node_dict[node_str]=node_array
-            for t in range(0,time_points):
-                avg=node_array[t].mean()
-                avg=np.round(avg,3)
+        if n > 0:
+            node_array = img_data[unit_data == n]
+            node_array = node_array.T
+            time_points, no_of_voxels = node_array.shape
+            list1 = [n]
+            node_str = 'node %s' % (n)
+            node_dict[node_str]= node_array
+            for t in range(0, time_points):
+                avg = node_array[t].mean()
+                avg = np.round(avg, 3)
                 list1.append(avg)
             sorted_list.append(list1)
-    
+
     sub_file = os.path.splitext(os.path.basename(csv_file_name))[0]
-    sub_file= os.path.splitext(sub_file)[0]
-    tmp_file=os.path.splitext(os.path.basename(template))[0]
-    tmp_file=os.path.splitext(tmp_file)[0]
-    csv_file= os.path.abspath(sub_file+'_'+tmp_file+'.csv')
-    numpy_file=os.path.abspath(sub_file+'_'+tmp_file+'.npz')
-    
-    if unitTSOutputs[0]==True:
-        f= open(csv_file, 'wt')
-        writer = csv.writer(f, delimiter=',', quoting=csv.QUOTE_MINIMAL) 
-        headers=['node/volume']
+    sub_file = os.path.splitext(sub_file)[0]
+    tmp_file = os.path.splitext(os.path.basename(template))[0]
+    tmp_file = os.path.splitext(tmp_file)[0]
+    csv_file = os.path.abspath(sub_file+'_'+tmp_file+'.csv')
+    numpy_file = os.path.abspath(sub_file+'_'+tmp_file+'.npz')
+
+    if unitTSOutputs[0]:
+        f = open(csv_file, 'wt')
+        writer = csv.writer(f, delimiter=',', quoting=csv.QUOTE_MINIMAL)
+        headers = ['node/volume']
         for i in range (0, vol):
-            headers.append(i)   
+            headers.append(i)
         writer.writerow(headers)
         writer.writerows(sorted_list)
         f.close()
         out_list.append(csv_file)
-   
-    if unitTSOutputs[1]==True: 
+
+    if unitTSOutputs[1]:
         np.savez(numpy_file, **dict(node_dict))
         out_list.append(numpy_file)
-        
+
     return out_list
 
-def gen_csv_for_mask(data_file, template, csv_file_name,voxelTSOutputs):
-    
+def gen_csv_for_mask(data_file, template, csv_file_name, voxelTSOutputs):
+
     import nibabel as nib
     import numpy as np
     import csv
     import os
 
-    
-    unit=nib.load(template)
-    unit_data=unit.get_data()
-    datafile= nib.load(data_file)
-    img_data=datafile.get_data()
-    header_data=datafile.get_header()
-    qform=header_data.get_qform()
-    sorted_list=[]
-    vol_dict={}
-    out_list=[]
-        
-    node_array=img_data[unit_data!=0]
-    node_array=node_array.T
-    time_points=node_array.shape[0]
-    for t in range(0,time_points):
-        str= 'vol %s' %(t)
-        vol_dict[str]=node_array[t]
-        val=node_array[t].tolist()
-        val.insert(0,t)
+
+    unit = nib.load(template)
+    unit_data = unit.get_data()
+    datafile = nib.load(data_file)
+    img_data = datafile.get_data()
+    header_data = datafile.get_header()
+    qform = header_data.get_qform()
+    sorted_list = []
+    vol_dict = {}
+    out_list = []
+
+    node_array = img_data[unit_data != 0]
+    node_array = node_array.T
+    time_points = node_array.shape[0]
+    for t in range(0, time_points):
+        str = 'vol %s' % (t)
+        vol_dict[str]= node_array[t]
+        val = node_array[t].tolist()
+        val.insert(0, t)
         sorted_list.append(val)
-        
+
     sub_file = os.path.splitext(os.path.basename(csv_file_name))[0]
-    sub_file= os.path.splitext(sub_file)[0]
-    tmp_file=os.path.splitext(os.path.basename(template))[0]
-    tmp_file=os.path.splitext(tmp_file)[0]
-    csv_file= os.path.abspath(sub_file+'_'+tmp_file+'.csv')
-    numpy_file=os.path.abspath(sub_file+'_'+tmp_file+'.npz')
-    
-    if voxelTSOutputs[0]==True:
-        f= open(csv_file, 'wt')
-        writer = csv.writer(f, delimiter=',', quoting=csv.QUOTE_MINIMAL)  
-        one=np.array([1])
-        headers=['volume/xyz']
-        cordinates=np.argwhere(unit_data!=0)
+    sub_file = os.path.splitext(sub_file)[0]
+    tmp_file = os.path.splitext(os.path.basename(template))[0]
+    tmp_file = os.path.splitext(tmp_file)[0]
+    csv_file = os.path.abspath(sub_file+'_'+tmp_file+'.csv')
+    numpy_file = os.path.abspath(sub_file+'_'+tmp_file+'.npz')
+
+    if voxelTSOutputs[0]:
+        f = open(csv_file, 'wt')
+        writer = csv.writer(f, delimiter=',', quoting=csv.QUOTE_MINIMAL)
+        one = np.array([1])
+        headers = ['volume/xyz']
+        cordinates = np.argwhere(unit_data != 0)
         for val in range(np.alen(cordinates)):
-            ijk_mat=np.concatenate([cordinates[val],one])
-            ijk_mat=ijk_mat.T
-            product=np.dot(qform,ijk_mat)
-            val=tuple(product.tolist()[0:3])
+            ijk_mat = np.concatenate([cordinates[val], one])
+            ijk_mat = ijk_mat.T
+            product = np.dot(qform, ijk_mat)
+            val = tuple(product.tolist()[0:3])
             headers.append(val)
         writer.writerow(headers)
         writer.writerows(sorted_list)
         f.close()
         out_list.append(csv_file)
-    
-    if voxelTSOutputs[1]==True:
+
+    if voxelTSOutputs[1]:
         np.savez(numpy_file, **dict(vol_dict))
         out_list.append(numpy_file)
-    
-    
-    
+
     return out_list
 
 def gen_csv_for_surface(rh_surface_file, lh_surface_file, verticesTSOutputs):
-    
+
     import gradunwarp
     import numpy as np
     import os
-    out_list=[]
-    
-    if verticesTSOutputs[0]==True:
-        rh_file= os.path.splitext(os.path.basename(rh_surface_file))[0] +'_rh.csv'
+    out_list = []
+
+    if verticesTSOutputs[0]:
+        rh_file = os.path.splitext(os.path.basename(rh_surface_file))[0] +'_rh.csv'
         mghobj1 = gradunwarp.mgh.MGH()
-        
+
         mghobj1.load(rh_surface_file)
-        vol=mghobj1.vol
-        (x,y)=vol.shape
-        print "rh shape" ,x,y
-        
+        vol = mghobj1.vol
+        (x, y)= vol.shape
+        print "rh shape", x, y
+
         np.savetxt(rh_file, vol, delimiter=',')
         out_list.append(rh_file)
-        
-        lh_file= os.path.splitext(os.path.basename(lh_surface_file))[0] +'_lh.csv'
+
+        lh_file = os.path.splitext(os.path.basename(lh_surface_file))[0] +'_lh.csv'
         mghobj2 = gradunwarp.mgh.MGH()
-        
+
         mghobj2.load(lh_surface_file)
-        vol=mghobj2.vol
-        (x,y)=vol.shape
-        print "lh shape" ,x,y
-        
+        vol = mghobj2.vol
+        (x, y) = vol.shape
+        print "lh shape", x, y
+
         np.savetxt(lh_file, vol, delimiter=',')
         out_list.append(lh_file)
-    
+
     return out_list

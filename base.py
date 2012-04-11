@@ -1116,34 +1116,33 @@ def create_alff_preproc():
 
 
 def create_mnioutputs():
-    
-    preproc= pe.Workflow(name='mnioutputs')
-    
-    inputNode= pe.Node(util.IdentityInterface( fields=['reference_file',
+
+    preproc = pe.Workflow(name='mnioutputs')
+
+    inputNode = pe.Node(util.IdentityInterface(fields=['reference_file',
                                                        'warp_file',
                                                        'premat',
                                                        'in_file' ]),
-                       name= 'inputspec')
-    
-    outputNode=pe.Node(util.IdentityInterface( fields=['out_file']),
-                       name= 'outputspec')
-    
-    apply_warp= pe.MapNode(interface=fsl.ApplyWarp(), name='apply_warp', iterfield=["in_file"])
- 
-    preproc.connect(inputNode,'in_file',apply_warp, 'in_file' )
-    preproc.connect(inputNode, 'warp_file', apply_warp, 'field_file')
-    preproc.connect(inputNode, 'reference_file', apply_warp,'ref_file')
-    
-    preproc.connect(apply_warp, 'out_file', outputNode, 'out_file')
-    
-    return preproc
-    
+                       name='inputspec')
 
-def create_timeseries_preproc(unit_time_series_extraction, voxel_time_series_extraction,vertices_time_series_extraction ):
-    
+    outputNode = pe.Node(util.IdentityInterface(fields=['out_file']),
+                       name='outputspec')
+
+    apply_warp = pe.MapNode(interface=fsl.ApplyWarp(), name='apply_warp', iterfield=["in_file"])
+
+    preproc.connect(inputNode, 'in_file', apply_warp, 'in_file' )
+    preproc.connect(inputNode, 'warp_file', apply_warp, 'field_file')
+    preproc.connect(inputNode, 'reference_file', apply_warp, 'ref_file')
+
+    preproc.connect(apply_warp, 'out_file', outputNode, 'out_file')
+
+    return preproc
+
+
+def create_timeseries_preproc(unit_time_series_extraction, voxel_time_series_extraction, vertices_time_series_extraction ):
+
     preproc = pe.Workflow(name='timeseries_preproc')
 
-  
     inputNode = pe.Node(util.IdentityInterface(fields=['rest',
                                                        'standard',
                                                        'recon_subjects',
@@ -1157,116 +1156,114 @@ def create_timeseries_preproc(unit_time_series_extraction, voxel_time_series_ext
                                                        'voxelTSOutputs',
                                                        'verticesTSOutputs']),
                                                     name='inputspec')
-    
+
     inputnode_getparc = pe.Node(util.IdentityInterface(fields=['parcelations']),
                              name='getparc')
-    
-    
-    inputNode_getmask=pe.Node(util.IdentityInterface(fields=['masks']), 
-                              name= 'getmask')
-    
+
+
+    inputNode_getmask = pe.Node(util.IdentityInterface(fields=['masks']),
+                              name='getmask')
+
     timeseries_reconall = pe.Node(interface=fs.ReconAll(), name="timeseries_reconall")
     timeseries_reconall.inputs.directive = 'all'
-    
-    timeseries_bbreg = pe.MapNode(interface = fs.BBRegister(init='fsl', contrast_type='t2',registered_file = True, out_fsl_file = True), name = 'timeseries_bbreg', iterfield = ["source_file"] ) 
-    
-    timeseries_apply_warp= pe.MapNode(interface=fsl.ApplyWarp(), name='timeseries_apply_warp', iterfield=["in_file", "premat", "field_file"])
-    
-    preproc.connect(inputNode,'motion_correct',timeseries_apply_warp, 'in_file' )
-    preproc.connect(inputNode ,'warp_file', timeseries_apply_warp, 'field_file')
-    preproc.connect(inputNode, 'premat', timeseries_apply_warp, 'premat')
-    preproc.connect(inputNode, 'standard', timeseries_apply_warp,'ref_file' )
-    
 
-    timeseries_sampler_lh = pe.MapNode(interface = fs.SampleToSurface(hemi = "lh"),name ='timeseries_sampler_lh', iterfield = ["source_file","reg_file"])
+    timeseries_bbreg = pe.MapNode(interface=fs.BBRegister(init='fsl', contrast_type='t2', registered_file=True, out_fsl_file=True), name='timeseries_bbreg', iterfield=["source_file"] )
+
+    timeseries_apply_warp = pe.MapNode(interface=fsl.ApplyWarp(), name='timeseries_apply_warp', iterfield=["in_file", "premat"])
+
+    preproc.connect(inputNode, 'motion_correct', timeseries_apply_warp, 'in_file' )
+    preproc.connect(inputNode, 'warp_file', timeseries_apply_warp, 'field_file')
+    preproc.connect(inputNode, 'premat', timeseries_apply_warp, 'premat')
+    preproc.connect(inputNode, 'standard', timeseries_apply_warp, 'ref_file' )
+
+
+    timeseries_sampler_lh = pe.MapNode(interface=fs.SampleToSurface(hemi="lh"), name='timeseries_sampler_lh', iterfield=["source_file", "reg_file"])
     timeseries_sampler_lh.inputs.no_reshape = True
     timeseries_sampler_lh.inputs.interp_method = 'trilinear'
     timeseries_sampler_lh.inputs.sampling_method = "point"
     timeseries_sampler_lh.inputs.sampling_range = 0.5
     timeseries_sampler_lh.inputs.sampling_units = "frac"
 
-    timeseries_sampler_rh = pe.MapNode(interface = fs.SampleToSurface(hemi = "rh"),name ='timeseries_sampler_rh', iterfield = ["source_file","reg_file"])
+    timeseries_sampler_rh = pe.MapNode(interface=fs.SampleToSurface(hemi="rh"), name='timeseries_sampler_rh', iterfield=["source_file", "reg_file"])
     timeseries_sampler_rh.inputs.no_reshape = True
     timeseries_sampler_rh.inputs.interp_method = 'trilinear'
     timeseries_sampler_rh.inputs.sampling_method = "point"
     timeseries_sampler_rh.inputs.sampling_range = 0.5
     timeseries_sampler_rh.inputs.sampling_units = "frac"
-    
-    timeseries_flirt= pe.MapNode(interface=fsl.FLIRT(), name = 'timeseries_flirt', iterfield=["in_file"])
+
+    timeseries_flirt = pe.MapNode(interface=fsl.FLIRT(), name='timeseries_flirt', iterfield=["in_file"])
     timeseries_flirt.inputs.interp = 'sinc'
     timeseries_flirt.inputs.apply_xfm = True
-    
-    
-    timeseries_flirt1=timeseries_flirt.clone('timeseries_flirt1')
-    
-    timeseries_gen_parc= pe.MapNode(util.Function(input_names= ['data_file', 'template', 'csv_file_name', 'unitTSOutputs'], 
-                                                  output_names= ['out_file'], 
-                                                  function= gen_csv_for_parcelation), 
+
+    timeseries_flirt1 = timeseries_flirt.clone('timeseries_flirt1')
+
+    timeseries_gen_parc = pe.MapNode(util.Function(input_names=['data_file', 'template', 'csv_file_name', 'unitTSOutputs'],
+                                                  output_names=['out_file'],
+                                                  function=gen_csv_for_parcelation),
                                                   name='timeseries_gen_parc',
-                                                  iterfield = ["data_file"])
-    
-    timeseries_gen_mask=pe.MapNode(util.Function(input_names= ['data_file', 'template', 'csv_file_name', 'voxelTSOutputs'], 
-                                                 output_names= ['out_file'], 
-                                                 function= gen_csv_for_mask), 
+                                                  iterfield=["data_file"])
+
+    timeseries_gen_mask = pe.MapNode(util.Function(input_names=['data_file', 'template', 'csv_file_name', 'voxelTSOutputs'],
+                                                 output_names=['out_file'],
+                                                 function=gen_csv_for_mask),
                                                  name='timeseries_gen_mask',
-                                                 iterfield = ["data_file"])
-    
-    timeseries_gen_surface=pe.MapNode(util.Function(input_names= ['rh_surface_file', 'lh_surface_file', 'verticesTSOutputs'], 
-                                                    output_names= ['out_file'], 
-                                                    function= gen_csv_for_surface), 
+                                                 iterfield=["data_file"])
+
+    timeseries_gen_surface = pe.MapNode(util.Function(input_names=['rh_surface_file', 'lh_surface_file', 'verticesTSOutputs'],
+                                                    output_names=['out_file'],
+                                                    function=gen_csv_for_surface),
                                                     name='timeseries_gen_surface',
-                                                    iterfield = ["rh_surface_file", "lh_surface_file"])
-    
- 
-    
+                                                    iterfield=["rh_surface_file", "lh_surface_file"])
+
+
     '''
         Surface Registration turn off/on
     '''
-    preproc.connect(inputNode, 'brain', timeseries_reconall,'T1_files')
-    preproc.connect(inputNode, ('reorient', extract_subjectID), timeseries_reconall,'subject_id')
-    preproc.connect(inputNode,'recon_subjects', timeseries_reconall,'subjects_dir')
-    
-    preproc.connect(timeseries_apply_warp,'out_file',timeseries_bbreg,'source_file' )
-    preproc.connect(timeseries_reconall,'subjects_dir',timeseries_bbreg, 'subjects_dir' )
-    preproc.connect(timeseries_reconall,'subject_id',timeseries_bbreg,'subject_id' )
-    
-    preproc.connect(timeseries_bbreg,'out_reg_file',timeseries_sampler_lh,'reg_file' )
-    preproc.connect(timeseries_apply_warp, 'out_file', timeseries_sampler_lh,'source_file')
-    
-    preproc.connect(timeseries_bbreg,'out_reg_file',timeseries_sampler_rh,'reg_file' )
-    preproc.connect(timeseries_apply_warp, 'out_file', timeseries_sampler_rh,'source_file')
-    
+    preproc.connect(inputNode, 'brain', timeseries_reconall, 'T1_files')
+    preproc.connect(inputNode, ('reorient', extract_subjectID), timeseries_reconall, 'subject_id')
+    preproc.connect(inputNode, 'recon_subjects', timeseries_reconall, 'subjects_dir')
+
+    preproc.connect(timeseries_apply_warp, 'out_file', timeseries_bbreg, 'source_file' )
+    preproc.connect(timeseries_reconall, 'subjects_dir', timeseries_bbreg, 'subjects_dir' )
+    preproc.connect(timeseries_reconall, 'subject_id', timeseries_bbreg, 'subject_id' )
+
+    preproc.connect(timeseries_bbreg, 'out_reg_file', timeseries_sampler_lh, 'reg_file' )
+    preproc.connect(timeseries_apply_warp, 'out_file', timeseries_sampler_lh, 'source_file')
+
+    preproc.connect(timeseries_bbreg, 'out_reg_file', timeseries_sampler_rh, 'reg_file' )
+    preproc.connect(timeseries_apply_warp, 'out_file', timeseries_sampler_rh, 'source_file')
+
     '''
         Time Series Extraction
     '''
-    
+
     if unit_time_series_extraction:
         preproc.connect(timeseries_apply_warp, 'out_file', timeseries_flirt, 'in_file')
-        preproc.connect(inputNode,'identity_matrix', timeseries_flirt, 'in_matrix_file')
+        preproc.connect(inputNode, 'identity_matrix', timeseries_flirt, 'in_matrix_file')
         preproc.connect(inputnode_getparc, 'parcelations', timeseries_flirt, 'reference')
-    
-        preproc.connect(inputNode, 'rest',  timeseries_gen_parc, 'csv_file_name')
-        preproc.connect(timeseries_flirt, 'out_file',  timeseries_gen_parc, 'data_file')
-        preproc.connect(inputNode, 'unitTSOutputs', timeseries_gen_parc,'unitTSOutputs'  )
+
+        preproc.connect(inputNode, 'rest', timeseries_gen_parc, 'csv_file_name')
+        preproc.connect(timeseries_flirt, 'out_file', timeseries_gen_parc, 'data_file')
+        preproc.connect(inputNode, 'unitTSOutputs', timeseries_gen_parc, 'unitTSOutputs'  )
         preproc.connect(inputnode_getparc, 'parcelations', timeseries_gen_parc, 'template')
-       
-    
+
+
     if voxel_time_series_extraction:
-        
+
         preproc.connect(timeseries_apply_warp, 'out_file', timeseries_flirt1, 'in_file')
-        preproc.connect(inputNode,'identity_matrix', timeseries_flirt1, 'in_matrix_file')
+        preproc.connect(inputNode, 'identity_matrix', timeseries_flirt1, 'in_matrix_file')
         preproc.connect(inputNode_getmask, 'masks', timeseries_flirt1, 'reference')
 
         preproc.connect(inputNode, 'rest', timeseries_gen_mask, 'csv_file_name')
         preproc.connect(timeseries_flirt1, 'out_file', timeseries_gen_mask, 'data_file')
-        preproc.connect(inputNode,'voxelTSOutputs', timeseries_gen_mask, 'voxelTSOutputs')
+        preproc.connect(inputNode, 'voxelTSOutputs', timeseries_gen_mask, 'voxelTSOutputs')
         preproc.connect(inputNode_getmask, 'masks', timeseries_gen_mask, 'template')
-     
+
     if vertices_time_series_extraction:
-        
-        preproc.connect(timeseries_sampler_rh, 'out_file',timeseries_gen_surface, 'rh_surface_file' )
+
+        preproc.connect(timeseries_sampler_rh, 'out_file', timeseries_gen_surface, 'rh_surface_file' )
         preproc.connect(timeseries_sampler_lh, 'out_file', timeseries_gen_surface, 'lh_surface_file')
-        preproc.connect(inputNode,'verticesTSOutputs',timeseries_gen_surface, 'verticesTSOutputs' )
-         
+        preproc.connect(inputNode, 'verticesTSOutputs', timeseries_gen_surface, 'verticesTSOutputs' )
+
 
     return preproc
