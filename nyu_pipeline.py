@@ -3,6 +3,7 @@ import nipype.pipeline.engine as pe
 from base import (create_anat_preproc, create_func_preproc,
                     create_reg_preproc, create_seg_preproc)
 from base_nuisance import create_nuisance_preproc
+from base_stats import create_stats_preproc
 import re
 import os
 import glob
@@ -23,7 +24,7 @@ inputnode = pe.Node(interface=IdentityInterface(fields=['session_id', 'subject_i
                                                 mandatory_inputs=True),
                     name='inputnode')
 inputnode.iterables = [('session_id', session_ids),
-                       ('subject_id', subject_ids)]
+                       ('subject_id', subject_ids[0:3])]
 
 datasource = pe.Node(interface=nio.DataGrabber(infields=['session_id','subject_id'],
                                                outfields=['func', 'struct']),
@@ -62,6 +63,7 @@ regpreproc.inputs.inputspec.standard_brain_mask_dil=os.path.abspath('/usr/share/
 segpreproc=create_seg_preproc()
 segpreproc.inputs.inputspec.PRIOR_CSF = os.path.abspath('./tissuepriors/3mm/avg152T1_csf_bin.nii.gz')
 segpreproc.inputs.inputspec.PRIOR_WHITE = os.path.abspath('./tissuepriors/3mm/avg152T1_white_bin.nii.gz')
+segpreproc.inputs.inputspec.PRIOR_GRAY = os.path.abspath('./tissuepriors/3mm/avg152T1_gray_bin_3mm.nii.gz')
 segpreproc.inputs.inputspec.standard_res_brain=os.path.abspath('/usr/share/fsl/4.1/data/standard/MNI152_T1_3mm_brain.nii.gz')
 
 nuisancepreproc = create_nuisance_preproc()
@@ -78,6 +80,12 @@ nppm = create_nuisance_preproc(name='nuisance_preproc_postmotion')
 nppm.inputs.inputspec.selector = [True, True, True, True, True, True, True]
 nppm.inputs.inputspec.num_components = 5
 nppm.inputs.inputspec.target_angle_deg = 85
+
+mni_warp = pe.MapNode(interface=fsl.ApplyWarp(), name='mni_warp', iterfield=['in_file',
+                                                                             'field_file',
+                                                                             'premat'])
+
+statspreproc = create_stats_preproc()
 
 workflow.connect(inputnode, 'session_id', datasource, 'session_id')
 workflow.connect(inputnode, 'subject_id', datasource, 'subject_id')
@@ -97,25 +105,33 @@ workflow.connect(regpreproc, 'outputspec.highres2example_func_mat', segpreproc, 
 workflow.connect(regpreproc, 'outputspec.stand2highres_warp', segpreproc, 'inputspec.stand2highres_warp')
 
 workflow.connect(inputnode, 'session_id', datasink, 'container')
+
+workflow.connect(funcpreproc, 'outputspec.preprocessed', mni_warp, 'in_file')
+workflow.connect(regpreproc, 'inputspec.standard', mni_warp, 'ref_file')
+workflow.connect(regpreproc, 'outputspec.highres2standard_warp', mni_warp, 'field_file')
+workflow.connect(regpreproc, 'outputspec.example_func2highres_mat', mni_warp, 'premat')
+workflow.connect(mni_warp, 'out_file', statspreproc, 'inputspec.realigned_file')
+workflow.connect(mni_warp, 'out_file', datasink, 'preprocessed_mni')
+
 workflow.connect(funcpreproc, 'outputspec.preprocessed', datasink, 'preprocessed')
 workflow.connect(segpreproc, 'outputspec.csf_mask', datasink, 'masks.csf')
 workflow.connect(segpreproc, 'outputspec.wm_mask', datasink, 'masks.wm')
 workflow.connect(segpreproc, 'outputspec.probability_maps', datasink, 'masks.probability')
 workflow.connect(segpreproc, 'outputspec.wm_mask', nuisancepreproc, 'inputspec.wm_mask')
 workflow.connect(segpreproc, 'outputspec.csf_mask', nuisancepreproc, 'inputspec.csf_mask')
-workflow.connect(segpreproc, 'outputspec.csf_mask', nuisancepreproc, 'inputspec.gm_mask')
+workflow.connect(segpreproc, 'outputspec.gm_mask', nuisancepreproc, 'inputspec.gm_mask')
 workflow.connect(funcpreproc, 'outputspec.preprocessed', nuisancepreproc, 'inputspec.realigned_file')
 workflow.connect(funcpreproc, 'outputspec.movement_parameters', nuisancepreproc, 'inputspec.motion_components')
 
 workflow.connect(segpreproc, 'outputspec.wm_mask', npbm, 'inputspec.wm_mask')
 workflow.connect(segpreproc, 'outputspec.csf_mask', npbm, 'inputspec.csf_mask')
-workflow.connect(segpreproc, 'outputspec.csf_mask', npbm, 'inputspec.gm_mask')
+workflow.connect(segpreproc, 'outputspec.gm_mask', npbm, 'inputspec.gm_mask')
 workflow.connect(funcpreproc, 'outputspec.preprocessed', npbm, 'inputspec.realigned_file')
 workflow.connect(funcpreproc, 'outputspec.movement_parameters', npbm, 'inputspec.motion_components')
 
 workflow.connect(segpreproc, 'outputspec.wm_mask', nppm, 'inputspec.wm_mask')
 workflow.connect(segpreproc, 'outputspec.csf_mask', nppm, 'inputspec.csf_mask')
-workflow.connect(segpreproc, 'outputspec.csf_mask', nppm, 'inputspec.gm_mask')
+workflow.connect(segpreproc, 'outputspec.gm_mask', nppm, 'inputspec.gm_mask')
 workflow.connect(nuisancepreproc, 'outputspec.residual_file', nppm, 'inputspec.realigned_file')
 workflow.connect(funcpreproc, 'outputspec.movement_parameters', nppm, 'inputspec.motion_components')
 workflow.connect(nuisancepreproc, 'outputspec.residual_file', datasink, 'nuisance_corrected')
