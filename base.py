@@ -10,6 +10,187 @@ import nipype.interfaces.io as nio
 import nipype.interfaces.utility as util
 from utils import *
 
+def create_fmri_mni():
+
+    preproc = pe.Workflow(name='fmri_mnioutputs')
+
+    inputNode = pe.Node(util.IdentityInterface(fields=['reference_file',
+                                                       'warp_file',
+                                                       'premat',
+                                                       'in_file' ]),
+                       name='inputspec')
+
+    outputNode = pe.Node(util.IdentityInterface(fields=['out_file']),
+                       name='outputspec')
+
+    apply_warp = pe.MapNode(interface=fsl.ApplyWarp(),
+                            name='apply_warp', iterfield=['in_file', 'premat'])
+
+    preproc.connect(inputNode, 'in_file', apply_warp, 'in_file' )
+    preproc.connect(inputNode, 'warp_file', apply_warp, 'field_file')
+    preproc.connect(inputNode, 'reference_file', apply_warp, 'ref_file')
+    preproc.connect(inputNode, 'premat', apply_warp, 'premat')
+    preproc.connect(apply_warp, 'out_file', outputNode, 'out_file')
+
+    return preproc
+
+def create_Tone_mni():
+
+    preproc = pe.Workflow(name='Tone_mnioutputs')
+
+    inputNode = pe.Node(util.IdentityInterface(fields=['reference_file',
+                                                       'warp_file',
+                                                       'in_file' ]),
+                       name='inputspec')
+
+    outputNode = pe.Node(util.IdentityInterface(fields=['out_file']),
+                       name='outputspec')
+
+    apply_warp = pe.MapNode(interface=fsl.ApplyWarp(),
+                            name='apply_warp', iterfield=['in_file'])
+
+    preproc.connect(inputNode, 'in_file', apply_warp, 'in_file' )
+    preproc.connect(inputNode, 'warp_file', apply_warp, 'field_file')
+    preproc.connect(inputNode, 'reference_file', apply_warp, 'ref_file')
+    preproc.connect(apply_warp, 'out_file', outputNode, 'out_file')
+
+    return preproc
+
+def mprage_in_mnioutputs():
+
+    preproc = pe.Workflow(name='mprage_in_mnioutputs')
+
+    inputNode = pe.Node(util.IdentityInterface(fields=['reorient',
+                                                       'brain',
+                                                       'mixeltype',
+                                                       'probability_maps',
+                                                       'partial_volume_map',
+                                                       'partial_volume_files',
+                                                       'highres2standard_warp',
+                                                       'standard']),
+                        name='inputspec')
+
+    outputNode = pe.Node(util.IdentityInterface(fields=['reorient_mni',
+                                                        'brain_mni',
+                                                        'mixeltype_mni',
+                                                        'probability_maps_mni',
+                                                        'partial_volume_map_mni',
+                                                        'partial_volume_files_mni'
+                                                       ]),
+                       name='outputspec')
+
+
+    r_mni = create_Tone_mni()
+    b_mni = r_mni.clone('brain_mni')
+    m_mni = r_mni.clone('mixeltype_mni')
+    p_maps_mni = r_mni.clone('probability_maps_in_mni')
+    pv_map_mni = r_mni.clone('partial_volume_map_mni')
+    pv_files_mni = r_mni.clone('partial_volume_files_mni')
+
+
+    preproc.connect(inputNode, 'reorient',
+                    r_mni, 'inputspec.in_file')
+    preproc.connect(inputNode, 'standard',
+                    r_mni, 'inputspec.reference_file')
+    preproc.connect(inputNode, 'highres2standard_warp',
+                    r_mni, 'inputspec.warp_file')
+
+    preproc.connect(inputNode, 'brain',
+                    b_mni, 'inputspec.in_file')
+    preproc.connect(inputNode, 'standard',
+                    b_mni, 'inputspec.reference_file')
+    preproc.connect(inputNode, 'highres2standard_warp',
+                    b_mni, 'inputspec.warp_file')
+
+    preproc.connect(inputNode, 'mixeltype',
+                    m_mni, 'inputspec.in_file')
+    preproc.connect(inputNode, 'standard',
+                    m_mni, 'inputspec.reference_file')
+    preproc.connect(inputNode, 'highres2standard_warp',
+                    m_mni, 'inputspec.warp_file')
+
+    preproc.connect(inputNode, 'probability_maps',
+                    p_maps_mni, 'inputspec.in_file')
+    preproc.connect(inputNode, 'standard',
+                    p_maps_mni, 'inputspec.reference_file')
+    preproc.connect(inputNode, 'highres2standard_warp',
+                    p_maps_mni, 'inputspec.warp_file')
+
+    preproc.connect(inputNode, 'partial_volume_map',
+                    pv_map_mni, 'inputspec.in_file')
+    preproc.connect(inputNode, 'standard',
+                    pv_map_mni, 'inputspec.reference_file')
+    preproc.connect(inputNode, 'highres2standard_warp',
+                    pv_map_mni, 'inputspec.warp_file')
+
+    preproc.connect(inputNode, 'partial_volume_files',
+                    pv_files_mni, 'inputspec.in_file')
+    preproc.connect(inputNode, 'standard',
+                    pv_files_mni, 'inputspec.reference_file')
+    preproc.connect(inputNode, 'highres2standard_warp',
+                    pv_files_mni, 'inputspec.warp_file')
+
+    preproc.connect(r_mni, 'outputspec.out_file',
+                    outputNode, 'reorient_mni')
+    preproc.connect(b_mni, 'outputspec.out_file',
+                    outputNode, 'brain_mni')
+    preproc.connect(m_mni, 'outputspec.out_file',
+                    outputNode, 'mixeltype_mni')
+    preproc.connect(p_maps_mni, 'outputspec.out_file',
+                    outputNode, 'probability_maps_mni')
+    preproc.connect(pv_map_mni, 'outputspec.out_file',
+                    outputNode, 'partial_volume_map_mni')
+    preproc.connect(pv_files_mni, 'outputspec.out_file',
+                    outputNode, 'partial_volume_files_mni')
+
+    return preproc
+
+def func_in_mnioutputs():
+
+    preproc = pe.Workflow(name='func_in_mnioutputs')
+
+    inputNode = pe.Node(util.IdentityInterface(fields=['residual_file',
+                                                       'highres2standard_warp',
+                                                       'premat',
+                                                       'standard',
+                                                       'preprocessed_mask']),
+                                                    name='inputspec')
+
+
+    outputNode = pe.Node(util.IdentityInterface(fields=['residual_file_mni',
+                                                            'preprocessed_mask_mni'
+                                                       ]),
+                                                    name='outputspec')
+
+    residual_mni = create_fmri_mni()
+    pm_mni = residual_mni.clone('pm_mni')
+
+    preproc.connect(inputNode, 'residual_file',
+                    residual_mni, 'inputspec.in_file')
+    preproc.connect(inputNode, 'highres2standard_warp',
+                    residual_mni, 'inputspec.warp_file')
+    preproc.connect(inputNode, 'standard',
+                    residual_mni, 'inputspec.reference_file')
+    preproc.connect(inputNode, 'premat',
+                    residual_mni, 'inputspec.premat')
+
+    preproc.connect(inputNode, 'preprocessed_mask',
+                    pm_mni, 'inputspec.in_file')
+    preproc.connect(inputNode, 'highres2standard_warp',
+                    pm_mni, 'inputspec.warp_file')
+    preproc.connect(inputNode, 'standard',
+                    pm_mni, 'inputspec.reference_file')
+    preproc.connect(inputNode, 'premat',
+                    pm_mni, 'inputspec.premat')
+
+    preproc.connect(residual_mni, 'outputspec.out_file',
+                    outputNode, 'residual_file_mni')
+
+    preproc.connect(pm_mni, 'outputspec.out_file',
+                    outputNode, 'preprocessed_mask_mni')
+
+    return preproc
+
 
 def create_anat_preproc():
 
@@ -415,88 +596,88 @@ def create_scrubbing_preproc():
                                   function=getImgNVols), name='NVOLS')
 
     sc_copy = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                       function=scCopy), name='sc_copy', iterfield=["in_file"])
+                                       function=scCopy), name='sc_copy', iterfield=['in_file'])
 
     sc_createSC = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                           function=createSC), name='sc_createSC', iterfield=["in_file"])
+                                           function=createSC), name='sc_createSC', iterfield=['in_file'])
 
     sc_MeanFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                         function=setMeanFD), name='sc_MeanFD', iterfield=["infile_a", "infile_b"])
+                                         function=setMeanFD), name='sc_MeanFD', iterfield=['infile_a', 'infile_b'])
 
     sc_NumFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                        function=setNumFD), name='sc_NumFD', iterfield=["infile_a", "infile_b"])
+                                        function=setNumFD), name='sc_NumFD', iterfield=['infile_a', 'infile_b'])
 
     sc_PercentFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                            function=setPercentFD), name='sc_PercentFD', iterfield=["infile_a", "infile_b"])
+                                            function=setPercentFD), name='sc_PercentFD', iterfield=['infile_a', 'infile_b'])
 
     sc_FramesEx = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                           function=setFramesEx), name='sc_FramesEx', iterfield=["in_file"])
+                                           function=setFramesEx), name='sc_FramesEx', iterfield=['in_file'])
 
     sc_FramesIN = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                           function=setFramesIN), name='sc_FramesIN', iterfield=["in_file"])
+                                           function=setFramesIN), name='sc_FramesIN', iterfield=['in_file'])
 
     sc_FramesInList = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                               function=setFramesInList), name='sc_FramesInList', iterfield=["in_file"])
+                                               function=setFramesInList), name='sc_FramesInList', iterfield=['in_file'])
 
     sc_MeanDVARS = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                            function=setMeanDVARS), name='sc_MeanDVARS', iterfield=["infile_a", "infile_b"])
+                                            function=setMeanDVARS), name='sc_MeanDVARS', iterfield=['infile_a', 'infile_b'])
 
     sc_NUM5 = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                       function=setNUM5), name='sc_NUM5', iterfield=["infile_a", "infile_b"])
+                                       function=setNUM5), name='sc_NUM5', iterfield=['infile_a', 'infile_b'])
 
     sc_NUM10 = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                        function=setNUM10), name='sc_NUM10', iterfield=["infile_a", "infile_b"])
+                                        function=setNUM10), name='sc_NUM10', iterfield=['infile_a', 'infile_b'])
 
     sc_NUMFD = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                        function=setNUMFD), name='sc_NUMFD', iterfield=["in_file"])
+                                        function=setNUMFD), name='sc_NUMFD', iterfield=['in_file'])
 
     sc_ScrubbedMotion = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
                                                  function=setScrubbedMotion), name='sc_ScrubbedMotion',
-                                   iterfield=["infile_a", "infile_b"])
+                                   iterfield=['infile_a', 'infile_b'])
 
     sc_FtoFPercentChange = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
                                                     function=setFtoFPercentChange),
-                                      name='sc_FtoFPercentChange', iterfield=["infile_a", "infile_b"])
+                                      name='sc_FtoFPercentChange', iterfield=['infile_a', 'infile_b'])
 
     sc_SqrtMeanDeriv = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
                                                 function=setSqrtMeanDeriv), name='sc_SqrtMeanDeriv',
-                                  iterfield=["in_file"])
+                                  iterfield=['in_file'])
 
     sc_SqrtMeanRaw = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                              function=setSqrtMeanRaw), name='sc_SqrtMeanRaw', iterfield=["in_file"])
+                                              function=setSqrtMeanRaw), name='sc_SqrtMeanRaw', iterfield=['in_file'])
 
     sc_calc1 = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc1',
-                          iterfield=["infile_a", "stop_idx", "infile_b", "stop_idx2"])
+                          iterfield=['infile_a', 'stop_idx', 'infile_b', 'stop_idx2'])
     sc_calc1.inputs.start_idx = 4
     sc_calc1.inputs.start_idx2 = 3
     sc_calc1.inputs.expr = '\'(a-b)\''
     sc_calc1.inputs.out_file = 'temp_deriv'
 
-    sc_calc2 = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc2', iterfield=["infile_a"])
+    sc_calc2 = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc2', iterfield=['infile_a'])
     sc_calc2.inputs.expr = '\'a*a\''
     sc_calc2.inputs.out_file = 'temp_deriv_sq'
 
-    sc_calc3 = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc3', iterfield=["infile_a", "stop_idx"])
+    sc_calc3 = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc3', iterfield=['infile_a', 'stop_idx'])
     sc_calc3.inputs.start_idx = 3
     sc_calc3.inputs.expr = '\'a*a\''
     sc_calc3.inputs.out_file = 'raw_sq'
 
     sc_calc_scrub = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc_scrub',
-                               iterfield=["infile_a", "start_idx", "stop_idx"] )
+                               iterfield=['infile_a', 'start_idx', 'stop_idx'] )
     sc_calc_scrub.inputs.expr = '\'a\''
 
-    sc_automask = pe.MapNode(interface=e_afni.ThreedAutomask(), name='sc_automask', iterfield=["in_file"])
+    sc_automask = pe.MapNode(interface=e_afni.ThreedAutomask(), name='sc_automask', iterfield=['in_file'])
     sc_automask.inputs.dilate = 1
     sc_automask.inputs.genbrickhead = True
     sc_automask.inputs.out_file = 'mask'
 
 
     sc_3dROIstats_1 = pe.MapNode(interface=e_afni.ThreedROIstats(), name='sc_3dROIstats_1',
-                                 iterfield=["in_file", "mask"])
+                                 iterfield=['in_file', 'mask'])
     sc_3dROIstats_1.inputs.quiet = True
 
     sc_3dROIstats_2 = pe.MapNode(interface=e_afni.ThreedROIstats(), name='sc_3dROIstats_2',
-                                 iterfield=["in_file", "mask"])
+                                 iterfield=['in_file', 'mask'])
     sc_3dROIstats_2.inputs.quiet = True
 
     sc.connect(inputNode, 'rest', NVOLS, 'in_files')
@@ -554,7 +735,7 @@ def create_scrubbing_preproc():
     ##WHAT FRAMES HAVE >0.5mm FD??
     ## FD timeseries starts at the second TR because it's a derivative
     ## but because images start at 0, it's ok to take the frame number directly from the FD file 
-    ## (i.e., if the 5th number in the FD file indicates a bad frame, removing timepoint "5" will correctly remove the 6th frame).
+    ## (i.e., if the 5th number in the FD file indicates a bad frame, removing timepoint '5' will correctly remove the 6th frame).
     sc.connect(sc_createSC, 'out_file', sc_FramesEx, 'in_file')
     sc.connect(sc_createSC, 'out_file', sc_FramesInList, 'in_file')
     sc.connect(sc_createSC, 'out_file', sc_FramesIN, 'in_file')

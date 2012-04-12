@@ -6,7 +6,8 @@ import nipype.pipeline.engine as pe
 from base import (create_anat_preproc, create_func_preproc,
                     create_reg_preproc, create_seg_preproc,
                     create_alff_preproc, create_ifc_preproc,
-                    create_vmhc_preproc, create_scrubbing_preproc)
+                    create_vmhc_preproc, create_scrubbing_preproc,
+                    mprage_in_mnioutputs, func_in_mnioutputs)
 
 from utils import (create_anat_dataflow, create_func_dataflow,
                     create_alff_dataflow, create_ifc_dataflow,
@@ -168,6 +169,20 @@ def get_workflow(wf_name, c):
 
         return preproc
 
+    if wf_name.lower() == 'mprage_in_mnioutputs':
+        preproc = mprage_in_mnioutputs()
+        preproc.inputs.inputspec.standard = standard
+
+        return preproc
+
+
+    if wf_name.lower() == 'func_in_mnioutputs':
+        preproc = func_in_mnioutputs()
+        preproc.inputs.inputspec.standard = standard
+
+        return preproc
+
+
 def prep_workflow(c):
 
     wfname = 'resting_preproc'
@@ -199,6 +214,8 @@ def prep_workflow(c):
         scpreproc = get_workflow('sc', c)
         select = get_workflow('select', c)
         nuisancepreproc = get_workflow('nuisance', c)
+        mprage_mni = get_workflow('mprage_in_mnioutputs', c)
+        func_in_mni = get_workflow('func_in_mnioutputs', c)
         """
             Make Connections
         """
@@ -220,8 +237,42 @@ def prep_workflow(c):
         workflow.connect(segpreproc, 'outputspec.wm_mask', nuisancepreproc, 'inputspec.wm_mask')
         workflow.connect(segpreproc, 'outputspec.csf_mask', nuisancepreproc, 'inputspec.csf_mask')
         workflow.connect(segpreproc, 'outputspec.gm_mask', nuisancepreproc, 'inputspec.gm_mask')
+
+        """
+            Get T1 outputs in MNI
+        """
+        workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
+                         mprage_mni, 'inputspec.highres2standard_warp')
+        workflow.connect(anatpreproc, 'outputspec.reorient',
+                         mprage_mni, 'inputspec.reorient')
+        workflow.connect(anatpreproc, 'outputspec.brain',
+                         mprage_mni, 'inputspec.brain')
+        workflow.connect(segpreproc, 'outputspec.probability_maps',
+                         mprage_mni, 'inputspec.probability_maps')
+        workflow.connect(segpreproc, 'outputspec.mixeltype',
+                         mprage_mni, 'inputspec.mixeltype')
+        workflow.connect(segpreproc, 'outputspec.partial_volume_map',
+                         mprage_mni, 'inputspec.partial_volume_map')
+        workflow.connect(segpreproc, 'outputspec.partial_volume_files',
+                        mprage_mni, 'inputspec.partial_volume_files')
+
+        """
+             Nuisance
+        """
         workflow.connect(select, 'outputspec.preprocessed_selector', nuisancepreproc, 'inputspec.realigned_file')
         workflow.connect(funcpreproc, 'outputspec.movement_parameters', nuisancepreproc, 'inputspec.motion_components')
+        """
+            Get Func outputs in MNI
+        """
+        workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
+                         func_in_mni, 'inputspec.highres2standard_warp')
+        workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
+                         func_in_mni, 'inputspec.premat')
+        workflow.connect(funcpreproc, 'outputspec.preprocessed_mask',
+                         func_in_mni, 'inputspec.preprocessed_mask')
+        workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+                         func_in_mni, 'inputspec.residual_file')
+
     """
         ALFF Analysis
     """
