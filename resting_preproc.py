@@ -5,13 +5,15 @@ import os
 import nipype.pipeline.engine as pe
 from base import (create_anat_preproc, create_func_preproc,
                     create_reg_preproc, create_seg_preproc,
-                    create_alff_preproc, create_ifc_preproc,
+                    create_alff_preproc, create_sca_preproc,
                     create_vmhc_preproc, create_scrubbing_preproc,
-                    mprage_in_mnioutputs, func_in_mnioutputs)
+                    mprage_in_mnioutputs, func_in_mnioutputs,
+                    create_filter, create_timeseries_preproc)
 
-from utils import (create_anat_dataflow, create_func_dataflow,
-                    create_alff_dataflow, create_ifc_dataflow,
-                    create_vmhc_dataflow, selector_wf)
+from utils import (create_anat_func_dataflow, create_seed_dataflow,
+                    create_alff_dataflow, create_sca_dataflow,
+                    create_vmhc_dataflow, selector_wf,
+                    create_parc_dataflow, create_mask_dataflow)
 
 from base_nuisance import create_nuisance_preproc
 
@@ -58,6 +60,37 @@ def get_seed_list(seed_file):
     return seed_list
 
 
+def getModelandSeedList(c):
+
+    modelist = []
+    seedlist = []
+
+    try:
+        fp = open(c.model_file, 'r')
+        models = fp.readlines()
+        fp.close()
+
+        for model in models:
+            model = model.rstrip('\r\n')
+            modelist.append(os.path.basename(model))
+
+        print 'checking for models ', modelist
+
+        f = open(c.seed_file, 'r')
+        seeds = f.readlines()
+        f.close()
+
+        for seed in seeds:
+            seed = os.path.basename(seed.rstrip('\r\n'))
+            seed = os.path.splitext(os.path.splitext(seed)[0])[0]
+            seedlist.append(seed)
+
+        print 'checking for seeds ', seedlist
+    except:
+        raise
+
+    return  modelist, seedlist
+
 
 def get_workflow(wf_name, c):
 
@@ -78,6 +111,7 @@ def get_workflow(wf_name, c):
     symm_standard = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_2mm_symmetric.nii.gz')
     twomm_brain_mask_dil = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_2mm_brain_mask_symmetric_dil.nii.gz')
     config_file_twomm = os.path.join(c.FSLDIR, 'etc/flirtsch/T1_2_MNI152_2mm.cnf')
+    identity_matrix = os.path.join(c.FSLDIR, 'etc/flirtsch/ident.mat')
 
     if wf_name.lower() == 'anat':
         preproc = create_anat_preproc()
@@ -116,22 +150,22 @@ def get_workflow(wf_name, c):
 
         preproc = create_alff_preproc()
         preproc.inputs.inputspec.standard = standard
-        preproc.inputs.hplp_input.hp = c.alff_hp
-        preproc.inputs.hplp_input.lp = c.alff_lp
+        preproc.inputs.hplp_input.hp = c.highPassFreqALFF
+        preproc.inputs.hplp_input.lp = c.lowPassFreqALFF
         preproc.inputs.fwhm_input.fwhm = c.fwhm
-        preproc.get_node('hplp_input').iterables = ('hp', c.alff_HP, 'lp', c.alff_LP)
+        preproc.get_node('hplp_input').iterables = ('hp', c.highPassFreqALFF, 'lp', c.lowPassFreqALFF)
         preproc.get_node('fwhm_input').iterables = ('fwhm', c.fwhm)
 
         return preproc
 
-    if wf_name.lower() == 'ifc':
+    if wf_name.lower() == 'sca':
 
-        preproc = create_ifc_preproc()
-        seeds = get_seed_list(c.seed_file)
+        preproc = create_sca_preproc()
+        #seeds = get_seed_list(c.seed_file)
 
-        print seeds
-        preproc.inputs.seed_list_input.seed_list = seeds
-        preproc.get_node('seed_list_input').iterables = ('seed_list', seeds)
+        #print seeds
+        #preproc.inputs.seed_list_input.seed_list = seeds
+        #preproc.get_node('seed_list_input').iterables = ('seed_list', seeds)
         preproc.inputs.fwhm_input.fwhm = c.fwhm
         preproc.get_node('fwhm_input').iterables = ('fwhm', c.fwhm)
         preproc.inputs.inputspec.standard = standard
@@ -163,9 +197,10 @@ def get_workflow(wf_name, c):
 
         preproc = create_nuisance_preproc()
         preproc.inputs.inputspec.selector = c.regressors
-        preproc.inputs.inputspec.num_components = c.ncomponents
-        preproc.inputs.inputspec.target_angle_deg = c.target_angle_deg
-        preproc.get_node('inputspec').iterables = [('num_components', c.ncomponents), ('target_angle_deg', c.target_angle_deg)]
+        preproc.inputs.num_components_input.num_components = c.ncomponents
+        preproc.inputs.target_angle_deg_input.target_angle_deg = c.target_angle_deg
+        preproc.get_node('num_components_input').iterables = ('num_components', c.ncomponents)
+        preproc.get_node('target_angle_deg_input').iterables = ('target_angle_deg', c.ncomponents)
 
         return preproc
 
@@ -181,6 +216,33 @@ def get_workflow(wf_name, c):
         preproc.inputs.inputspec.standard = standard
 
         return preproc
+
+    if wf_name.lower() == 'freq_filter':
+
+
+        preproc = create_filter(c.nuisanceHighPassFilter, c.nuisanceLowPassFilter)
+        if c.nuisanceHighPassFilter:
+            preproc.inputs.hp_input.hp = c.nuisanceHighPassLowCutOff
+            preproc.get_node('hp_input').iterables = ('hp', c.nuisanceHighPassLowCutOff)
+
+        if c.nuisanceLowPassFilter:
+            preproc.inputs.lp_input.lp = c.nuisanceLowPassHighCutOff
+            preproc.get_node('lp_input').iterables = ('lp', c.nuisanceLowPassHighCutOff)
+
+        return preproc
+
+    if wf_name.lower() == 'ts':
+
+        preproc = create_timeseries_preproc(True, True, True)
+        preproc.inputs.inputspec.recon_subjects = c.reconSubjectsDirectory
+        preproc.inputs.inputspec.standard = standard
+        preproc.inputs.inputspec.identity_matrix = identity_matrix
+        preproc.inputs.inputspec.unitTSOutputs = [True, True]
+        preproc.inputs.inputspec.voxelTSOutputs = [True, True]
+        preproc.inputs.inputspec.verticesTSOutputs = [True, True]
+        return preproc
+
+
 
 
 def prep_workflow(c):
@@ -200,9 +262,24 @@ def prep_workflow(c):
         """
             grab the subject data
         """
-        flowAnat = create_anat_dataflow('anat_flow', sublist, c.subj_dir, c.anat_name, c.anat_template)
-        flowFunc = create_func_dataflow('func_flow', sublist, c.subj_dir, c.rest_name, c.func_template)
+        flowAnatFunc = create_anat_func_dataflow('anat_func_flow', sublist, c.subj_dir,
+                                        c.anat_name, c.rest_name, c.anat_template,
+                                        c.func_template)
 
+        """
+            grab the seeds data
+        """
+        seedFlow = create_seed_dataflow(c.seed_file)
+
+        """
+            grab parcellation data for time series extraction
+        """
+        pflow = create_parc_dataflow(c.unitDefinitionsDirectory)
+
+        """
+            grab mask data for time series extraction
+        """
+        mflow = create_mask_dataflow(c.voxelMasksDirectory)
 
         """
             Define workflows and set parameters
@@ -216,27 +293,54 @@ def prep_workflow(c):
         nuisancepreproc = get_workflow('nuisance', c)
         mprage_mni = get_workflow('mprage_in_mnioutputs', c)
         func_in_mni = get_workflow('func_in_mnioutputs', c)
+        freq_filter = get_workflow('freq_filter', c)
+        alffpreproc = get_workflow('alff', c)
+        scapreproc = get_workflow('sca', c)
+        vmhcpreproc = get_workflow('vmhc', c)
+        tspreproc = get_workflow('ts', c)
+
         """
             Make Connections
         """
 
-        workflow.connect(flowAnat, 'anat', anatpreproc, 'inputspec.anat')
-        workflow.connect(flowFunc, 'rest', funcpreproc, 'inputspec.rest')
-        workflow.connect(funcpreproc, 'outputspec.example_func', regpreproc, 'inputspec.example_func')
-        workflow.connect(anatpreproc, 'outputspec.brain', regpreproc, 'inputspec.brain')
-        workflow.connect(anatpreproc, 'outputspec.reorient', regpreproc, 'inputspec.reorient')
-        workflow.connect(funcpreproc, 'outputspec.preprocessed_mask', segpreproc, 'inputspec.preprocessed_mask')
-        workflow.connect(anatpreproc, 'outputspec.brain', segpreproc, 'inputspec.brain')
-        workflow.connect(funcpreproc, 'outputspec.example_func', segpreproc, 'inputspec.example_func')
-        workflow.connect(regpreproc, 'outputspec.highres2example_func_mat', segpreproc, 'inputspec.highres2example_func_mat')
-        workflow.connect(regpreproc, 'outputspec.stand2highres_warp', segpreproc, 'inputspec.stand2highres_warp')
-        workflow.connect(flowFunc, 'rest', scpreproc, 'inputspec.rest')
-        workflow.connect(funcpreproc, 'outputspec.movement_parameters', scpreproc, 'inputspec.movement_parameters')
-        workflow.connect(funcpreproc, 'outputspec.preprocessed', select, 'inputspec.preprocessed')
-        workflow.connect(scpreproc, 'outputspec.scrubbed_preprocessed', select, 'inputspec.scrubbed_preprocessed')
-        workflow.connect(segpreproc, 'outputspec.wm_mask', nuisancepreproc, 'inputspec.wm_mask')
-        workflow.connect(segpreproc, 'outputspec.csf_mask', nuisancepreproc, 'inputspec.csf_mask')
-        workflow.connect(segpreproc, 'outputspec.gm_mask', nuisancepreproc, 'inputspec.gm_mask')
+        workflow.connect(flowAnatFunc, 'anat',
+                         anatpreproc, 'inputspec.anat')
+        workflow.connect(flowAnatFunc, 'rest',
+                         funcpreproc, 'inputspec.rest')
+        workflow.connect(funcpreproc, 'outputspec.example_func',
+                         regpreproc, 'inputspec.example_func')
+        workflow.connect(anatpreproc, 'outputspec.brain',
+                         regpreproc, 'inputspec.brain')
+        workflow.connect(anatpreproc, 'outputspec.reorient',
+                         regpreproc, 'inputspec.reorient')
+        workflow.connect(funcpreproc, 'outputspec.preprocessed_mask',
+                         segpreproc, 'inputspec.preprocessed_mask')
+        workflow.connect(anatpreproc, 'outputspec.brain',
+                         segpreproc, 'inputspec.brain')
+        workflow.connect(funcpreproc, 'outputspec.example_func',
+                         segpreproc, 'inputspec.example_func')
+        workflow.connect(regpreproc, 'outputspec.highres2example_func_mat',
+                         segpreproc, 'inputspec.highres2example_func_mat')
+        workflow.connect(regpreproc, 'outputspec.stand2highres_warp',
+                         segpreproc, 'inputspec.stand2highres_warp')
+        workflow.connect(flowAnatFunc, 'rest',
+                         scpreproc, 'inputspec.rest')
+        workflow.connect(funcpreproc, 'outputspec.movement_parameters',
+                         scpreproc, 'inputspec.movement_parameters')
+        workflow.connect(funcpreproc, 'outputspec.preprocessed',
+                         select, 'inputspec.preprocessed')
+        workflow.connect(scpreproc, 'outputspec.scrubbed_preprocessed',
+                         select, 'inputspec.scrubbed_preprocessed')
+        workflow.connect(funcpreproc, 'outputspec.movement_parameters',
+                         select, 'inputspec.movement_parameters')
+        workflow.connect(scpreproc, 'outputspec.scrubbed_movement_parameters',
+                         select, 'inputspec.scrubbed_movement_parameters')
+        workflow.connect(segpreproc, 'outputspec.wm_mask',
+                         nuisancepreproc, 'inputspec.wm_mask')
+        workflow.connect(segpreproc, 'outputspec.csf_mask',
+                         nuisancepreproc, 'inputspec.csf_mask')
+        workflow.connect(segpreproc, 'outputspec.gm_mask',
+                         nuisancepreproc, 'inputspec.gm_mask')
 
         """
             Get T1 outputs in MNI
@@ -259,8 +363,17 @@ def prep_workflow(c):
         """
              Nuisance
         """
-        workflow.connect(select, 'outputspec.preprocessed_selector', nuisancepreproc, 'inputspec.realigned_file')
-        workflow.connect(funcpreproc, 'outputspec.movement_parameters', nuisancepreproc, 'inputspec.motion_components')
+        workflow.connect(select, 'outputspec.preprocessed_selector',
+                         nuisancepreproc, 'inputspec.realigned_file')
+        workflow.connect(select, 'outputspec.movement_parameters_selector',
+                         nuisancepreproc, 'inputspec.motion_components')
+
+        if(c.nuisanceLowPassFilter or c.nuisanceHighPassFilter):
+
+            workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+                             freq_filter, 'inputspec.in_file')
+
+
         """
             Get Func outputs in MNI
         """
@@ -273,70 +386,76 @@ def prep_workflow(c):
         workflow.connect(nuisancepreproc, 'outputspec.residual_file',
                          func_in_mni, 'inputspec.residual_file')
 
-    """
-        ALFF Analysis
-    """
-    if((not c.analysis[0] and not c.analysis[1]) and c.analysis[4]):
+        """
+            ALFF/fALFF
+        """
+        workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+                         alffpreproc, 'inputspec.rest_res')
+        workflow.connect(funcpreproc, 'outputspec.preprocessed_mask',
+                         alffpreproc, 'inputspec.rest_mask')
+        workflow.connect(func_in_mni, 'outputspec.preprocessed_mask_mni',
+                         alffpreproc, 'inputspec.rest_mask2standard')
+        workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
+                         alffpreproc, 'inputspec.premat')
+        workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
+                         alffpreproc, 'inputspec.fieldcoeff_file')
 
-        alffpreproc = get_workflow('alff', c)
+        """
+            SCA (Seed Based Correlation Analysis)
+        """
+        workflow.connect(seedFlow, 'out_file',
+                         scapreproc, 'seed_list_input.seed_list')
+        workflow.connect(funcpreproc, 'outputspec.example_func',
+                         scapreproc, 'inputspec.ref')
+        workflow.connect(regpreproc, 'outputspec.stand2highres_warp',
+                         scapreproc, 'inputspec.warp')
+        workflow.connect(regpreproc, 'outputspec.highres2example_func_mat',
+                         scapreproc, 'inputspec.postmat')
+        workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
+                         scapreproc, 'inputspec.premat')
 
-        flowAlff, flowAlffWarp = create_alff_dataflow('alff_flow',
-                                                      sublist,
-                                                      c.subj_dir,
-                                                      c.rest_name,
-                                                      c.alff_template,
-                                                      c.alff_warp_template)
+        if(c.nuisanceLowPassFilter or c.nuisanceHighPassFilter):
+            workflow.connect(freq_filter, 'outputspec.rest_res_filt',
+                             scapreproc, 'inputspec.rest_res_filt')
+        else:
+           workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+                            scapreproc, 'inputspec.rest_res_filt')
 
-        workflow.connect(flowAlff, 'rest_res', alffpreproc, 'inputspec.rest_res')
-        workflow.connect(flowAlff, 'rest_mask', alffpreproc, 'inputspec.rest_mask')
-        workflow.connect(flowAlff, 'rest_mask2standard', alffpreproc, 'inputspec.rest_mask2standard')
-        workflow.connect(flowAlffWarp, 'premat', alffpreproc, 'inputspec.premat')
-        workflow.connect(flowAlffWarp, 'fieldcoeff_file', alffpreproc, 'inputspec.fieldcoeff_file')
-
-    """
-        iFC Analysis
-    """
-    if((not c.analysis[0] and not c.analysis[1]) and c.analysis[5]):
-
-        ifcpreproc = get_workflow('ifc', c)
-
-        flowIfc, flowIfcWarp = create_ifc_dataflow('ifc_flow',
-                                                      sublist,
-                                                      c.subj_dir,
-                                                      c.rest_name,
-                                                      c.ifc_template,
-                                                      c.ifc_warp_template)
-
-        workflow.connect(flowIfc, 'ref', ifcpreproc, 'inputspec.ref')
-        workflow.connect(flowIfcWarp, 'warp', ifcpreproc, 'inputspec.warp')
-        workflow.connect(flowIfcWarp, 'postmat', ifcpreproc, 'inputspec.postmat')
-        workflow.connect(flowIfcWarp, 'premat', ifcpreproc, 'inputspec.premat')
-        workflow.connect(flowIfc, 'rest_res_filt', ifcpreproc, 'inputspec.rest_res_filt')
-        workflow.connect(flowIfcWarp, 'fieldcoeff_file', ifcpreproc, 'inputspec.fieldcoeff_file')
-#        workflow.connect(flowIfc, 'rest_res2standard', ifcpreproc, 'inputspec.rest_res2standard')
-        workflow.connect(flowIfc, 'rest_mask2standard', ifcpreproc, 'inputspec.rest_mask2standard')
+        workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
+                         scapreproc, 'inputspec.fieldcoeff_file')
+#        workflow.connect(func_in_mni, 'outputspec.residual_file_mni',
+#                         scapreproc, 'inputspec.rest_res2standard')
+        workflow.connect(func_in_mni, 'outputspec.preprocessed_mask_mni',
+                         scapreproc, 'inputspec.rest_mask2standard')
 
 
-    """
-        VMHC Analysis
-    """
-    if((not c.analysis[0] and not c.analysis[1]) and c.analysis[6]):
+        """
+            VMHC (Voxel-Mirrored Homotopic Connectivity)
+        """
+        workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+                         vmhcpreproc, 'inputspec.rest_res')
+        workflow.connect(anatpreproc, 'outputspec.reorient',
+                         vmhcpreproc, 'inputspec.reorient')
+        workflow.connect(anatpreproc, 'outputspec.brain',
+                         vmhcpreproc, 'inputspec.brain')
+        workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
+                         vmhcpreproc, 'inputspec.example_func2highres_mat')
 
-        vmhcpreproc = get_workflow('vmhc', c)
+        """
+            Time Series Extraction, Voxel Based and Vertices based
+            Generates CSV and NUMPY files
+        """
+        #timeseries preproc
+        workflow.connect(anatpreproc, 'outputspec.brain', tspreproc, 'inputspec.brain')
+        workflow.connect(anatpreproc, 'outputspec.reorient', tspreproc, 'inputspec.reorient')
+        workflow.connect(funcpreproc, 'outputspec.motion_correct', tspreproc, 'inputspec.motion_correct')
+        workflow.connect(regpreproc, 'outputspec.highres2standard_warp', tspreproc, 'inputspec.warp_file')
+        workflow.connect(regpreproc, 'outputspec.example_func2highres', tspreproc, 'inputspec.premat')
 
-        flowVmhc_rest_res, flowVmhc_reorient, flowVmhc_example_func2highres_mat = create_vmhc_dataflow('vmhc_flow',
-                                                      sublist,
-                                                      c.subj_dir,
-                                                      c.anat_name,
-                                                      c.rest_name,
-                                                      c.vmhc_rest_res_template,
-                                                      c.vmhc_anat_reorient_template,
-                                                      c.vmhc_example_func2highres_mat_template)
+        workflow.connect(pflow, 'out_file', tspreproc, 'getparc.parcelations')
+        workflow.connect(mflow, 'out_file', tspreproc, 'getmask.masks')
 
-        workflow.connect(flowVmhc_rest_res, 'rest_res', vmhcpreproc, 'inputspec.rest_res')
-        workflow.connect(flowVmhc_reorient, 'reorient', vmhcpreproc, 'inputspec.reorient')
-        workflow.connect(flowVmhc_reorient, 'brain', vmhcpreproc, 'inputspec.brain')
-        workflow.connect(flowVmhc_example_func2highres_mat, 'example_func2highres_mat', vmhcpreproc, 'inputspec.example_func2highres_mat')
+
 
     if(not c.run_on_grid):
         workflow.run(plugin='MultiProc', plugin_args={'n_procs': c.num_cores})

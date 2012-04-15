@@ -214,9 +214,7 @@ def median_angle_correct(target_angle_deg, realigned_file):
     return corrected_file, angles_file
 
 def create_nuisance_preproc(name='nuisance_preproc'):
-    inputspec = pe.Node(util.IdentityInterface(fields=['num_components',
-                                                       'target_angle_deg',
-                                                       'realigned_file',
+    inputspec = pe.Node(util.IdentityInterface(fields=['realigned_file',
                                                        'wm_mask',
                                                        'csf_mask',
                                                        'gm_mask',
@@ -229,6 +227,13 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                          name='outputspec')
 
     nuisance_preproc = pe.Workflow(name=name)
+
+
+    inputnode_num_components = pe.Node(util.IdentityInterface(fields=['num_components']),
+                             name='num_components_input')
+
+    inputnode_target_angle_deg = pe.Node(util.IdentityInterface(fields=['target_angle_deg']),
+                             name='target_angle_deg_input')
 
     median_angle = pe.MapNode(util.Function(input_names=['target_angle_deg',
                                                          'realigned_file'],
@@ -296,7 +301,7 @@ def create_nuisance_preproc(name='nuisance_preproc'):
 
     nuisance_preproc.connect(inputspec, 'realigned_file',
                              compcor, 'realigned_file')
-    nuisance_preproc.connect(inputspec, 'num_components',
+    nuisance_preproc.connect(inputnode_num_components, 'num_components',
                              compcor, 'num_components')
     nuisance_preproc.connect(inputspec, 'wm_mask',
                              compcor, 'wm_mask')
@@ -342,7 +347,7 @@ def create_nuisance_preproc(name='nuisance_preproc'):
     #Median angle correction on residual file
     nuisance_preproc.connect(remove_noise, 'out_file',
                              median_angle, 'realigned_file')
-    nuisance_preproc.connect(inputspec, 'target_angle_deg',
+    nuisance_preproc.connect(inputnode_target_angle_deg, 'target_angle_deg',
                              median_angle, 'target_angle_deg')
 
     nuisance_preproc.connect(median_angle, 'corrected_file',

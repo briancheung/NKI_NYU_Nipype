@@ -65,14 +65,44 @@ rest_name = 'rest'
 anat_name = 'mprage'
 standard_res = '2mm'
 fwhm = [6]
-rest_hp = [0.005, 0.01]
-rest_lp = 0.1
-alff_HP = [0.005]
-alff_LP = 0.1
+
+"""
+	Value : True or False
+"""
+nuisanceHighPassFilter = True
+nuisanceLowPassFilter = True
+
+"""
+	When nuisanceHighPassFilter : True
+	Set nuisanceHighPassLowCutOff to a decimal value
+
+	When nuisanceHighPassFilter : False
+	Set nuisanceHighPassLowCutOff to None
+
+	Same holds for nuisanceLowPassFilter & nuisanceLowPassHighCutOff
+
+"""
+nuisanceHighPassLowCutOff = [0.01]
+nuisanceLowPassHighCutOff = [0.1]
+
 
 """ 
-Scrub data prior to derivate generation: In accord with Power et al. (2012); forking not enable yet for this step (next version).
-Default value True/False
+------------------------ ALFF/fALFF Options ---------------------------
+"""
+
+"""
+	For ALFF/fALFF only
+	Notes: 1) this derivative is allergic to scrubbed data and thus will never use them.
+		   2) You need to specify both highPassFreqALFF and lowPassFreqALFF if you intend
+			  to use this derivative. The Default values are set below.  
+"""
+
+highPassFreqALFF = [0.005]
+lowPassFreqALFF = 0.1
+
+""" 
+	Scrub data prior to derivate generation: In accord with Power et al. (2012); forking not enable yet for this step (next version).
+	Default value True/False
 """
 scrubData = [True, False]
 
@@ -94,7 +124,7 @@ target_angle_deg = [90, 60]
     Which Signals do you which to regress out
 """
 #['global', 'compcor', 'wm', 'csf', 'gm', 'firstprinc', 'motion']
-regressors = [True, False, True, True, False, True]
+regressors = [False, False, False, False, False, True]
 
 """
     Mandatory
@@ -151,8 +181,58 @@ vmhc_rest_res_template = '%s/*/%s.nii.gz'
 vmhc_anat_reorient_template = '%s/*/%s.nii.gz'
 vmhc_example_func2highres_mat_template = '%s/*/*/%s'
 
+""" 
+------------- Timeseries Extraction Options ---------------------------
+"""
+
+"""
+	For Unit Timeseries Extraction Only
+Note: Definitions Directory should contain one subdirectory for each set of units to be generated (e.g., Harvard-Oxford Atlas, AAL, Craddock, Dosenbach-160); one output file / set define   
+"""
+unitDefinitionsDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
+
+# Output type: .csv, numPy
+unitTSOutputs = [True, True]
+
+""" 
+	For Voxel Timeseries Extraction Only
+Note: Definitions Directory should contain one subdirectory for each mask/mask set to be used to select voxels to be output; one output file / mask 
+"""
+voxelMasksDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
+
+
+# Output type: .csv, numPy
+voxelTSOutputs = [False, True]
+
+""" 
+	For Vertices Timeseries Extraction Only
+"""
+# Output type: .csv, numPy
+verticesTSOutputs = [False, True]
+
+reconSubjectsDirectory = '/home/ssikka/nki_nyu_pipeline/recon_subjects'
+""" 
+**************************************************************
+"""
+
+""" 
+********************* FSL Group Analysis *********************
+Notes: 
+- Separate group analysis conducted for each derivative
+- Not applicable to time series extraction derivatives
+"""
+
+""" 
+Specify Model List File that contains one or more models to be executed per derivate
+"""
+modelsList = 'home/ssikka/myModels.txt'
+
+z_threshold = 2.3
+p_threshold = 0.05
+f_test = 'yes'
+
 # all, basic, scrubbing, nuisance, alff, ifc, vmhc, reho, group_analysis
 analysis = [False, True, False, False, False, False, False, False, False ]
 run_on_grid = False
 qsub_args = '-q all.q'
-num_cores = 8
+num_cores = 10

@@ -10,6 +10,41 @@ import nipype.interfaces.io as nio
 import nipype.interfaces.utility as util
 from utils import *
 
+
+def create_filter(high_pass_filter_bool, low_pass_filter_bool):
+
+    preproc = pe.Workflow(name='frequency_filter')
+
+    inputNode = pe.Node(util.IdentityInterface(fields=['in_file']),
+                       name='inputspec')
+
+    inputnode_hp = pe.Node(util.IdentityInterface(fields=['hp']),
+                             name='hp_input')
+
+    inputnode_lp = pe.Node(util.IdentityInterface(fields=['lp']),
+                             name='lp_input')
+
+    outputNode = pe.Node(util.IdentityInterface(fields=['rest_res_filt']),
+                       name='outputspec')
+
+
+    filter = pe.MapNode(interface=afni.Fourier(), name='func_filter', iterfield=["in_file"])
+    filter.inputs.other = '-retrend'
+
+    preproc.connect(inputNode, 'in_file', filter, 'in_file')
+
+    if(high_pass_filter_bool):
+
+        preproc.connect(inputnode_hp, 'hp', filter, 'highpass')
+
+    if(low_pass_filter_bool):
+        preproc.connect(inputnode_lp, 'lp', filter, 'lowpass')
+
+    preproc.connect(filter, 'out_file', outputNode, 'rest_res_filt')
+
+    return preproc
+
+
 def create_fmri_mni():
 
     preproc = pe.Workflow(name='fmri_mnioutputs')
@@ -576,7 +611,6 @@ def create_seg_preproc():
 
     return preproc
 
-
 def create_scrubbing_preproc():
 
 
@@ -588,96 +622,111 @@ def create_scrubbing_preproc():
 
     outputNode = pe.Node(util.IdentityInterface(fields=['mean_deriv_sq_1D',
                                                             'mean_raw_sq_1D',
-                                                            'scrubbed_preprocessed'
-                                                       ]),
+                                                            'scrubbed_preprocessed',
+                                                            'temp_deriv_brik_file',
+                                                            'temp_deriv_head_file',
+                                                            'temp_deriv_sq_brik_file',
+                                                            'temp_deriv_sq_head_file',
+                                                            'raw_sq_brik_file',
+                                                            'raw_sq_head_file',
+                                                            'mask_brik_file',
+                                                            'mask_head_file',
+                                                            'FD_1D',
+                                                            'sqrt_mean_deriv_sq_1D',
+                                                            'sqrt_mean_raw_sq_1D',
+                                                            'frames_ex_1D',
+                                                            'frames_in_1D',
+                                                            'pow_params',
+                                                            'ftof_percent_change_1D',
+                                                            'scrubbed_movement_parameters']),
                         name='outputspec')
 
     NVOLS = pe.Node(util.Function(input_names=['in_files'], output_names=['nvols'],
                                   function=getImgNVols), name='NVOLS')
 
     sc_copy = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                       function=scCopy), name='sc_copy', iterfield=['in_file'])
+                                       function=scCopy), name='sc_copy', iterfield=["in_file"])
 
     sc_createSC = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                           function=createSC), name='sc_createSC', iterfield=['in_file'])
+                                           function=createSC), name='sc_createSC', iterfield=["in_file"])
 
     sc_MeanFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                         function=setMeanFD), name='sc_MeanFD', iterfield=['infile_a', 'infile_b'])
+                                         function=setMeanFD), name='sc_MeanFD', iterfield=["infile_a", "infile_b"])
 
     sc_NumFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                        function=setNumFD), name='sc_NumFD', iterfield=['infile_a', 'infile_b'])
+                                        function=setNumFD), name='sc_NumFD', iterfield=["infile_a", "infile_b"])
 
     sc_PercentFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                            function=setPercentFD), name='sc_PercentFD', iterfield=['infile_a', 'infile_b'])
+                                            function=setPercentFD), name='sc_PercentFD', iterfield=["infile_a", "infile_b"])
 
     sc_FramesEx = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                           function=setFramesEx), name='sc_FramesEx', iterfield=['in_file'])
+                                           function=setFramesEx), name='sc_FramesEx', iterfield=["in_file"])
 
     sc_FramesIN = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                           function=setFramesIN), name='sc_FramesIN', iterfield=['in_file'])
+                                           function=setFramesIN), name='sc_FramesIN', iterfield=["in_file"])
 
     sc_FramesInList = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                               function=setFramesInList), name='sc_FramesInList', iterfield=['in_file'])
+                                               function=setFramesInList), name='sc_FramesInList', iterfield=["in_file"])
 
     sc_MeanDVARS = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                            function=setMeanDVARS), name='sc_MeanDVARS', iterfield=['infile_a', 'infile_b'])
+                                            function=setMeanDVARS), name='sc_MeanDVARS', iterfield=["infile_a", "infile_b"])
 
     sc_NUM5 = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                       function=setNUM5), name='sc_NUM5', iterfield=['infile_a', 'infile_b'])
+                                       function=setNUM5), name='sc_NUM5', iterfield=["infile_a", "infile_b"])
 
     sc_NUM10 = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                        function=setNUM10), name='sc_NUM10', iterfield=['infile_a', 'infile_b'])
+                                        function=setNUM10), name='sc_NUM10', iterfield=["infile_a", "infile_b"])
 
     sc_NUMFD = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                        function=setNUMFD), name='sc_NUMFD', iterfield=['in_file'])
+                                        function=setNUMFD), name='sc_NUMFD', iterfield=["in_file"])
 
     sc_ScrubbedMotion = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
                                                  function=setScrubbedMotion), name='sc_ScrubbedMotion',
-                                   iterfield=['infile_a', 'infile_b'])
+                                   iterfield=["infile_a", "infile_b"])
 
     sc_FtoFPercentChange = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
                                                     function=setFtoFPercentChange),
-                                      name='sc_FtoFPercentChange', iterfield=['infile_a', 'infile_b'])
+                                      name='sc_FtoFPercentChange', iterfield=["infile_a", "infile_b"])
 
     sc_SqrtMeanDeriv = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
                                                 function=setSqrtMeanDeriv), name='sc_SqrtMeanDeriv',
-                                  iterfield=['in_file'])
+                                  iterfield=["in_file"])
 
     sc_SqrtMeanRaw = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                              function=setSqrtMeanRaw), name='sc_SqrtMeanRaw', iterfield=['in_file'])
+                                              function=setSqrtMeanRaw), name='sc_SqrtMeanRaw', iterfield=["in_file"])
 
     sc_calc1 = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc1',
-                          iterfield=['infile_a', 'stop_idx', 'infile_b', 'stop_idx2'])
+                          iterfield=["infile_a", "stop_idx", "infile_b", "stop_idx2"])
     sc_calc1.inputs.start_idx = 4
     sc_calc1.inputs.start_idx2 = 3
     sc_calc1.inputs.expr = '\'(a-b)\''
     sc_calc1.inputs.out_file = 'temp_deriv'
 
-    sc_calc2 = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc2', iterfield=['infile_a'])
+    sc_calc2 = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc2', iterfield=["infile_a"])
     sc_calc2.inputs.expr = '\'a*a\''
     sc_calc2.inputs.out_file = 'temp_deriv_sq'
 
-    sc_calc3 = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc3', iterfield=['infile_a', 'stop_idx'])
+    sc_calc3 = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc3', iterfield=["infile_a", "stop_idx"])
     sc_calc3.inputs.start_idx = 3
     sc_calc3.inputs.expr = '\'a*a\''
     sc_calc3.inputs.out_file = 'raw_sq'
 
     sc_calc_scrub = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc_scrub',
-                               iterfield=['infile_a', 'start_idx', 'stop_idx'] )
+                               iterfield=["infile_a", "start_idx", "stop_idx"] )
     sc_calc_scrub.inputs.expr = '\'a\''
 
-    sc_automask = pe.MapNode(interface=e_afni.ThreedAutomask(), name='sc_automask', iterfield=['in_file'])
+    sc_automask = pe.MapNode(interface=e_afni.ThreedAutomask(), name='sc_automask', iterfield=["in_file"])
     sc_automask.inputs.dilate = 1
     sc_automask.inputs.genbrickhead = True
     sc_automask.inputs.out_file = 'mask'
 
 
     sc_3dROIstats_1 = pe.MapNode(interface=e_afni.ThreedROIstats(), name='sc_3dROIstats_1',
-                                 iterfield=['in_file', 'mask'])
+                                 iterfield=["in_file", "mask"])
     sc_3dROIstats_1.inputs.quiet = True
 
     sc_3dROIstats_2 = pe.MapNode(interface=e_afni.ThreedROIstats(), name='sc_3dROIstats_2',
-                                 iterfield=['in_file', 'mask'])
+                                 iterfield=["in_file", "mask"])
     sc_3dROIstats_2.inputs.quiet = True
 
     sc.connect(inputNode, 'rest', NVOLS, 'in_files')
@@ -735,7 +784,7 @@ def create_scrubbing_preproc():
     ##WHAT FRAMES HAVE >0.5mm FD??
     ## FD timeseries starts at the second TR because it's a derivative
     ## but because images start at 0, it's ok to take the frame number directly from the FD file 
-    ## (i.e., if the 5th number in the FD file indicates a bad frame, removing timepoint '5' will correctly remove the 6th frame).
+    ## (i.e., if the 5th number in the FD file indicates a bad frame, removing timepoint "5" will correctly remove the 6th frame).
     sc.connect(sc_createSC, 'out_file', sc_FramesEx, 'in_file')
     sc.connect(sc_createSC, 'out_file', sc_FramesInList, 'in_file')
     sc.connect(sc_createSC, 'out_file', sc_FramesIN, 'in_file')
@@ -750,6 +799,23 @@ def create_scrubbing_preproc():
     sc.connect(sc_3dROIstats_1, 'stats', outputNode, 'mean_deriv_sq_1D')
     sc.connect(sc_3dROIstats_2, 'stats', outputNode, 'mean_raw_sq_1D')
     sc.connect(sc_calc_scrub, 'out_file', outputNode, 'scrubbed_preprocessed')
+    sc.connect(sc_calc1, 'brik_file', outputNode, 'temp_deriv_brik_file')
+    sc.connect(sc_calc1, 'head_file', outputNode, 'temp_deriv_head_file')
+    sc.connect(sc_calc2, 'brik_file', outputNode, 'temp_deriv_sq_brik_file')
+    sc.connect(sc_calc2, 'head_file', outputNode, 'temp_deriv_sq_head_file')
+    sc.connect(sc_calc3, 'brik_file', outputNode, 'raw_sq_brik_file')
+    sc.connect(sc_calc3, 'head_file', outputNode, 'raw_sq_head_file')
+    sc.connect(sc_automask, 'brik_file', outputNode, 'mask_brik_file')
+    sc.connect(sc_automask, 'head_file', outputNode, 'mask_head_file')
+    sc.connect(sc_createSC, 'out_file', outputNode, 'FD_1D')
+    sc.connect(sc_SqrtMeanDeriv, 'out_file', outputNode, 'sqrt_mean_deriv_sq_1D')
+    sc.connect(sc_SqrtMeanRaw, 'out_file', outputNode, 'sqrt_mean_raw_sq_1D')
+    sc.connect(sc_FramesEx, 'out_file', outputNode, 'frames_ex_1D')
+    sc.connect(sc_FramesIN, 'out_file', outputNode, 'frames_in_1D')
+    sc.connect(sc_NUM10, 'out_file', outputNode, 'pow_params')
+    sc.connect(sc_FtoFPercentChange, 'out_file', outputNode, 'ftof_percent_change_1D')
+    sc.connect(sc_ScrubbedMotion, 'out_file', outputNode, 'scrubbed_movement_parameters')
+
     return sc
 
 
@@ -850,9 +916,9 @@ def create_vmhc_preproc():
 
     return vmhc
 
-def create_ifc_preproc():
+def create_sca_preproc():
 
-    rsfc = pe.Workflow(name='rsfc_preproc')
+    rsfc = pe.Workflow(name='sca_preproc')
     inputNode = pe.Node(util.IdentityInterface(fields=['ref',
                                                     'warp',
                                                     'postmat',
@@ -932,7 +998,9 @@ def create_ifc_preproc():
     return rsfc
 
 
-def create_group_analysis():
+
+
+def create_group_analysis(f_test='yes'):
 
     grp_analysis = pe.Workflow(name='group_analysis')
 
@@ -1098,6 +1166,8 @@ def create_group_analysis():
     grp_analysis.connect(gp_slicer, 'out_file', outputnode, 'picture')
     grp_analysis.connect(gp_fslmultimaths2, 'out_file', outputnode, 'multi_math_mask2')
 
+    return grp_analysis
+
 
 
 def create_alff_preproc():
@@ -1138,8 +1208,6 @@ def create_alff_preproc():
                                   function=getImgNVols), name='NVOLS')
 
     cp = pe.MapNode(interface=fsl.ImageMaths(), name='cp', iterfield=['in_file'])
-
-    cp1 = pe.MapNode(interface=fsl.ImageMaths(), name='cp1', iterfield=['in_file'])
 
     mean = pe.MapNode(interface=fsl.ImageMaths(), name='mean', iterfield=['in_file'])
     mean.inputs.op_string = '-Tmean'
@@ -1212,9 +1280,9 @@ def create_alff_preproc():
     alff.connect(inputNode, 'rest_res', mean, 'in_file')
     alff.connect(inputNode, 'rest_res', roi, 'in_file')
     alff.connect(NVOLS, 'nvols', roi, 't_size')
-    alff.connect(inputNode, 'rest_res', cp1, 'in_file')
+    alff.connect(inputNode, 'rest_res', cp, 'in_file')
     alff.connect(roi, 'roi_file', concatnode, 'in1')
-    alff.connect(cp1, 'out_file', concatnode, 'in2')
+    alff.connect(cp, 'out_file', concatnode, 'in2')
     alff.connect(concatnode, 'out', selectnode, 'inlist')
     alff.connect(NVOLS, ('nvols', takemod), selectnode, 'index')
     alff.connect(selectnode, 'out', pspec, 'in_file')
@@ -1291,5 +1359,132 @@ def create_alff_preproc():
     alff.connect(warp_falff, 'out_file', outputNode, 'falff_Z_2standard_img')
     alff.connect(smooth, 'out_file', outputNode, 'alff_Z_2standard_fwhm_img')
     alff.connect(fsmooth, 'out_file', outputNode, 'falff_Z_2standard_fwhm_img')
-
     return alff
+
+
+def create_timeseries_preproc(unit_time_series_extraction, voxel_time_series_extraction, vertices_time_series_extraction ):
+
+    import nipype.interfaces.freesurfer as fs
+    preproc = pe.Workflow(name='timeseries_preproc')
+
+    inputNode = pe.Node(util.IdentityInterface(fields=['standard',
+                                                       'recon_subjects',
+                                                       'brain',
+                                                       'reorient',
+                                                       'motion_correct',
+                                                       'warp_file',
+                                                       'premat',
+                                                       'identity_matrix',
+                                                       'unitTSOutputs',
+                                                       'voxelTSOutputs',
+                                                       'verticesTSOutputs']),
+                                                    name='inputspec')
+
+    inputnode_getparc = pe.Node(util.IdentityInterface(fields=['parcelations']),
+                             name='getparc')
+
+
+    inputNode_getmask = pe.Node(util.IdentityInterface(fields=['masks']),
+                              name='getmask')
+
+    timeseries_reconall = pe.Node(interface=fs.ReconAll(), name="timeseries_reconall")
+    timeseries_reconall.inputs.directive = 'all'
+
+    timeseries_bbreg = pe.MapNode(interface=fs.BBRegister(init='fsl', contrast_type='t2', registered_file=True, out_fsl_file=True), name='timeseries_bbreg', iterfield=["source_file"] )
+
+    timeseries_apply_warp = pe.MapNode(interface=fsl.ApplyWarp(), name='timeseries_apply_warp', iterfield=["in_file", "premat"])
+
+    preproc.connect(inputNode, 'motion_correct', timeseries_apply_warp, 'in_file' )
+    preproc.connect(inputNode, 'warp_file', timeseries_apply_warp, 'field_file')
+    preproc.connect(inputNode, 'premat', timeseries_apply_warp, 'premat')
+    preproc.connect(inputNode, 'standard', timeseries_apply_warp, 'ref_file' )
+
+
+    timeseries_sampler_lh = pe.MapNode(interface=fs.SampleToSurface(hemi="lh"), name='timeseries_sampler_lh', iterfield=["source_file", "reg_file"])
+    timeseries_sampler_lh.inputs.no_reshape = True
+    timeseries_sampler_lh.inputs.interp_method = 'trilinear'
+    timeseries_sampler_lh.inputs.sampling_method = "point"
+    timeseries_sampler_lh.inputs.sampling_range = 0.5
+    timeseries_sampler_lh.inputs.sampling_units = "frac"
+
+    timeseries_sampler_rh = pe.MapNode(interface=fs.SampleToSurface(hemi="rh"), name='timeseries_sampler_rh', iterfield=["source_file", "reg_file"])
+    timeseries_sampler_rh.inputs.no_reshape = True
+    timeseries_sampler_rh.inputs.interp_method = 'trilinear'
+    timeseries_sampler_rh.inputs.sampling_method = "point"
+    timeseries_sampler_rh.inputs.sampling_range = 0.5
+    timeseries_sampler_rh.inputs.sampling_units = "frac"
+
+    timeseries_flirt = pe.MapNode(interface=fsl.FLIRT(), name='timeseries_flirt', iterfield=["in_file"])
+    timeseries_flirt.inputs.interp = 'sinc'
+    timeseries_flirt.inputs.apply_xfm = True
+
+    timeseries_flirt1 = timeseries_flirt.clone('timeseries_flirt1')
+
+    timeseries_gen_parc = pe.MapNode(util.Function(input_names=['data_file', 'template', 'unitTSOutputs'],
+                                                  output_names=['out_file'],
+                                                  function=gen_csv_for_parcelation),
+                                                  name='timeseries_gen_parc',
+                                                  iterfield=["data_file"])
+
+    timeseries_gen_mask = pe.MapNode(util.Function(input_names=['data_file', 'template', 'voxelTSOutputs'],
+                                                 output_names=['out_file'],
+                                                 function=gen_csv_for_mask),
+                                                 name='timeseries_gen_mask',
+                                                 iterfield=["data_file"])
+
+    timeseries_gen_surface = pe.MapNode(util.Function(input_names=['rh_surface_file', 'lh_surface_file', 'verticesTSOutputs'],
+                                                    output_names=['out_file'],
+                                                    function=gen_csv_for_surface),
+                                                    name='timeseries_gen_surface',
+                                                    iterfield=["rh_surface_file", "lh_surface_file"])
+
+
+    """
+        Surface Registration turn off/on
+    """
+    preproc.connect(inputNode, 'brain', timeseries_reconall, 'T1_files')
+    preproc.connect(inputNode, ('reorient', extract_subjectID), timeseries_reconall, 'subject_id')
+    preproc.connect(inputNode, 'recon_subjects', timeseries_reconall, 'subjects_dir')
+
+    preproc.connect(timeseries_apply_warp, 'out_file', timeseries_bbreg, 'source_file' )
+    preproc.connect(timeseries_reconall, 'subjects_dir', timeseries_bbreg, 'subjects_dir' )
+    preproc.connect(timeseries_reconall, 'subject_id', timeseries_bbreg, 'subject_id' )
+
+    preproc.connect(timeseries_bbreg, 'out_reg_file', timeseries_sampler_lh, 'reg_file' )
+    preproc.connect(timeseries_apply_warp, 'out_file', timeseries_sampler_lh, 'source_file')
+
+    preproc.connect(timeseries_bbreg, 'out_reg_file', timeseries_sampler_rh, 'reg_file' )
+    preproc.connect(timeseries_apply_warp, 'out_file', timeseries_sampler_rh, 'source_file')
+
+    """
+        Time Series Extraction
+    """
+
+    if unit_time_series_extraction:
+        preproc.connect(timeseries_apply_warp, 'out_file', timeseries_flirt, 'in_file')
+        preproc.connect(inputNode, 'identity_matrix', timeseries_flirt, 'in_matrix_file')
+        preproc.connect(inputnode_getparc, 'parcelations', timeseries_flirt, 'reference')
+
+        preproc.connect(timeseries_flirt, 'out_file', timeseries_gen_parc, 'data_file')
+        preproc.connect(inputNode, 'unitTSOutputs', timeseries_gen_parc, 'unitTSOutputs'  )
+        preproc.connect(inputnode_getparc, 'parcelations', timeseries_gen_parc, 'template')
+
+
+    if voxel_time_series_extraction:
+
+        preproc.connect(timeseries_apply_warp, 'out_file', timeseries_flirt1, 'in_file')
+        preproc.connect(inputNode, 'identity_matrix', timeseries_flirt1, 'in_matrix_file')
+        preproc.connect(inputNode_getmask, 'masks', timeseries_flirt1, 'reference')
+
+        preproc.connect(timeseries_flirt1, 'out_file', timeseries_gen_mask, 'data_file')
+        preproc.connect(inputNode, 'voxelTSOutputs', timeseries_gen_mask, 'voxelTSOutputs')
+        preproc.connect(inputNode_getmask, 'masks', timeseries_gen_mask, 'template')
+
+    if vertices_time_series_extraction:
+
+        preproc.connect(timeseries_sampler_rh, 'out_file', timeseries_gen_surface, 'rh_surface_file' )
+        preproc.connect(timeseries_sampler_lh, 'out_file', timeseries_gen_surface, 'lh_surface_file')
+        preproc.connect(inputNode, 'verticesTSOutputs', timeseries_gen_surface, 'verticesTSOutputs' )
+
+
+    return preproc
