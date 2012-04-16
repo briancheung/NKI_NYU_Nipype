@@ -1,9 +1,10 @@
+#!/Library/Frameworks/EPD64.framework/Versions/Current/bin/python
 import sys
 import e_afni
 import os
 import commands
 import nipype.pipeline.engine as pe
-import nipype.algorithms.rapidart as ra
+#import nipype.algorithms.rapidart as ra
 import nipype.interfaces.afni as afni
 import nipype.interfaces.fsl as fsl
 import nipype.interfaces.io as nio

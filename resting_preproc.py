@@ -1,3 +1,4 @@
+#!/Library/Frameworks/EPD64.framework/Versions/Current/bin/python
 import argparse
 import e_afni
 import sys
@@ -15,7 +16,10 @@ from utils import (create_anat_func_dataflow, create_seed_dataflow,
                     create_alff_dataflow, create_sca_dataflow,
                     create_vmhc_dataflow, selector_wf,
                     create_parc_dataflow, create_mask_dataflow,
-                    create_gp_dataflow)
+                    create_gp_dataflow, create_datasink)
+
+from sink import (anat_sink, reg_sink, seg_sink, 
+                  func_sink, nuisance_sink, scrubbing_sink)
 
 from base_nuisance import create_nuisance_preproc
 
@@ -28,12 +32,15 @@ def getSubjectAndSeedLists(c):
     """
     subj_file = c.subj_file
     seed_file = c.seed_file
+    rest_session_file = c.rest_session_file
 
     reader_subj = open(subj_file, 'r')
     reader_seed = open(seed_file, 'r')
+    reader_rest_session = open(rest_session_file, 'r')
 
     subj_list = []
     seed_list = []
+    rest_session_list = []
 
     for line in reader_subj.readlines():
 
@@ -45,8 +52,13 @@ def getSubjectAndSeedLists(c):
 
         line = line.rstrip('\r\n')
         seed_list.append(line)
+        
+    for line in reader_rest_session.readlines():
+        
+        line = line.rstrip('\r\n')
+        rest_session_list.append(line)
 
-    return subj_list, seed_list
+    return subj_list, rest_session_list, seed_list
 
 
 def get_seed_list(seed_file):
@@ -103,7 +115,7 @@ def get_workflow(wf_name, c):
     print 'inside get_wf ', '-->'+wf_name+'<--'
     prior_path = os.path.join(c.prior_dir, c.standard_res)
     PRIOR_CSF = os.path.join(prior_path, 'avg152T1_csf_bin.nii.gz')
-    PRIOR_GRAY = os.path.join(prior_path, 'avg152T1_gray_bin.nii.gz')
+    PRIOR_GRAY = os.path.join(prior_path, 'avg152T1_csf_bin.nii.gz')
     PRIOR_WHITE = os.path.join(prior_path, 'avg152T1_white_bin.nii.gz')
     standard_res_brain = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s_brain.nii.gz' % (c.standard_res))
     standard = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s.nii.gz' % (c.standard_res))
@@ -260,7 +272,7 @@ def prep_workflow(c):
     workflow.base_dir = c.working_dir
     workflow.crash_dir = c.crash_dir
 
-    sublist, seed_list = getSubjectAndSeedLists(c)
+    sublist, rest_session_list, seed_list = getSubjectAndSeedLists(c)
 
     """
         BASIC and ALL preprocessing paths implemented below
@@ -269,9 +281,9 @@ def prep_workflow(c):
     """
         grab the subject data
     """
-    flowAnatFunc = create_anat_func_dataflow('anat_func_flow', sublist, c.subj_dir,
-                                    c.anat_name, c.rest_name, c.anat_template,
-                                    c.func_template)
+    flowAnatFunc = create_anat_func_dataflow('anat_flow', sublist, rest_session_list, 
+                                    c.anat_session, c.subj_dir, c.anat_name,c.rest_name, 
+                                    c.anat_template,c.func_template)
 
     """
         grab the seeds data
@@ -432,8 +444,8 @@ def prep_workflow(c):
 
     workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
                      scapreproc, 'inputspec.fieldcoeff_file')
-#        workflow.connect(func_in_mni, 'outputspec.residual_file_mni',
-#                         scapreproc, 'inputspec.rest_res2standard')
+    workflow.connect(func_in_mni, 'outputspec.residual_file_mni',
+                         scapreproc, 'inputspec.rest_res2standard')
     workflow.connect(func_in_mni, 'outputspec.preprocessed_mask_mni',
                      scapreproc, 'inputspec.rest_mask2standard')
 
@@ -463,7 +475,7 @@ def prep_workflow(c):
                      tspreproc, 'inputspec.motion_correct')
     workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
                      tspreproc, 'inputspec.warp_file')
-    workflow.connect(regpreproc, 'outputspec.example_func2highres',
+    workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
                      tspreproc, 'inputspec.premat')
 
     workflow.connect(pflow, 'out_file',
@@ -485,6 +497,17 @@ def prep_workflow(c):
 #                     gppreproc, 'inputspec.grp_file')
 #    workflow.connect(gp_flow, 'seedfiles',
 #                     gppreproc, 'seed_files')
+
+    """
+        Calling datasink 
+    """
+    datasink=create_datasink(c.subj_dir)
+    anat_sink( workflow, datasink, mprage_mni)
+    func_sink( workflow, datasink, funcpreproc, func_in_mni)
+    reg_sink( workflow, datasink, regpreproc)
+    seg_sink( workflow, datasink, segpreproc, mprage_mni)
+    nuisance_sink(workflow,datasink, nuisancepreproc, func_in_mni)
+    scrubbing_sink(workflow, datasink, scpreproc)
 
 
     if(not c.run_on_grid):

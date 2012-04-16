@@ -1,3 +1,4 @@
+#!/Library/Frameworks/EPD64.framework/Versions/Current/bin/python
 # Utility Functions ---------------------------------------------------------
 import e_afni
 import nipype.pipeline.engine as pe
@@ -857,18 +858,18 @@ def getStatsDir(in_files):
 
     return stats_dir
 
-def create_anat_func_dataflow(name, sublist, analysisdirectory, anat_name, rest_name, at, rt):
+def create_anat_func_dataflow(name, sublist, sessionlist, anat_session, analysisdirectory, anat_name, rest_name, at, rt):
 
     import nipype.pipeline.engine as pe
     import nipype.interfaces.io as nio
 
-    datasource = pe.Node(interface=nio.DataGrabber(infields=['subject_id'], outfields=['anat', 'rest']), name=name)
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['subject_', 'session_'], outfields=['anat', 'rest']), name=name)
     datasource.inputs.base_directory = analysisdirectory
     #datasource.inputs.template = '%s/*/%s.nii.gz'
     datasource.inputs.field_template = dict(anat=at, rest=rt)
     datasource.inputs.template = '*'
-    datasource.inputs.template_args = dict(anat=[['subject_id', anat_name]], rest=[['subject_id', rest_name]])
-    datasource.iterables = ('subject_id', sublist)
+    datasource.inputs.template_args = dict(anat=[['subject_', anat_session, anat_name]], rest= [['subject_','session_', rest_name]])
+    datasource.iterables = [('subject_', sublist), ('session_', sessionlist)]
 
     return datasource
 
@@ -1226,3 +1227,31 @@ def gen_csv_for_surface(rh_surface_file, lh_surface_file, verticesTSOutputs):
         out_list.append(lh_file)
 
     return out_list
+
+def create_datasink(source_dir):
+    
+    import nipype.interfaces.io as nio
+    print"create data sink"
+    datasink = pe.Node(nio.DataSink(), name = 'data_sink')
+    datasink.inputs.base_directory = source_dir
+    datasink.inputs.container='result'
+    datasink.inputs.regexp_substitutions = [(r"[/](_)+",'/'), (r"^(_)+", '')]
+
+    return datasink
+
+def formatpath(in_file, filename):
+    
+    import os
+    
+    out_list=[]
+    if (isinstance(in_file, list)):
+        for file in in_file:
+            filepath=os.path.dirname(file)
+            newpath=os.path.join(filepath,filename)
+            out_list.append(newpath)
+        print "format path out_list ->", out_list 
+        return out_list
+    else:
+        filepath=os.path.dirname(in_file)
+        newpath=os.path.join(filepath,filename)
+        return newpath
