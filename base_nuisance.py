@@ -218,8 +218,8 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                                        'wm_mask',
                                                        'csf_mask',
                                                        'gm_mask',
-                                                       'motion_components',
-                                                       'selector']),
+                                                       'motion_components'
+                                                      ]),
                         name='inputspec')
     outputspec = pe.Node(util.IdentityInterface(fields=['residual_file',
                                                         'median_angle_corrected_file',
@@ -228,6 +228,10 @@ def create_nuisance_preproc(name='nuisance_preproc'):
 
     nuisance_preproc = pe.Workflow(name=name)
 
+
+
+    inputnode_selector = pe.Node(util.IdentityInterface(fields=['selector']),
+                             name='selector_input')
 
     inputnode_num_components = pe.Node(util.IdentityInterface(fields=['num_components']),
                              name='num_components_input')
@@ -337,7 +341,7 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                              addoutliers, 'firstprinc_component')
     nuisance_preproc.connect(inputspec, 'motion_components',
                              addoutliers, 'motion_components')
-    nuisance_preproc.connect(inputspec, 'selector',
+    nuisance_preproc.connect(inputnode_selector, 'selector',
                              addoutliers, 'selector')
     nuisance_preproc.connect(addoutliers, 'filter_file',
                              remove_noise, 'design_file')

@@ -1000,7 +1000,7 @@ def create_sca_preproc():
 
 
 
-def create_group_analysis(f_test='yes'):
+def create_group_analysis(f_test):
 
     grp_analysis = pe.Workflow(name='group_analysis')
 
@@ -1109,7 +1109,7 @@ def create_group_analysis(f_test='yes'):
     grp_analysis.connect(inputnode, 'seed_files', gp_fslmerge, 'in_files')
     grp_analysis.connect(gp_fslmerge, 'merged_file', gp_fslmaths, 'in_file')
 
-    if f_test == 'yes':
+    if f_test:
         grp_analysis.connect(gp_fslmerge, 'merged_file', gp_flameo, 'cope_file' )
         grp_analysis.connect(gp_fslmaths, 'out_file', gp_flameo, 'mask_file' )
         grp_analysis.connect(inputnode, 'mat_file', gp_flameo, 'design_file' )

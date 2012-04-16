@@ -67,19 +67,19 @@ standard_res = '2mm'
 fwhm = [6]
 
 """
-	Value : True or False
+    Value : True or False
 """
 nuisanceHighPassFilter = True
 nuisanceLowPassFilter = True
 
 """
-	When nuisanceHighPassFilter : True
-	Set nuisanceHighPassLowCutOff to a decimal value
+    When nuisanceHighPassFilter : True
+    Set nuisanceHighPassLowCutOff to a decimal value
 
-	When nuisanceHighPassFilter : False
-	Set nuisanceHighPassLowCutOff to None
+    When nuisanceHighPassFilter : False
+    Set nuisanceHighPassLowCutOff to None
 
-	Same holds for nuisanceLowPassFilter & nuisanceLowPassHighCutOff
+    Same holds for nuisanceLowPassFilter & nuisanceLowPassHighCutOff
 
 """
 nuisanceHighPassLowCutOff = [0.01]
@@ -91,18 +91,18 @@ nuisanceLowPassHighCutOff = [0.1]
 """
 
 """
-	For ALFF/fALFF only
-	Notes: 1) this derivative is allergic to scrubbed data and thus will never use them.
-		   2) You need to specify both highPassFreqALFF and lowPassFreqALFF if you intend
-			  to use this derivative. The Default values are set below.  
+    For ALFF/fALFF only
+    Notes: 1) this derivative is allergic to scrubbed data and thus will never use them.
+           2) You need to specify both highPassFreqALFF and lowPassFreqALFF if you intend
+              to use this derivative. The Default values are set below.  
 """
 
 highPassFreqALFF = [0.005]
 lowPassFreqALFF = 0.1
 
 """ 
-	Scrub data prior to derivate generation: In accord with Power et al. (2012); forking not enable yet for this step (next version).
-	Default value True/False
+    Scrub data prior to derivate generation: In accord with Power et al. (2012); forking not enable yet for this step (next version).
+    Default value True/False
 """
 scrubData = [True, False]
 
@@ -124,7 +124,12 @@ target_angle_deg = [90, 60]
     Which Signals do you which to regress out
 """
 #['global', 'compcor', 'wm', 'csf', 'gm', 'firstprinc', 'motion']
-regressors = [False, False, False, False, False, True]
+#regressors = [False, False, False, False, False, True]
+Corrections = [
+                [True, False, False, False, False, False, True],
+                [False, False, True, True, True, True, True ]
+              ]
+
 
 """
     Mandatory
@@ -186,7 +191,7 @@ vmhc_example_func2highres_mat_template = '%s/*/*/%s'
 """
 
 """
-	For Unit Timeseries Extraction Only
+    For Unit Timeseries Extraction Only
 Note: Definitions Directory should contain one subdirectory for each set of units to be generated (e.g., Harvard-Oxford Atlas, AAL, Craddock, Dosenbach-160); one output file / set define   
 """
 unitDefinitionsDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
@@ -195,7 +200,7 @@ unitDefinitionsDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
 unitTSOutputs = [True, True]
 
 """ 
-	For Voxel Timeseries Extraction Only
+    For Voxel Timeseries Extraction Only
 Note: Definitions Directory should contain one subdirectory for each mask/mask set to be used to select voxels to be output; one output file / mask 
 """
 voxelMasksDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
@@ -205,7 +210,7 @@ voxelMasksDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
 voxelTSOutputs = [False, True]
 
 """ 
-	For Vertices Timeseries Extraction Only
+    For Vertices Timeseries Extraction Only
 """
 # Output type: .csv, numPy
 verticesTSOutputs = [False, True]
@@ -229,7 +234,7 @@ modelsList = 'home/ssikka/myModels.txt'
 
 z_threshold = 2.3
 p_threshold = 0.05
-f_test = 'yes'
+f_test = True
 
 # all, basic, scrubbing, nuisance, alff, ifc, vmhc, reho, group_analysis
 analysis = [False, True, False, False, False, False, False, False, False ]
