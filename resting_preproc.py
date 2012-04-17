@@ -1,4 +1,3 @@
-#!/Library/Frameworks/EPD64.framework/Versions/Current/bin/python
 import argparse
 import e_afni
 import sys
@@ -18,8 +17,8 @@ from utils import (create_anat_func_dataflow, create_seed_dataflow,
                     create_parc_dataflow, create_mask_dataflow,
                     create_gp_dataflow, create_datasink)
 
-from sink import (anat_sink, reg_sink, seg_sink, 
-                  func_sink, nuisance_sink, scrubbing_sink)
+from sink import (anat_sink, reg_sink, seg_sink, func_sink,
+                  nuisance_sink, scrubbing_sink)
 
 from base_nuisance import create_nuisance_preproc
 
@@ -52,9 +51,9 @@ def getSubjectAndSeedLists(c):
 
         line = line.rstrip('\r\n')
         seed_list.append(line)
-        
+
     for line in reader_rest_session.readlines():
-        
+
         line = line.rstrip('\r\n')
         rest_session_list.append(line)
 
@@ -115,7 +114,7 @@ def get_workflow(wf_name, c):
     print 'inside get_wf ', '-->'+wf_name+'<--'
     prior_path = os.path.join(c.prior_dir, c.standard_res)
     PRIOR_CSF = os.path.join(prior_path, 'avg152T1_csf_bin.nii.gz')
-    PRIOR_GRAY = os.path.join(prior_path, 'avg152T1_csf_bin.nii.gz')
+    PRIOR_GRAY = os.path.join(prior_path, 'avg152T1_gray_bin.nii.gz')
     PRIOR_WHITE = os.path.join(prior_path, 'avg152T1_white_bin.nii.gz')
     standard_res_brain = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s_brain.nii.gz' % (c.standard_res))
     standard = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s.nii.gz' % (c.standard_res))
@@ -281,9 +280,9 @@ def prep_workflow(c):
     """
         grab the subject data
     """
-    flowAnatFunc = create_anat_func_dataflow('anat_flow', sublist, rest_session_list, 
-                                    c.anat_session, c.subj_dir, c.anat_name,c.rest_name, 
-                                    c.anat_template,c.func_template)
+    flowAnatFunc = create_anat_func_dataflow('anat_flow', sublist, rest_session_list,
+                                    c.anat_session, c.subj_dir, c.anat_name, c.rest_name,
+                                    c.anat_template, c.func_template)
 
     """
         grab the seeds data
@@ -501,12 +500,12 @@ def prep_workflow(c):
     """
         Calling datasink 
     """
-    datasink=create_datasink(c.subj_dir)
-    anat_sink( workflow, datasink, mprage_mni)
-    func_sink( workflow, datasink, funcpreproc, func_in_mni)
-    reg_sink( workflow, datasink, regpreproc)
-    seg_sink( workflow, datasink, segpreproc, mprage_mni)
-    nuisance_sink(workflow,datasink, nuisancepreproc, func_in_mni)
+    datasink = create_datasink(c.subj_dir)
+    anat_sink(workflow, datasink, mprage_mni)
+    func_sink(workflow, datasink, funcpreproc, func_in_mni)
+    reg_sink(workflow, datasink, regpreproc)
+    seg_sink(workflow, datasink, segpreproc, mprage_mni)
+    nuisance_sink(workflow, datasink, nuisancepreproc, func_in_mni)
     scrubbing_sink(workflow, datasink, scpreproc)
 
 

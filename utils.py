@@ -1,4 +1,3 @@
-#!/Library/Frameworks/EPD64.framework/Versions/Current/bin/python
 # Utility Functions ---------------------------------------------------------
 import e_afni
 import nipype.pipeline.engine as pe
@@ -868,7 +867,7 @@ def create_anat_func_dataflow(name, sublist, sessionlist, anat_session, analysis
     #datasource.inputs.template = '%s/*/%s.nii.gz'
     datasource.inputs.field_template = dict(anat=at, rest=rt)
     datasource.inputs.template = '*'
-    datasource.inputs.template_args = dict(anat=[['subject_', anat_session, anat_name]], rest= [['subject_','session_', rest_name]])
+    datasource.inputs.template_args = dict(anat=[['subject_', anat_session, anat_name]], rest=[['subject_', 'session_', rest_name]])
     datasource.iterables = [('subject_', sublist), ('session_', sessionlist)]
 
     return datasource
@@ -1229,29 +1228,29 @@ def gen_csv_for_surface(rh_surface_file, lh_surface_file, verticesTSOutputs):
     return out_list
 
 def create_datasink(source_dir):
-    
+
     import nipype.interfaces.io as nio
     print"create data sink"
-    datasink = pe.Node(nio.DataSink(), name = 'data_sink')
+    datasink = pe.Node(nio.DataSink(), name='data_sink')
     datasink.inputs.base_directory = source_dir
-    datasink.inputs.container='result'
-    datasink.inputs.regexp_substitutions = [(r"[/](_)+",'/'), (r"^(_)+", '')]
+    datasink.inputs.container = 'result'
+    datasink.inputs.regexp_substitutions = [(r"[/](_)+", '/'), (r"^(_)+", '')]
 
     return datasink
 
 def formatpath(in_file, filename):
-    
+
     import os
-    
-    out_list=[]
+
+    out_list = []
     if (isinstance(in_file, list)):
         for file in in_file:
-            filepath=os.path.dirname(file)
-            newpath=os.path.join(filepath,filename)
+            filepath = os.path.dirname(file)
+            newpath = os.path.join(filepath, filename)
             out_list.append(newpath)
-        print "format path out_list ->", out_list 
+        print "format path out_list ->", out_list
         return out_list
     else:
-        filepath=os.path.dirname(in_file)
-        newpath=os.path.join(filepath,filename)
+        filepath = os.path.dirname(in_file)
+        newpath = os.path.join(filepath, filename)
         return newpath
