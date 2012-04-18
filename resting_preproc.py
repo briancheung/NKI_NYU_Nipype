@@ -213,7 +213,7 @@ def get_workflow(wf_name, c):
         preproc.inputs.target_angle_deg_input.target_angle_deg = c.target_angle_deg
         preproc.get_node('selector_input').iterables = ('selector', c.Corrections)
         preproc.get_node('nc_input').iterables = ('nc', c.ncomponents)
-        preproc.get_node('target_angle_deg_input').iterables = ('target_angle_deg', c.ncomponents)
+        preproc.get_node('target_angle_deg_input').iterables = ('target_angle_deg', c.target_angle_deg)
 
         return preproc
 
