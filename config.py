@@ -9,30 +9,30 @@ FSLDIR = '/usr/share/fsl/4.1/'
 """
     Point to directory where your subjects reside
 """
-subj_dir = '/home/ssikka/nki_nyu_pipeline/data'
+subj_dir = '/home/data/Originals/NYU_TRT/'
 
 """
     Point to directory where pipeline can store results 
 """
-sink_dir = '/home/ssikka/nki_nyu_pipeline/data'
+sink_dir = '/home/data/Projects/nuisance_reliability_paper/'
 
 """
     Set Temporary Directory where Nipype can store
     temporary results
 """
-working_dir = '/home/ssikka/nki_nyu_pipeline/working_dir/'
+working_dir = '/home/data/Projects/nuisance_reliability_paper/working_dir/'
 
 """
     Set the location where 3mm and 2mm Tissue Priors
     located.
 """
-prior_dir = '/home/ssikka/nki_nyu_pipeline/tissuepriors'
+prior_dir = '/home/data/Projects/nuisance_reliability_paper/tissuepriors'
 
 """
     Point to directory where pipeline can store crash .npz files
     if it crashes
 """
-crash_dir = '/home/ssikka/nki_nyu_pipeline/crash'
+crash_dir = '/home/data/Projects/nuisance_reliability_paper'
 
 """
     Functional volumes to keep
@@ -40,9 +40,9 @@ crash_dir = '/home/ssikka/nki_nyu_pipeline/crash'
     stop_idx : Last volume
 """
 start_idx = 0
-stop_idx = 119
-n_vols = 120
-TR = 2.5
+stop_idx = 196
+n_vols = 197
+TR = 2.0
 
 """
     Seed file
@@ -50,7 +50,7 @@ TR = 2.5
     Each line contains full path to seed file
 
 """
-seed_file = '/home/ssikka/nki_nyu_pipeline/seed_list.txt'
+seed_file = '/home/data/Projects/nuisance_reliability_paper/work_lists/seed_list.txt'
 
 """
     subj_file : '/data/ADHD200/docs/subjects.txt'
@@ -59,13 +59,13 @@ seed_file = '/home/ssikka/nki_nyu_pipeline/seed_list.txt'
     0010002
     etc.
 """
-func_session_file = '/home/ssikka/nki_nyu_pipeline/sessions.txt'
+func_session_file = '/home/data/Projects/nuisance_reliability_paper/work_lists/session_list.txt'
 anat_session = '*'
-subj_file = '/home/ssikka/nki_nyu_pipeline/data/subjects.txt'
+subj_file = '/home/data/Projects/nuisance_reliability_paper/work_lists/subject_list.txt'
 log_file = None
-rest_name = 'rest'
-anat_name = 'mprage'
-standard_res = '2mm'
+rest_name = 'lfo'
+anat_name = 'mprage_anonymized'
+standard_res = '3mm'
 fwhm = [6]
 
 """
