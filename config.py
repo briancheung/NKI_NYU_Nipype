@@ -198,7 +198,7 @@ vmhc_example_func2highres_mat_template = '%s/*/*/%s'
     For Unit Timeseries Extraction Only
 Note: Definitions Directory should contain one subdirectory for each set of units to be generated (e.g., Harvard-Oxford Atlas, AAL, Craddock, Dosenbach-160); one output file / set define   
 """
-unitDefinitionsDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
+unitDefinitionsDirectory = '/usr/share/fsl/4.1/data/atlases/HarvardOxford/'
 
 # Output type: .csv, numPy
 unitTSOutputs = [1, 1]
@@ -207,7 +207,7 @@ unitTSOutputs = [1, 1]
     For Voxel Timeseries Extraction Only
 Note: Definitions Directory should contain one subdirectory for each mask/mask set to be used to select voxels to be output; one output file / mask 
 """
-voxelMasksDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
+voxelMasksDirectory = '/usr/share/fsl/4.1/data/atlases/HarvardOxford/'
 
 
 # Output type: .csv, numPy
@@ -219,7 +219,7 @@ voxelTSOutputs = [0, 1]
 # Output type: .csv, numPy
 verticesTSOutputs = [0, 1]
 
-reconSubjectsDirectory = '/home/ssikka/nki_nyu_pipeline/recon_subjects'
+reconSubjectsDirectory = '/home/data/Projects/nuisance_reliability_paper/recon_subjects'
 """ 
 **************************************************************
 """

@@ -448,8 +448,8 @@ def prep_workflow(c):
 
     workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
                      scapreproc, 'inputspec.fieldcoeff_file')
-    workflow.connect(func_in_mni, 'outputspec.residual_file_mni',
-                         scapreproc, 'inputspec.rest_res2standard')
+#        workflow.connect(func_in_mni, 'outputspec.residual_file_mni',
+#                         scapreproc, 'inputspec.rest_res2standard')
     workflow.connect(func_in_mni, 'outputspec.preprocessed_mask_mni',
                      scapreproc, 'inputspec.rest_mask2standard')
 
@@ -512,6 +512,8 @@ def prep_workflow(c):
     seg_sink(workflow, datasink, segpreproc, mprage_mni)
     nuisance_sink(workflow, datasink, nuisancepreproc, func_in_mni)
     scrubbing_sink(workflow, datasink, scpreproc)
+
+
 
     if(not c.run_on_grid):
         workflow.run(plugin='MultiProc', plugin_args={'n_procs': c.num_cores})
