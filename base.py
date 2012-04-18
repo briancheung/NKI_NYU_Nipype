@@ -870,11 +870,11 @@ def create_vmhc_preproc():
     corr.inputs.pearson = True
     corr.inputs.polort = -1
 
-    z_trans = pe.MapNode(interface=afni.Calc(), name='z_trans', iterfield=['infile_a'])
+    z_trans = pe.MapNode(interface=e_afni.Threedcalc(), name='z_trans', iterfield=['infile_a'])
     z_trans.inputs.expr = '\'log((1+a)/(1-a))/2\''
-
-    z_stat = pe.MapNode(interface=afni.Calc(), name='z_stat', iterfield=['infile_a', 'expr'])
-
+    z_trans.inputs.outputtype = 'NIFTI'
+    z_stat = pe.MapNode(interface=e_afni.Threedcalc(), name='z_stat', iterfield=['infile_a', 'expr'])
+    z_stat.inputs.outputtype = 'NIFTI'
     NVOLS = pe.Node(util.Function(input_names=['in_files'],
                                 output_names=['nvols'], function=getImgNVols), name='NVOLS')
 
@@ -962,7 +962,7 @@ def create_sca_preproc():
     corr.inputs.out = 'Correlation'
 
     ## 3. Z-transform correlations
-    z_trans = pe.MapNode(interface=afni.Calc(), name='z_trans', iterfield=['infile_a'])
+    z_trans = pe.MapNode(interface=e_afni.Threedcalc(), name='z_trans', iterfield=['infile_a'])
     z_trans.inputs.expr = '\'log((1+a)/(1-a))/2\''
 
     ## 4. Register Z-transformed correlations to standard space

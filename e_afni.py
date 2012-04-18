@@ -532,12 +532,12 @@ For complete details, see the `3dAutomask Documentation.
         if  name == 'head_file':
             _, fname, ext = split_filename(self.inputs.in_file)
             fname = os.path.basename(fname)
-            return os.path.join(os.getcwd(), ''.join((str(self.inputs.out_file), '+orig', '.HEAD')))
+            return (str(self.inputs.out_file)+ '+orig'+ '.HEAD')
 
         if  name == 'brik_file':
             _, fname, ext = split_filename(self.inputs.in_file)
             fname = os.path.basename(fname)
-            return os.path.join(os.getcwd(), ''.join((str(self.inputs.out_file), '+orig', '.BRIK')))
+            return (str(self.inputs.out_file)+ '+orig'+ '.BRIK')
 
 
         return None
@@ -557,10 +557,10 @@ For complete details, see the `3dAutomask Documentation.
             outputs['out_file'] = self._gen_fname(self.inputs.in_file, suffix=suffix)
 
         elif isdefined(self.inputs.out_file) and self.inputs.genbrickhead:
-            outputs['brik_file']= self._gen_filename('brik_file')
-            outputs['head_file']= self._gen_filename('head_file')
+            outputs['brik_file']= os.path.abspath(self._gen_filename('brik_file'))
+            outputs['head_file']= os.path.abspath(self._gen_filename('head_file'))
         else:
-            outputs['out_file'] = self.inputs.out_file
+            outputs['out_file'] = os.path.abspath(self.inputs.out_file)
 
 
         return outputs
@@ -622,33 +622,31 @@ For complete details, see the `3dvolreg Documentation.
 """
         if name == 'out_file':
             _, fname, ext = split_filename(self.inputs.in_file)
-            return os.path.join(os.getcwd(), ''.join((fname, '_3dv',ext)))
+            return (fname+ '_3dv'+ext)
 
         if name == 'oned_file':
             _, fname, ext = split_filename(self.inputs.in_file)
-            return os.path.join(os.getcwd(), ''.join((fname, '_3dv1D','.1D')))
+            return (fname+ '_3dv1D'+'.1D')
 
         if name == 'md1d_file':
             _, fname, ext = split_filename(self.inputs.in_file)
-            return os.path.join(os.getcwd(), ''.join((fname, '_3dvmd1D','.1D')))
+            return (fname+ '_3dvmd1D'+'.1D')
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-#        outputs['out_file'] = os.path.abspath(self.inputs.out_file)
-#        outputs['oned_file'] = os.path.abspath(self.inputs.oned_file)
 
         if not isdefined(self.inputs.out_file):
-            outputs['out_file'] = self._gen_filename('out_file')
+            outputs['out_file'] = os.path.abspath(self._gen_filename('out_file'))
         else:
             outputs['out_file'] = os.path.abspath(self.inputs.out_file)
 
         if not isdefined(self.inputs.oned_file):
-            outputs['oned_file'] = self._gen_filename('oned_file')
+            outputs['oned_file'] = os.path.abspath(self._gen_filename('oned_file'))
         else:
             outputs['oned_file'] = os.path.abspath(self.inputs.oned_file)
 
         if not isdefined(self.inputs.md1d_file):
-            outputs['md1d_file'] = self._gen_filename('md1d_file')
+            outputs['md1d_file'] = os.path.abspath(self._gen_filename('md1d_file'))
         else:
             outputs['md1d_file'] = os.path.abspath(self.inputs.oned_file)
         return outputs
@@ -1256,16 +1254,17 @@ For complete details, see the `3dcalc Documentation.
 
     def _list_outputs(self):
         import sys
-        print 'inside list outputs'
+        print 'inside list outputs >>>'
         outputs = self.output_spec().get()
         if not isdefined(self.inputs.out_file):
-            outputs['out_file'] = self._gen_filename('out_file')
+            outputs['out_file'] = os.path.abspath(self._gen_filename('out_file'))
         else:
 
             out, ext = os.path.splitext(self.inputs.out_file)
             if ext == "":
-                outputs['brik_file'] = self._gen_filename('BRIK')
-                outputs['head_file'] = self._gen_filename('HEAD')
+                outputs['brik_file'] = os.path.abspath(self._gen_filename('BRIK'))
+
+                outputs['head_file'] = os.path.abspath(self._gen_filename('HEAD'))
             else:
                 outputs['out_file'] = os.path.abspath(self.inputs.out_file)
 
@@ -1293,19 +1292,29 @@ For complete details, see the `3dcalc Documentation.
 
     def _parse_inputs(self, skip=None):
         """Skip the arguments without argstr metadata
-"""
+        """
         return super(Threedcalc, self)._parse_inputs(skip=('start_idx', 'stop_idx', 'start_idx2', 'stop_idx2', 'other'))
 
     def _gen_filename(self, name):
         """Generate output file name
-"""
+        """
+        import tempfile
+        import commands
+        print '>>>', name
         if name == 'out_file':
             _, fname, ext = split_filename(self.inputs.infile_a)
-            return os.path.join(os.getcwd(), ''.join((fname, '_3dc', ext)))
+            #d_name = tempfile.mkdtemp()
+            #print d_name
+            #full_name = os.path.join(os.getcwd(), ''.join((fname, '_3dc', ext)))
+            #temp_path = os.path.join(d_name, ''.join((fname, '_3dc', ext)))
+            #cmd = " ln -s %s %s" % (full_name, temp_path)
+            #commands.getoutput(cmd)
+            #return temp_path
+            return (fname + '_3dc'+ ext)
         if name == 'BRIK':
-            return os.path.join(os.getcwd(), self.inputs.out_file + '+orig.'+ name)
+            return self.inputs.out_file + '+orig.'+ name
         if name == 'HEAD':
-            return os.path.join(os.getcwd(), self.inputs.out_file + '+orig.' + name)
+            return self.inputs.out_file + '+orig.' + name
 
 
 
@@ -1469,29 +1478,29 @@ For complete details, see the `3dvolreg Documentation.
 
 class InvWarpInputSpec(FSLCommandInputSpec):
 
-    in_file = File(desc = 'filename for warp/shiftmap transform',
-                  argstr = ' -w %s',
-                  position = 1,
-                  mandatory = True,
-                  exists = True)
+    in_file = File(desc='filename for warp/shiftmap transform',
+                  argstr=' -w %s',
+                  position=1,
+                  mandatory=True,
+                  exists=True)
 
 
-    ref_file = File(desc = 'filename for new brain-extracted reference image',
-                    argstr = '-r %s',
-                    position = 2)
+    ref_file = File(desc='filename for new brain-extracted reference image',
+                    argstr='-r %s',
+                    position=2)
 
-    options = traits.Str(desc = 'other options',
-                    argstr = '%s')
+    options = traits.Str(desc='other options',
+                    argstr='%s')
 
 
-    out_file = File(desc = 'filename for output (inverse warped) image',
-                   argstr = '-o %s',
-                   position = 3,
-                   genfile = True)
+    out_file = File(desc='filename for output (inverse warped) image',
+                   argstr='-o %s',
+                   position=3,
+                   genfile=True)
 
 class InvWarpOutputSpec(TraitedSpec):
-    out_file = File(desc = 'Inverse warped image',
-                   exists = True)
+    out_file = File(desc='Inverse warped image',
+                   exists=True)
 
 class InvWarp(FSLCommand):
 
@@ -1507,14 +1516,14 @@ class InvWarp(FSLCommand):
 """
         if name == 'out_file':
             _, fname, ext = split_filename(self.inputs.in_file)
-            return os.path.join(os.getcwd(), ''.join((fname, '_invw',ext)))
+            return (fname+ '_invw'+ext)
 
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
 
         if not isdefined(self.inputs.out_file):
-            outputs['out_file'] = self._gen_filename('out_file')
+            outputs['out_file'] = os.path.abspath(self._gen_filename('out_file'))
         else:
             outputs['out_file'] = os.path.abspath(self.inputs.out_file)
 
