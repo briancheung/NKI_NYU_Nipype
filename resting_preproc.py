@@ -16,12 +16,17 @@ from utils import (create_anat_func_dataflow, create_seed_dataflow,
                     create_vmhc_dataflow, selector_wf,
                     create_parc_dataflow, create_mask_dataflow,
                     create_gp_dataflow, create_datasink)
+<<<<<<< HEAD
 
 from sink import (anat_sink, reg_sink, seg_sink, func_sink,
                   nuisance_sink, scrubbing_sink)
+=======
+>>>>>>> 0ab658b521519398d9788671ba4bf3bc884dbf68
 
 from base_nuisance import create_nuisance_preproc
 
+from sink import (anat_sink, reg_sink, seg_sink, func_sink,
+                  nuisance_sink, scrubbing_sink)
 
 def getSubjectAndSeedLists(c):
 
@@ -31,11 +36,19 @@ def getSubjectAndSeedLists(c):
     """
     subj_file = c.subj_file
     seed_file = c.seed_file
+<<<<<<< HEAD
     rest_session_file = c.rest_session_file
 
     reader_subj = open(subj_file, 'r')
     reader_seed = open(seed_file, 'r')
     reader_rest_session = open(rest_session_file, 'r')
+=======
+    func_session_file = c.func_session_file
+
+    reader_subj = open(subj_file, 'r')
+    reader_seed = open(seed_file, 'r')
+    reader_rest_session = open(func_session_file, 'r')
+>>>>>>> 0ab658b521519398d9788671ba4bf3bc884dbf68
 
     subj_list = []
     seed_list = []
@@ -210,11 +223,11 @@ def get_workflow(wf_name, c):
 
         preproc = create_nuisance_preproc()
         preproc.inputs.selector_input.selector = c.Corrections
-        preproc.inputs.num_components_input.num_components = c.ncomponents
+        preproc.inputs.nc_input.nc = c.ncomponents
         preproc.inputs.target_angle_deg_input.target_angle_deg = c.target_angle_deg
         preproc.get_node('selector_input').iterables = ('selector', c.Corrections)
-        preproc.get_node('num_components_input').iterables = ('num_components', c.ncomponents)
-        preproc.get_node('target_angle_deg_input').iterables = ('target_angle_deg', c.ncomponents)
+        preproc.get_node('nc_input').iterables = ('nc', c.ncomponents)
+        preproc.get_node('target_angle_deg_input').iterables = ('target_angle_deg', c.target_angle_deg)
 
         return preproc
 
@@ -280,9 +293,21 @@ def prep_workflow(c):
     """
         grab the subject data
     """
+<<<<<<< HEAD
     flowAnatFunc = create_anat_func_dataflow('anat_flow', sublist, rest_session_list,
                                     c.anat_session, c.subj_dir, c.anat_name, c.rest_name,
                                     c.anat_template, c.func_template)
+=======
+    flowAnatFunc = create_anat_func_dataflow('anat_flow',
+                                              sublist,
+                                              rest_session_list,
+                                              c.anat_session,
+                                              c.subj_dir,
+                                              c.anat_name,
+                                              c.rest_name,
+                                              c.anat_template,
+                                              c.func_template)
+>>>>>>> 0ab658b521519398d9788671ba4bf3bc884dbf68
 
     """
         grab the seeds data
@@ -466,6 +491,7 @@ def prep_workflow(c):
         Generates CSV and NUMPY files
     """
     #timeseries preproc
+<<<<<<< HEAD
     workflow.connect(anatpreproc, 'outputspec.brain',
                      tspreproc, 'inputspec.brain')
     workflow.connect(anatpreproc, 'outputspec.reorient',
@@ -481,6 +507,23 @@ def prep_workflow(c):
                      tspreproc, 'getparc.parcelations')
     workflow.connect(mflow, 'out_file',
                      tspreproc, 'getmask.masks')
+=======
+#    workflow.connect(anatpreproc, 'outputspec.brain',
+#                     tspreproc, 'inputspec.brain')
+#    workflow.connect(anatpreproc, 'outputspec.reorient',
+#                     tspreproc, 'inputspec.reorient')
+#    workflow.connect(funcpreproc, 'outputspec.motion_correct',
+#                     tspreproc, 'inputspec.motion_correct')
+#    workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
+#                     tspreproc, 'inputspec.warp_file')
+#    workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
+#                     tspreproc, 'inputspec.premat')
+#
+#    workflow.connect(pflow, 'out_file',
+#                     tspreproc, 'getparc.parcelations')
+#    workflow.connect(mflow, 'out_file',
+#                     tspreproc, 'getmask.masks')
+>>>>>>> 0ab658b521519398d9788671ba4bf3bc884dbf68
 
 
     """
@@ -508,6 +551,10 @@ def prep_workflow(c):
     nuisance_sink(workflow, datasink, nuisancepreproc, func_in_mni)
     scrubbing_sink(workflow, datasink, scpreproc)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 0ab658b521519398d9788671ba4bf3bc884dbf68
 
     if(not c.run_on_grid):
         workflow.run(plugin='MultiProc', plugin_args={'n_procs': c.num_cores})

@@ -2,11 +2,11 @@ import nipype.pipeline.engine as pe
 import nipype.interfaces.fsl as fsl
 import nipype.interfaces.utility as util
 
-def extract_compcor_components(num_components,
+def extract_compcor_components(nc,
                                realigned_file,
                                wm_mask, 
                                csf_mask):
-    """Extracts the num_components principal components found in white matter and 
+    """Extracts the nc principal components found in white matter and 
     cerebral spinal fluid.  Algorithm based on:
     Y. Behzadi, K. Restom, J. Liau, and T. T. Liu, component based noise correction 
     method (CompCor) for BOLD and perfusion based fMRI., NeuroImage, vol. 37, no. 1, 
@@ -33,7 +33,7 @@ def extract_compcor_components(num_components,
      
     components_file = os.path.join(os.getcwd(), 'noise_components.txt')
     print 'Saving components file:', components_file
-    np.savetxt(components_file, U[:, :num_components])
+    np.savetxt(components_file, U[:, :nc])
     return components_file
 
 def extract_global_component(realigned_file):
@@ -233,8 +233,8 @@ def create_nuisance_preproc(name='nuisance_preproc'):
     inputnode_selector = pe.Node(util.IdentityInterface(fields=['selector']),
                              name='selector_input')
 
-    inputnode_num_components = pe.Node(util.IdentityInterface(fields=['num_components']),
-                             name='num_components_input')
+    inputnode_nc = pe.Node(util.IdentityInterface(fields=['nc']),
+                             name='nc_input')
 
     inputnode_target_angle_deg = pe.Node(util.IdentityInterface(fields=['target_angle_deg']),
                              name='target_angle_deg_input')
@@ -247,7 +247,7 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                             name='median_angle',
                                             iterfield=['realigned_file'])
 
-    compcor = pe.MapNode(util.Function(input_names=['num_components',
+    compcor = pe.MapNode(util.Function(input_names=['nc',
                                                     'realigned_file',
                                                     'wm_mask',
                                                     'csf_mask'],
@@ -305,8 +305,8 @@ def create_nuisance_preproc(name='nuisance_preproc'):
 
     nuisance_preproc.connect(inputspec, 'realigned_file',
                              compcor, 'realigned_file')
-    nuisance_preproc.connect(inputnode_num_components, 'num_components',
-                             compcor, 'num_components')
+    nuisance_preproc.connect(inputnode_nc, 'nc',
+                             compcor, 'nc')
     nuisance_preproc.connect(inputspec, 'wm_mask',
                              compcor, 'wm_mask')
     nuisance_preproc.connect(inputspec, 'csf_mask',

@@ -59,6 +59,8 @@ seed_file = '/home/ssikka/nki_nyu_pipeline/seed_list.txt'
     0010002
     etc.
 """
+func_session_file = '/home/ssikka/nki_nyu_pipeline/sessions.txt'
+anat_session = '*'
 subj_file = '/home/ssikka/nki_nyu_pipeline/data/subjects.txt'
 log_file = None
 rest_name = 'rest'
@@ -67,16 +69,16 @@ standard_res = '2mm'
 fwhm = [6]
 
 """
-    Value : True or False
+    Value : 1 or 0
 """
-nuisanceHighPassFilter = True
-nuisanceLowPassFilter = True
+nuisanceHighPassFilter = 1
+nuisanceLowPassFilter = 1
 
 """
-    When nuisanceHighPassFilter : True
+    When nuisanceHighPassFilter : 1
     Set nuisanceHighPassLowCutOff to a decimal value
 
-    When nuisanceHighPassFilter : False
+    When nuisanceHighPassFilter : 0
     Set nuisanceHighPassLowCutOff to None
 
     Same holds for nuisanceLowPassFilter & nuisanceLowPassHighCutOff
@@ -102,9 +104,9 @@ lowPassFreqALFF = 0.1
 
 """ 
     Scrub data prior to derivate generation: In accord with Power et al. (2012); forking not enable yet for this step (next version).
-    Default value True/False
+    Default value 1/0
 """
-scrubData = [True, False]
+scrubData = [1, 0]
 
 
 
@@ -124,10 +126,10 @@ target_angle_deg = [90, 60]
     Which Signals do you which to regress out
 """
 #['global', 'compcor', 'wm', 'csf', 'gm', 'firstprinc', 'motion']
-#regressors = [False, False, False, False, False, True]
+#regressors = [0, 0, 0, 0, 0, 1]
 Corrections = [
-                [True, False, False, False, False, False, True],
-                [False, False, True, True, True, True, True ]
+                [1, 0, 0, 0, 0, 0, 1],
+                [0, 0, 1, 1, 1, 1, 1 ]
               ]
 
 
@@ -136,13 +138,15 @@ Corrections = [
     where are your anatomical scans located relative to your Subjects Directory
 """
 
-anat_template = '%s/*/%s.nii.gz'
+anat_template = '%s/%s/%s.nii.gz'
 
 """
     Mandatory
     where are your functional scans located relative to your Subjects Directory
 """
-func_template = '%s/*/%s.nii.gz'
+
+func_template = '%s/%s/%s.nii.gz'
+
 """
     SET ONLY when analysis is not set to 'all' and u need to run alff
 
@@ -197,7 +201,7 @@ Note: Definitions Directory should contain one subdirectory for each set of unit
 unitDefinitionsDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
 
 # Output type: .csv, numPy
-unitTSOutputs = [True, True]
+unitTSOutputs = [1, 1]
 
 """ 
     For Voxel Timeseries Extraction Only
@@ -207,13 +211,13 @@ voxelMasksDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
 
 
 # Output type: .csv, numPy
-voxelTSOutputs = [False, True]
+voxelTSOutputs = [0, 1]
 
 """ 
     For Vertices Timeseries Extraction Only
 """
 # Output type: .csv, numPy
-verticesTSOutputs = [False, True]
+verticesTSOutputs = [0, 1]
 
 reconSubjectsDirectory = '/home/ssikka/nki_nyu_pipeline/recon_subjects'
 """ 
@@ -234,10 +238,10 @@ modelsList = 'home/ssikka/myModels.txt'
 
 z_threshold = 2.3
 p_threshold = 0.05
-f_test = True
+f_test = 1
 
 # all, basic, scrubbing, nuisance, alff, ifc, vmhc, reho, group_analysis
-analysis = [False, True, False, False, False, False, False, False, False ]
-run_on_grid = False
+analysis = [0, 1, 0, 0, 0, 0, 0, 0, 0 ]
+run_on_grid = 0
 qsub_args = '-q all.q'
 num_cores = 10
