@@ -28,36 +28,40 @@ def getSubjectAndSeedLists(c):
         Read Subject & Seed files to build
         corresponding lists.
     """
-    subj_file = c.subj_file
-    seed_file = c.seed_file
-    func_session_file = c.func_session_file
+    
+    def get_list(fname):
+        flines = open(fname, 'r').readlines()
+        return [fline.rstrip('\r\n') for fline in flines]
+    
+#    subj_file = c.subj_file
+#    seed_file = c.seed_file
+#    func_session_file = c.func_session_file
+#    anat_session_file = c.anat_session_file
+#    
+#    reader_subj = open(subj_file, 'r')
+#    reader_seed = open(seed_file, 'r')
+#    reader_rest_session = open(func_session_file, 'r')
+#
+#    subj_list = []
+#    seed_list = []
+#    rest_session_list = []
+#
+#    for line in reader_subj.readlines():
+#        line = line.rstrip('\r\n')
+#        subj_list.append(line)
+#
+#    for line in reader_seed.readlines():
+#        line = line.rstrip('\r\n')
+#        seed_list.append(line)
+#
+#    for line in reader_rest_session.readlines():
+#        line = line.rstrip('\r\n')
+#        rest_session_list.append(line)
+#
+#
+#    return subj_list, rest_session_list, seed_list
 
-    reader_subj = open(subj_file, 'r')
-    reader_seed = open(seed_file, 'r')
-    reader_rest_session = open(func_session_file, 'r')
-
-    subj_list = []
-    seed_list = []
-    rest_session_list = []
-
-    for line in reader_subj.readlines():
-
-        line = line.rstrip('\r\n')
-
-        subj_list.append(line)
-
-    for line in reader_seed.readlines():
-
-        line = line.rstrip('\r\n')
-        seed_list.append(line)
-
-    for line in reader_rest_session.readlines():
-
-        line = line.rstrip('\r\n')
-        rest_session_list.append(line)
-
-    return subj_list, rest_session_list, seed_list
-
+    return get_list(c.subj_file), get_list(c.func_session_file), get_list(c.anat_session_file), get_list(c.seed_file)
 
 def get_seed_list(seed_file):
 
@@ -270,7 +274,7 @@ def prep_workflow(c):
     workflow.base_dir = c.working_dir
     workflow.crash_dir = c.crash_dir
 
-    sublist, rest_session_list, seed_list = getSubjectAndSeedLists(c)
+    sublist, rest_session_list, anat_session_list, seed_list = getSubjectAndSeedLists(c)
 
     """
         BASIC and ALL preprocessing paths implemented below
@@ -279,15 +283,14 @@ def prep_workflow(c):
     """
         grab the subject data
     """
-    flowAnatFunc = create_anat_func_dataflow('anat_flow',
-                                              sublist,
+    flowAnatFunc = create_anat_func_dataflow( sublist,
                                               rest_session_list,
-                                              c.anat_session,
+                                              anat_session_list,
                                               c.subj_dir,
-                                              c.anat_name,
-                                              c.rest_name,
                                               c.anat_template,
-                                              c.func_template)
+                                              c.func_template,
+                                              c.anat_template_list,
+                                              c.func_template_list)
 
     """
         grab the seeds data
@@ -328,9 +331,9 @@ def prep_workflow(c):
         Make Connections
     """
 
-    workflow.connect(flowAnatFunc, 'anat',
+    workflow.connect(flowAnatFunc, 'datasource.anat',
                      anatpreproc, 'inputspec.anat')
-    workflow.connect(flowAnatFunc, 'rest',
+    workflow.connect(flowAnatFunc, 'datasource.rest',
                      funcpreproc, 'inputspec.rest')
     workflow.connect(funcpreproc, 'outputspec.example_func',
                      regpreproc, 'inputspec.example_func')
@@ -348,7 +351,7 @@ def prep_workflow(c):
                      segpreproc, 'inputspec.highres2example_func_mat')
     workflow.connect(regpreproc, 'outputspec.stand2highres_warp',
                      segpreproc, 'inputspec.stand2highres_warp')
-    workflow.connect(flowAnatFunc, 'rest',
+    workflow.connect(flowAnatFunc, 'datasource.rest',
                      scpreproc, 'inputspec.rest')
     workflow.connect(funcpreproc, 'outputspec.movement_parameters',
                      scpreproc, 'inputspec.movement_parameters')
@@ -505,7 +508,8 @@ def prep_workflow(c):
     """
         Calling datasink 
     """
-    datasink = create_datasink(c.subj_dir)
+    datasink = create_datasink(c.sink_dir)
+    workflow.connect(flowAnatFunc, 'inputnode.subject_id', datasink, 'container')
     anat_sink(workflow, datasink, mprage_mni)
     func_sink(workflow, datasink, funcpreproc, func_in_mni)
     reg_sink(workflow, datasink, regpreproc)

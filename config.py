@@ -14,7 +14,7 @@ subj_dir = '/home/data/Originals/NYU_TRT/'
 """
     Point to directory where pipeline can store results 
 """
-sink_dir = '/home/data/Projects/nuisance_reliability_paper/'
+sink_dir = '/home/data/Projects/nuisance_reliability_paper/results'
 
 """
     Set Temporary Directory where Nipype can store
@@ -60,11 +60,9 @@ seed_file = '/home/data/Projects/nuisance_reliability_paper/work_lists/seed_list
     etc.
 """
 func_session_file = '/home/data/Projects/nuisance_reliability_paper/work_lists/session_list.txt'
-anat_session = '*'
+anat_session_file = '/home/data/Projects/nuisance_reliability_paper/work_lists/session_list.txt'
 subj_file = '/home/data/Projects/nuisance_reliability_paper/work_lists/subject_list.txt'
 log_file = None
-rest_name = 'lfo'
-anat_name = 'mprage_anonymized'
 standard_res = '3mm'
 fwhm = [6]
 
@@ -136,16 +134,28 @@ Corrections = [
 """
     Mandatory
     where are your anatomical scans located relative to your Subjects Directory
+    
+    For data organized in session_id/subject_id format:
+    anat_template_list = ['session', 'subject', 'mprage_anonymized']
+    
+    For data organized in subject_id/session_id format:
+    anat_template_list = ['subject', 'session', 'mprage_anonymized']
 """
-
-anat_template = '%s/%s/%s.nii.gz'
+anat_template = '%s/%s/anat/%s.nii.gz'
+anat_template_list = ['session', 'subject', 'mprage_anonymized']
 
 """
     Mandatory
     where are your functional scans located relative to your Subjects Directory
+    
+    For data organized in session_id/subject_id format:
+    func_template_list = ['session', 'subject', 'lfo']
+    
+    For data organized in subject_id/session_id format:
+    func_template_list = ['subject', 'session', 'lfo']
 """
-
-func_template = '%s/%s/%s.nii.gz'
+func_template = '%s/%s/func/%s.nii.gz'
+func_template_list = ['session', 'subject', 'lfo']
 
 """
     SET ONLY when analysis is not set to 'all' and u need to run alff

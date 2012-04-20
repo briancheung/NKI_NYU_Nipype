@@ -857,20 +857,41 @@ def getStatsDir(in_files):
 
     return stats_dir
 
-def create_anat_func_dataflow(name, sublist, sessionlist, anat_session, analysisdirectory, anat_name, rest_name, at, rt):
-
+def create_anat_func_dataflow(sublist, sessionlist, anat_session_list, analysisdirectory, at, rt, at_list, rt_list):
+    '''
+        Example parameters
+        anat_name = 'mprage'
+        rest_name = 'lfo'
+        at = '%s/%s/%s.nii.gz'
+        rt = '%s/%s/%s.nii.gz'
+    '''
     import nipype.pipeline.engine as pe
     import nipype.interfaces.io as nio
+    from nipype.interfaces.utility import IdentityInterface
+    
+    wf = pe.Workflow(name='inputnode_datasource')
 
-    datasource = pe.Node(interface=nio.DataGrabber(infields=['subject_', 'session_'], outfields=['anat', 'rest']), name=name)
+
+    inputnode = pe.Node(interface=IdentityInterface(fields=['session_id', 'subject_id'],
+                                                    mandatory_inputs=True),
+                        name='inputnode')
+    inputnode.iterables = [('session_id', sessionlist),
+                           ('subject_id', sublist)]
+
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['subject', 'session'], outfields=['anat', 'rest']), name='datasource')
     datasource.inputs.base_directory = analysisdirectory
     #datasource.inputs.template = '%s/*/%s.nii.gz'
+
     datasource.inputs.field_template = dict(anat=at, rest=rt)
     datasource.inputs.template = '*'
-    datasource.inputs.template_args = dict(anat=[['subject_', anat_session, anat_name]], rest=[['subject_', 'session_', rest_name]])
-    datasource.iterables = [('subject_', sublist), ('session_', sessionlist)]
+#    datasource.inputs.template_args = dict(anat=[['subject', 'session', anat_name]], rest=[['subject', 'session', rest_name]])
+    datasource.inputs.template_args = dict(anat=[at_list], rest=[rt_list])
+#    datasource.iterables = [('subject', sublist), ('session', sessionlist)]
 
-    return datasource
+    wf.connect(inputnode, 'session_id', datasource, 'session')
+    wf.connect(inputnode, 'subject_id', datasource, 'subject')
+
+    return wf
 
 
 def create_alff_dataflow(name, sublist, analysisdirectory, rest_name, at, atw):
@@ -1233,7 +1254,7 @@ def create_datasink(source_dir):
     print"create data sink"
     datasink = pe.Node(nio.DataSink(), name='data_sink')
     datasink.inputs.base_directory = source_dir
-    datasink.inputs.container = 'result'
+#    datasink.inputs.container = 'result'
     datasink.inputs.regexp_substitutions = [(r"[/](_)+", '/'), (r"^(_)+", '')]
 
     return datasink
