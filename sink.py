@@ -131,16 +131,30 @@ def seg_sink(workflow, datasink, segpreproc, mprage_mni):
         workflow.connect(mprage_mni, 'outputspec.partial_volume_files_mni', datasink, 'segment.@23')
 
 
-def nuisance_sink(workflow,datasink, nuisancepreproc, func_in_mni):
-    
-        rename= rename_nuisance_preproc()
-        
-        rename.inputs.filenames.residual_file = "rest_res2standard.nii.gz" 
 
-        workflow.connect(func_in_mni, 'outputspec.residual_file_mni', rename, 'inputspec.residual_file')
+
+def rename_connections(workflow, datasink, rename_list, sink_node):
+    
+    ncount = 0
+    for rename in rename_list:
+        din_file = sink_node + '.@' + str(ncount)
+        if len(rename) == 4:
+            rename_node = pe.MapNode(interface = util.Rename(), name = rename[2], 
+                                     iterfield=['in_file', 'format_string'])
+            rename_node.inputs.format_string = rename[3]
+            
+            workflow.connect(rename[0], rename[1], rename_node, 'in_file')
+            workflow.connect(rename_node, 'out_file', datasink, din_file)
+        else:
+            workflow.connect(rename[0], rename[1], datasink, din_file)
+        ncount+=1
         
-        workflow.connect(rename, 'outputspec.residual_file_out', datasink, 'nuisance.@0')
-        workflow.connect(nuisancepreproc, 'outputspec.median_angle_corrected_file', datasink, 'nuisance.@1')
+
+def nuisance_sink(workflow,datasink, nuisancepreproc):
+    rename_list = [(nuisancepreproc, 'outputspec.residual_file', 'rename', 'rest_residual.nii.gz'),
+                   (nuisancepreproc, 'outputspec.median_angle_corrected_file')]
+    
+    rename_connections(workflow, datasink, rename_list, 'nuisance')
 
 
 def scrubbing_sink(workflow, datasink, scpreproc):

@@ -273,7 +273,8 @@ def prep_workflow(c):
     workflow = pe.Workflow(name=wfname)
     workflow.base_dir = c.working_dir
     workflow.crash_dir = c.crash_dir
-
+    workflow.config['execution'] = {'hash_method': 'timestamp'}
+    
     sublist, rest_session_list, anat_session_list, seed_list = getSubjectAndSeedLists(c)
 
     """
@@ -514,7 +515,7 @@ def prep_workflow(c):
     func_sink(workflow, datasink, funcpreproc, func_in_mni)
     reg_sink(workflow, datasink, regpreproc)
     seg_sink(workflow, datasink, segpreproc, mprage_mni)
-    nuisance_sink(workflow, datasink, nuisancepreproc, func_in_mni)
+    nuisance_sink(workflow, datasink, nuisancepreproc)
     scrubbing_sink(workflow, datasink, scpreproc)
 
 
