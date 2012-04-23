@@ -1255,7 +1255,7 @@ def create_datasink(source_dir):
     datasink = pe.Node(nio.DataSink(), name='data_sink')
     datasink.inputs.base_directory = source_dir
 #    datasink.inputs.container = 'result'
-    datasink.inputs.regexp_substitutions = [(r"[/](_)+", '/'), (r"^(_)+", ''), (r"rename(\d)+[/]", '')]
+    datasink.inputs.regexp_substitutions = [(r"[/](_)+", '/'), (r"^(_)+", ''), (r"[\w]+rename(\d)+[/]", '')]
     return datasink
 
 def formatpath(in_file, filename):

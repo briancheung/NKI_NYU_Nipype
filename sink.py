@@ -136,26 +136,48 @@ def seg_sink(workflow, datasink, segpreproc, mprage_mni):
 def rename_connections(workflow, datasink, rename_list, sink_node):
     
     ncount = 0
+    rcount = 0
     for rename in rename_list:
         din_file = sink_node + '.@' + str(ncount)
         if len(rename) == 4:
-            rename_node = pe.MapNode(interface = util.Rename(), name = rename[2], 
+            rename_node = pe.MapNode(interface = util.Rename(), name = rename[2]+str(rcount), 
                                      iterfield=['in_file', 'format_string'])
             rename_node.inputs.format_string = rename[3]
             
             workflow.connect(rename[0], rename[1], rename_node, 'in_file')
             workflow.connect(rename_node, 'out_file', datasink, din_file)
+            rcount+=1
         else:
             workflow.connect(rename[0], rename[1], datasink, din_file)
         ncount+=1
         
 
-def nuisance_sink(workflow,datasink, nuisancepreproc):
+def nuisance_sink(workflow, datasink, nuisancepreproc):
     rename_list = [(nuisancepreproc, 'outputspec.residual_file', 'rename', 'rest_residual.nii.gz'),
                    (nuisancepreproc, 'outputspec.median_angle_corrected_file')]
-    
     rename_connections(workflow, datasink, rename_list, 'nuisance')
 
+def sca_sink(workflow, datasink, scapreproc):
+    rename_list = [(scapreproc, 'outputspec.seed_mni2func', 'sca_rename', 'seed_native.nii.gz'),
+                   (scapreproc, 'outputspec.correlations', 'sca_rename', 'correlations_native.nii.gz'),
+                   (scapreproc, 'outputspec.Z_trans_correlations', 'sca_rename', 'Z_native.nii.gz'),
+                   (scapreproc, 'outputspec.Z_2standard', 'sca_rename', 'Z_2standard.nii.gz'),
+                   (scapreproc, 'outputspec.Z_2standard_FWHM', 'sca_rename', 'Z_FWHM_2standard.nii.gz')]
+    rename_connections(workflow, datasink, rename_list, 'sca')
+    
+def alff_sink(workflow, datasink, alffpreproc):
+    rename_list = [(alffpreproc, 'outputspec.power_spectrum_distribution', 'alff_rename', 'power_spectrum_distribution.nii.gz'),
+                   (alffpreproc, 'outputspec.alff_img', 'alff_rename', 'ALFF.nii.gz'),
+                   (alffpreproc, 'outputspec.falff_img', 'alff_rename', 'fALFF.nii.gz'),
+                   (alffpreproc, 'outputspec.alff_Z_img', 'alff_rename', 'ALFF_Z.nii.gz'),
+                   (alffpreproc, 'outputspec.falff_Z_img', 'alff_rename', 'fALFF_Z.nii.gz'),
+                   (alffpreproc, 'outputspec.alff_Z_2standard_img', 'alff_rename', 'ALFF_Z_2standard.nii.gz'),
+                   (alffpreproc, 'outputspec.falff_Z_2standard_img', 'alff_rename', 'fALFF_Z_2standard.nii.gz'),
+                   (alffpreproc, 'outputspec.alff_Z_2standard_fwhm_img', 'alff_rename', 'ALFF_Z_FWHM_2standard.nii.gz'),
+                   (alffpreproc, 'outputspec.falff_Z_2standard_fwhm_img', 'alff_rename', 'fALFF_Z_FWHM_2standard.nii.gz')]
+    rename_connections(workflow, datasink, rename_list, 'alff')
+    
+    
 
 def scrubbing_sink(workflow, datasink, scpreproc):
     

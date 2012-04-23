@@ -19,8 +19,14 @@ from utils import (create_anat_func_dataflow, create_seed_dataflow,
 
 from base_nuisance import create_nuisance_preproc
 
-from sink import (anat_sink, reg_sink, seg_sink, func_sink,
-                  nuisance_sink, scrubbing_sink)
+from sink import (anat_sink,
+                  reg_sink,
+                  seg_sink,
+                  func_sink,
+                  nuisance_sink,
+                  scrubbing_sink,
+                  sca_sink,
+                  alff_sink)
 
 def getSubjectAndSeedLists(c):
 
@@ -517,7 +523,8 @@ def prep_workflow(c):
     seg_sink(workflow, datasink, segpreproc, mprage_mni)
     nuisance_sink(workflow, datasink, nuisancepreproc)
     scrubbing_sink(workflow, datasink, scpreproc)
-
+    sca_sink(workflow, datasink, scapreproc)
+    alff_sink(workflow, datasink, alffpreproc)
 
 
     if(not c.run_on_grid):

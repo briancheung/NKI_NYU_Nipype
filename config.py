@@ -104,20 +104,20 @@ lowPassFreqALFF = 0.1
     Scrub data prior to derivate generation: In accord with Power et al. (2012); forking not enable yet for this step (next version).
     Default value 1/0
 """
-scrubData = [1, 0]
+scrubData = [0]
 
 
 
 """
     Number of components to regress with compcor
 """
-ncomponents = [5, 6]
+ncomponents = [5]
 
 """
     Target Angle in Degree for Median Angle Correction
 """
 
-target_angle_deg = [90, 60]
+target_angle_deg = [90]
 
 
 """
@@ -126,8 +126,7 @@ target_angle_deg = [90, 60]
 #['global', 'compcor', 'wm', 'csf', 'gm', 'firstprinc', 'motion']
 #regressors = [0, 0, 0, 0, 0, 1]
 Corrections = [
-                [1, 0, 0, 0, 0, 0, 1],
-                [0, 0, 1, 1, 1, 1, 1 ]
+                [0, 0, 0, 0, 0, 0, 1]
               ]
 
 
