@@ -41,7 +41,7 @@ def getStopIdx(in_file):
         else:
             stop_indx.append(
                 int(myList[length - 1]))
-            return stop_indx
+        return stop_indx
     else:
         f = open(in_file, 'r')
         line = f.readline()

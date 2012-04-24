@@ -24,7 +24,7 @@ inputnode = pe.Node(interface=IdentityInterface(fields=['session_id', 'subject_i
                                                 mandatory_inputs=True),
                     name='inputnode')
 inputnode.iterables = [('session_id', session_ids),
-                       ('subject_id', subject_ids)]
+                       ('subject_id', subject_ids[0:3])]
 
 datasource = pe.Node(interface=nio.DataGrabber(infields=['session_id','subject_id'],
                                                outfields=['func', 'struct']),
@@ -84,7 +84,6 @@ nppm.inputs.inputspec.target_angle_deg = 85
 mni_warp = pe.MapNode(interface=fsl.ApplyWarp(), name='mni_warp', iterfield=['in_file',
                                                                              'field_file',
                                                                              'premat'])
-mni_warp2 = mni_warp.clone('mni_warp2')
 
 statspreproc = create_stats_preproc()
 
@@ -111,16 +110,8 @@ workflow.connect(funcpreproc, 'outputspec.preprocessed', mni_warp, 'in_file')
 workflow.connect(regpreproc, 'inputspec.standard', mni_warp, 'ref_file')
 workflow.connect(regpreproc, 'outputspec.highres2standard_warp', mni_warp, 'field_file')
 workflow.connect(regpreproc, 'outputspec.example_func2highres_mat', mni_warp, 'premat')
+workflow.connect(mni_warp, 'out_file', statspreproc, 'inputspec.realigned_file')
 workflow.connect(mni_warp, 'out_file', datasink, 'preprocessed_mni')
-
-workflow.connect(statspreproc, 'outputspec.gp_corrsq', mni_warp2, 'in_file')
-workflow.connect(regpreproc, 'inputspec.standard', mni_warp2, 'ref_file')
-workflow.connect(regpreproc, 'outputspec.highres2standard_warp', mni_warp2, 'field_file')
-workflow.connect(regpreproc, 'outputspec.example_func2highres_mat', mni_warp2, 'premat')
-workflow.connect(mni_warp2, 'out_file', datasink, 'gp_corr_mni')
-
-workflow.connect(funcpreproc, 'outputspec.preprocessed', statspreproc, 'inputspec.realigned_file')
-workflow.connect(funcpreproc, 'outputspec.movement_parameters', statspreproc, 'inputspec.movements_file')
 
 workflow.connect(funcpreproc, 'outputspec.preprocessed', datasink, 'preprocessed')
 workflow.connect(segpreproc, 'outputspec.csf_mask', datasink, 'masks.csf')
