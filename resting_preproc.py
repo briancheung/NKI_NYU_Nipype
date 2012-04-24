@@ -366,7 +366,7 @@ def prep_workflow(c):
                      segpreproc, 'inputspec.highres2example_func_mat')
     workflow.connect(regpreproc, 'outputspec.stand2highres_warp',
                      segpreproc, 'inputspec.stand2highres_warp')
-    workflow.connect(flowAnatFunc, 'datasource.rest',
+    workflow.connect(funcpreproc, 'outputspec.preprocessed',
                      scpreproc, 'inputspec.rest')
     workflow.connect(funcpreproc, 'outputspec.movement_parameters',
                      scpreproc, 'inputspec.movement_parameters')
