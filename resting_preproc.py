@@ -28,38 +28,11 @@ def getSubjectAndSeedLists(c):
         Read Subject & Seed files to build
         corresponding lists.
     """
-    
+
     def get_list(fname):
         flines = open(fname, 'r').readlines()
         return [fline.rstrip('\r\n') for fline in flines]
-    
-#    subj_file = c.subj_file
-#    seed_file = c.seed_file
-#    func_session_file = c.func_session_file
-#    anat_session_file = c.anat_session_file
-#    
-#    reader_subj = open(subj_file, 'r')
-#    reader_seed = open(seed_file, 'r')
-#    reader_rest_session = open(func_session_file, 'r')
-#
-#    subj_list = []
-#    seed_list = []
-#    rest_session_list = []
-#
-#    for line in reader_subj.readlines():
-#        line = line.rstrip('\r\n')
-#        subj_list.append(line)
-#
-#    for line in reader_seed.readlines():
-#        line = line.rstrip('\r\n')
-#        seed_list.append(line)
-#
-#    for line in reader_rest_session.readlines():
-#        line = line.rstrip('\r\n')
-#        rest_session_list.append(line)
-#
-#
-#    return subj_list, rest_session_list, seed_list
+
 
     return get_list(c.subj_file), get_list(c.func_session_file), get_list(c.anat_session_file), get_list(c.seed_file)
 
@@ -149,6 +122,12 @@ def get_workflow(wf_name, c):
         preproc.inputs.inputspec.PRIOR_WHITE  = PRIOR_WHITE
         preproc.inputs.inputspec.PRIOR_GRAY  = PRIOR_GRAY
         preproc.inputs.inputspec.standard_res_brain = standard_res_brain
+        preproc.inputs.csf_threshold.csf_threshold = c.cerebralSpinalFluidThreshold
+        preproc.inputs.wm_threshold.wm_threshold = c.whiteMatterThreshold
+        preproc.inputs.gm_threshold.gm_threshold = c.grayMatterThreshold
+        preproc.get_node('csf_threshold').iterables = ('csf_threshold', c.cerebralSpinalFluidThreshold)
+        preproc.get_node('wm_threshold').iterables = ('wm_threshold', c.whiteMatterThreshold)
+        preproc.get_node('gm_threshold').iterables = ('gm_threshold', c.grayMatterThreshold)
 
         return preproc
 
@@ -274,7 +253,7 @@ def prep_workflow(c):
     workflow.base_dir = c.working_dir
     workflow.crash_dir = c.crash_dir
     workflow.config['execution'] = {'hash_method': 'timestamp'}
-    
+
     sublist, rest_session_list, anat_session_list, seed_list = getSubjectAndSeedLists(c)
 
     """
@@ -284,7 +263,7 @@ def prep_workflow(c):
     """
         grab the subject data
     """
-    flowAnatFunc = create_anat_func_dataflow( sublist,
+    flowAnatFunc = create_anat_func_dataflow(sublist,
                                               rest_session_list,
                                               anat_session_list,
                                               c.subj_dir,
@@ -452,8 +431,6 @@ def prep_workflow(c):
 
     workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
                      scapreproc, 'inputspec.fieldcoeff_file')
-#        workflow.connect(func_in_mni, 'outputspec.residual_file_mni',
-#                         scapreproc, 'inputspec.rest_res2standard')
     workflow.connect(func_in_mni, 'outputspec.preprocessed_mask_mni',
                      scapreproc, 'inputspec.rest_mask2standard')
 
@@ -524,6 +501,8 @@ def prep_workflow(c):
         workflow.run(plugin='MultiProc', plugin_args={'n_procs': c.num_cores})
     else:
         workflow.run(plugin='SGE', plugin_args=dict(qsub_args=c.qsub_args))
+
+    workflow.write_graph(graph2use='orig')
 
 def main():
 

@@ -858,13 +858,13 @@ def getStatsDir(in_files):
     return stats_dir
 
 def create_anat_func_dataflow(sublist, sessionlist, anat_session_list, analysisdirectory, at, rt, at_list, rt_list):
-    '''
+    """
         Example parameters
         anat_name = 'mprage'
         rest_name = 'lfo'
         at = '%s/%s/%s.nii.gz'
         rt = '%s/%s/%s.nii.gz'
-    '''
+    """
     import nipype.pipeline.engine as pe
     import nipype.interfaces.io as nio
     from nipype.interfaces.utility import IdentityInterface
