@@ -1,4 +1,3 @@
-#!/Library/Frameworks/EPD64.framework/Versions/Current/bin/python
 import nipype.interfaces.io as nio
 import nipype.interfaces.utility as util
 import nipype.pipeline.engine as pe

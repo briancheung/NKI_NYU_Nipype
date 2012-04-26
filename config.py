@@ -4,35 +4,35 @@
 """
     Set which FSL to use
 """
-FSLDIR = '/usr/local/fsl'
+FSLDIR = '/usr/share/fsl/4.1/'
 
 """
     Point to directory where your subjects reside
 """
-subj_dir = '/Users/ranjeet.khanuja/Desktop/data'
+subj_dir = '/home/ssikka/nki_nyu_pipeline/data'
 
 """
     Point to directory where pipeline can store results 
 """
-sink_dir = '/Users/ranjeet.khanuja/Desktop/data/results'
+sink_dir = '/home/ssikka/nki_nyu_pipeline/data'
 
 """
     Set Temporary Directory where Nipype can store
     temporary results
 """
-working_dir = '/Users/ranjeet.khanuja/Documents/workspace/Datasink/working_dir'
+working_dir = '/home/ssikka/nki_nyu_pipeline/working_dir/'
 
 """
     Set the location where 3mm and 2mm Tissue Priors
     located.
 """
-prior_dir = '/Users/ranjeet.khanuja/Documents/workspace/Datasink/tissuepriors'
+prior_dir = '/home/ssikka/nki_nyu_pipeline/tissuepriors'
 
 """
     Point to directory where pipeline can store crash .npz files
     if it crashes
 """
-crash_dir = '/Users/ranjeet.khanuja/Documents/workspace/Datasink/working_dir'
+crash_dir = '/home/ssikka/nki_nyu_pipeline/crash'
 
 """
     Functional volumes to keep
@@ -42,7 +42,7 @@ crash_dir = '/Users/ranjeet.khanuja/Documents/workspace/Datasink/working_dir'
 start_idx = 0
 stop_idx = 119
 n_vols = 120
-TR = 2.0
+TR = 2.5
 
 """
     Seed file
@@ -50,7 +50,7 @@ TR = 2.0
     Each line contains full path to seed file
 
 """
-seed_file = '/Users/ranjeet.khanuja/Documents/workspace/Datasink/seed_list.txt'
+seed_file = '/home/ssikka/nki_nyu_pipeline/seed_list.txt'
 
 """
     subj_file : '/data/ADHD200/docs/subjects.txt'
@@ -59,12 +59,21 @@ seed_file = '/Users/ranjeet.khanuja/Documents/workspace/Datasink/seed_list.txt'
     0010002
     etc.
 """
-func_session_file = '/Users/ranjeet.khanuja/Desktop/session.txt'
-anat_session_file = '/Users/ranjeet.khanuja/Desktop/session_anat.txt'
-subj_file = '/Users/ranjeet.khanuja/Desktop/subjects.txt'
+func_session_file = '/home/ssikka/nki_nyu_pipeline/sessions.txt'
+anat_session_file = '/home/data/Projects/nuisance_reliability_paper/work_lists/session_list.txt'
+subj_file = '/home/ssikka/nki_nyu_pipeline/data/subjects.txt'
 log_file = None
-standard_res = '3mm'
+standard_res = '2mm'
 fwhm = [6]
+
+"""
+	Set various thresholds for cerebral spinal fluid , white matter 
+	and gray matter mask generation during segmentation
+"""
+cerebralSpinalFluidThreshold = [0.4]
+whiteMatterThreshold = [0.66]
+grayMatterThreshold = [0.2]
+
 
 """
     Value : 1 or 0
@@ -104,20 +113,20 @@ lowPassFreqALFF = 0.1
     Scrub data prior to derivate generation: In accord with Power et al. (2012); forking not enable yet for this step (next version).
     Default value 1/0
 """
-scrubData = [1]
+scrubData = [1, 0]
 
 
 
 """
     Number of components to regress with compcor
 """
-ncomponents = [5]
+ncomponents = [5, 6]
 
 """
     Target Angle in Degree for Median Angle Correction
 """
 
-target_angle_deg = [90]
+target_angle_deg = [90, 60]
 
 
 """
@@ -126,35 +135,27 @@ target_angle_deg = [90]
 #['global', 'compcor', 'wm', 'csf', 'gm', 'firstprinc', 'motion']
 #regressors = [0, 0, 0, 0, 0, 1]
 Corrections = [
-                [1, 0, 0, 0, 0, 0, 1]
+                [1, 0, 0, 0, 0, 0, 1],
+                [0, 0, 1, 1, 1, 1, 1 ]
               ]
 
 
 """
     Mandatory
     where are your anatomical scans located relative to your Subjects Directory
-    
-    For data organized in session_id/subject_id format:
-    anat_template_list = ['session', 'subject', 'mprage_anonymized']
-    
-    For data organized in subject_id/session_id format:
-    anat_template_list = ['subject', 'session', 'mprage_anonymized']
 """
-anat_template = '%s/*/%s.nii.gz'
+anat_template = '%s/anat/%s.nii.gz'
 anat_template_list = ['subject', 'mprage']
+
 
 """
     Mandatory
     where are your functional scans located relative to your Subjects Directory
-    
-    For data organized in session_id/subject_id format:
-    func_template_list = ['session', 'subject', 'lfo']
-    
-    For data organized in subject_id/session_id format:
-    func_template_list = ['subject', 'session', 'lfo']
 """
+
 func_template = '%s/%s/%s.nii.gz'
 func_template_list = ['subject', 'session', 'rest']
+
 
 """
     SET ONLY when analysis is not set to 'all' and u need to run alff
@@ -207,8 +208,7 @@ vmhc_example_func2highres_mat_template = '%s/*/*/%s'
     For Unit Timeseries Extraction Only
 Note: Definitions Directory should contain one subdirectory for each set of units to be generated (e.g., Harvard-Oxford Atlas, AAL, Craddock, Dosenbach-160); one output file / set define   
 """
-#unitDefinitionsDirectory = '/usr/local/fsl/data/atlases/HarvardOxford/'
-unitDefinitionsDirectory = '/Users/ranjeet.khanuja/Desktop/data/parcelations'
+unitDefinitionsDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
 
 # Output type: .csv, numPy
 unitTSOutputs = [1, 1]
@@ -217,8 +217,8 @@ unitTSOutputs = [1, 1]
     For Voxel Timeseries Extraction Only
 Note: Definitions Directory should contain one subdirectory for each mask/mask set to be used to select voxels to be output; one output file / mask 
 """
-#voxelMasksDirectory = '/usr/local/fsl/data/atlases/HarvardOxford/'
-voxelMasksDirectory = '/Users/ranjeet.khanuja/Desktop/data/masks'
+voxelMasksDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
+
 
 # Output type: .csv, numPy
 voxelTSOutputs = [0, 1]
@@ -228,13 +228,8 @@ voxelTSOutputs = [0, 1]
 """
 # Output type: .csv, numPy
 verticesTSOutputs = [0, 1]
-
-"""
-    
-"""
 runSurfaceRegistraion = [0]
-
-reconSubjectsDirectory = '/Users/ranjeet.khanuja/Desktop/data/recon_subject'
+reconSubjectsDirectory = '/home/ssikka/nki_nyu_pipeline/recon_subjects'
 """ 
 **************************************************************
 """
@@ -251,7 +246,7 @@ Notes:
     As a default, some of derivatives which are generated from the pipleine have
     been specified
 """
-derivativeFile ='/Users/ranjeet.khanuja/Documents/workspace/GroupAnalysis/seed_list'
+derivativeFile = '/Users/ranjeet.khanuja/Documents/workspace/GroupAnalysis/seed_list.txt'
 
 """ 
 Specify Model List File that contains one or more models to be executed per derivate
@@ -265,11 +260,11 @@ modelsFile = '/Users/ranjeet.khanuja/Documents/workspace/GroupAnalysis/model_lis
      .mat -> the actual values in the design matrix   
      
      model_name in the template_list will be fetch from  modesList above
-""" 
-mat='/Users/ranjeet.khanuja/Desktop/data2/models/%s/%s.mat'
-con='/Users/ranjeet.khanuja/Desktop/data2/models/%s/%s.con'
-fts='/Users/ranjeet.khanuja/Desktop/data2/models/%s/%s.fts'
-grp='/Users/ranjeet.khanuja/Desktop/data2/models/%s/%s.grp'
+"""
+mat = '/Users/ranjeet.khanuja/Desktop/data2/models/%s/%s.mat'
+con = '/Users/ranjeet.khanuja/Desktop/data2/models/%s/%s.con'
+fts = '/Users/ranjeet.khanuja/Desktop/data2/models/%s/%s.fts'
+grp = '/Users/ranjeet.khanuja/Desktop/data2/models/%s/%s.grp'
 
 mat_template_list = ['model_name', 'model_name']
 con_template_list = ['model_name', 'model_name']
@@ -281,17 +276,15 @@ grp_template_list = ['model_name', 'model_name']
     derivative in the template_list will be fetched from the derivative file 
     defined above
 """
-derv_template='/Users/ranjeet.khanuja/Desktop/data2/subjects/*/%s.nii.gz'
-derv_template_list=['derivative']                                        
-                                        
+derv_template = '/Users/ranjeet.khanuja/Desktop/data2/subjects/*/%s.nii.gz'
+derv_template_list = ['derivative']
+
 z_threshold = 2.3
 p_threshold = 0.05
 f_test = 1
 
-########################################################################
-
 # all, basic, scrubbing, nuisance, alff, ifc, vmhc, reho, group_analysis
-analysis = [0, 1, 0, 0, 0, 0, 0, 0, 1 ]
+analysis = [0, 1, 0, 0, 0, 0, 0, 0, 0 ]
 run_on_grid = 0
 qsub_args = '-q all.q'
-num_cores = 4
+num_cores = 10
