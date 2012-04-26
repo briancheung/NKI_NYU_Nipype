@@ -28,46 +28,23 @@ from sink import (anat_sink,
                   sca_sink,
                   alff_sink)
 
+
 def getSubjectAndSeedLists(c):
 
     """
         Read Subject & Seed files to build
         corresponding lists.
     """
-    
+
     def get_list(fname):
         flines = open(fname, 'r').readlines()
         return [fline.rstrip('\r\n') for fline in flines]
-    
-#    subj_file = c.subj_file
-#    seed_file = c.seed_file
-#    func_session_file = c.func_session_file
-#    anat_session_file = c.anat_session_file
-#    
-#    reader_subj = open(subj_file, 'r')
-#    reader_seed = open(seed_file, 'r')
-#    reader_rest_session = open(func_session_file, 'r')
-#
-#    subj_list = []
-#    seed_list = []
-#    rest_session_list = []
-#
-#    for line in reader_subj.readlines():
-#        line = line.rstrip('\r\n')
-#        subj_list.append(line)
-#
-#    for line in reader_seed.readlines():
-#        line = line.rstrip('\r\n')
-#        seed_list.append(line)
-#
-#    for line in reader_rest_session.readlines():
-#        line = line.rstrip('\r\n')
-#        rest_session_list.append(line)
-#
-#
-#    return subj_list, rest_session_list, seed_list
 
-    return get_list(c.subj_file), get_list(c.func_session_file), get_list(c.anat_session_file), get_list(c.seed_file)
+    return get_list(c.subj_file),\
+                    get_list(c.func_session_file),\
+                    get_list(c.anat_session_file),\
+                    get_list(c.seed_file)
+
 
 def get_seed_list(seed_file):
 
@@ -96,8 +73,6 @@ def getModelandSeedList(c):
             model = model.rstrip('\r\n')
             modelist.append(os.path.basename(model))
 
-        print 'checking for models ', modelist
-
         f = open(c.seed_file, 'r')
         seeds = f.readlines()
         f.close()
@@ -117,28 +92,35 @@ def getModelandSeedList(c):
 def get_workflow(wf_name, c):
 
     preproc = None
-    """ 
+    """
         setup standard file paths
     """
-    print 'inside get_wf ', '-->'+wf_name+'<--'
     prior_path = os.path.join(c.prior_dir, c.standard_res)
     PRIOR_CSF = os.path.join(prior_path, 'avg152T1_csf_bin.nii.gz')
     PRIOR_GRAY = os.path.join(prior_path, 'avg152T1_gray_bin.nii.gz')
     PRIOR_WHITE = os.path.join(prior_path, 'avg152T1_white_bin.nii.gz')
-    standard_res_brain = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s_brain.nii.gz' % (c.standard_res))
-    standard = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s.nii.gz' % (c.standard_res))
-    standard_brain_mask_dil = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_%s_brain_mask_dil.nii.gz' % (c.standard_res))
-    config_file = os.path.join(c.FSLDIR, 'etc/flirtsch/T1_2_MNI152_%s.cnf' % (c.standard_res))
-    brain_symmetric = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_2mm_brain_symmetric.nii.gz')
-    symm_standard = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_2mm_symmetric.nii.gz')
-    twomm_brain_mask_dil = os.path.join(c.FSLDIR, 'data/standard/MNI152_T1_2mm_brain_mask_symmetric_dil.nii.gz')
-    config_file_twomm = os.path.join(c.FSLDIR, 'etc/flirtsch/T1_2_MNI152_2mm.cnf')
-    identity_matrix = os.path.join(c.FSLDIR, 'etc/flirtsch/ident.mat')
+    standard_res_brain = os.path.join(c.FSLDIR,
+            'data/standard/MNI152_T1_%s_brain.nii.gz' % (c.standard_res))
+    standard = os.path.join(c.FSLDIR,
+            'data/standard/MNI152_T1_%s.nii.gz' % (c.standard_res))
+    standard_brain_mask_dil = os.path.join(c.FSLDIR,
+            'data/standard/MNI152_T1_%s_brain_mask_dil.nii.gz' % (c.standard_res))
+    config_file = os.path.join(c.FSLDIR,
+            'etc/flirtsch/T1_2_MNI152_%s.cnf' % (c.standard_res))
+    brain_symmetric = os.path.join(c.FSLDIR,
+            'data/standard/MNI152_T1_2mm_brain_symmetric.nii.gz')
+    symm_standard = os.path.join(c.FSLDIR,
+            'data/standard/MNI152_T1_2mm_symmetric.nii.gz')
+    twomm_brain_mask_dil = os.path.join(c.FSLDIR,
+            'data/standard/MNI152_T1_2mm_brain_mask_symmetric_dil.nii.gz')
+    config_file_twomm = os.path.join(c.FSLDIR,
+            'etc/flirtsch/T1_2_MNI152_2mm.cnf')
+    identity_matrix = os.path.join(c.FSLDIR,
+            'etc/flirtsch/ident.mat')
 
     if wf_name.lower() == 'anat':
         preproc = create_anat_preproc()
         return preproc
-
 
     if wf_name.lower() == 'func':
 
@@ -151,20 +133,34 @@ def get_workflow(wf_name, c):
     if wf_name.lower() == 'seg':
 
         preproc = create_seg_preproc()
-        preproc.inputs.inputspec.PRIOR_CSF  = PRIOR_CSF
-        preproc.inputs.inputspec.PRIOR_WHITE  = PRIOR_WHITE
-        preproc.inputs.inputspec.PRIOR_GRAY  = PRIOR_GRAY
+        preproc.inputs.inputspec.PRIOR_CSF = PRIOR_CSF
+        preproc.inputs.inputspec.PRIOR_WHITE = PRIOR_WHITE
+        preproc.inputs.inputspec.PRIOR_GRAY = PRIOR_GRAY
         preproc.inputs.inputspec.standard_res_brain = standard_res_brain
+        preproc.inputs.csf_threshold.csf_threshold = \
+                                        c.cerebralSpinalFluidThreshold
+        preproc.inputs.wm_threshold.wm_threshold = \
+                                        c.whiteMatterThreshold
+        preproc.inputs.gm_threshold.gm_threshold = \
+                                        c.grayMatterThreshold
+        preproc.get_node('csf_threshold').iterables = ('csf_threshold',
+                                        c.cerebralSpinalFluidThreshold)
+        preproc.get_node('wm_threshold').iterables = ('wm_threshold',
+                                        c.whiteMatterThreshold)
+        preproc.get_node('gm_threshold').iterables = ('gm_threshold',
+                                        c.grayMatterThreshold)
 
         return preproc
 
     if wf_name.lower() == 'reg':
 
         preproc = create_reg_preproc()
-        preproc.inputs.inputspec.standard_res_brain = standard_res_brain
+        preproc.inputs.inputspec.standard_res_brain = \
+                                            standard_res_brain
         preproc.inputs.inputspec.standard = standard
         preproc.inputs.inputspec.config_file = config_file
-        preproc.inputs.inputspec.standard_brain_mask_dil = standard_brain_mask_dil
+        preproc.inputs.inputspec.standard_brain_mask_dil = \
+                                            standard_brain_mask_dil
 
         return preproc
 
@@ -175,32 +171,37 @@ def get_workflow(wf_name, c):
         preproc.inputs.hplp_input.hp = c.highPassFreqALFF
         preproc.inputs.hplp_input.lp = c.lowPassFreqALFF
         preproc.inputs.fwhm_input.fwhm = c.fwhm
-        preproc.get_node('hplp_input').iterables = ('hp', c.highPassFreqALFF, 'lp', c.lowPassFreqALFF)
-        preproc.get_node('fwhm_input').iterables = ('fwhm', c.fwhm)
+        preproc.get_node('hplp_input').iterables = ('hp',
+                                                    c.highPassFreqALFF,
+                                                    'lp',
+                                                    c.lowPassFreqALFF)
+        preproc.get_node('fwhm_input').iterables = ('fwhm',
+                                                    c.fwhm)
 
         return preproc
 
     if wf_name.lower() == 'sca':
 
         preproc = create_sca_preproc()
-        #seeds = get_seed_list(c.seed_file)
-
-        #print seeds
-        #preproc.inputs.seed_list_input.seed_list = seeds
-        #preproc.get_node('seed_list_input').iterables = ('seed_list', seeds)
         preproc.inputs.fwhm_input.fwhm = c.fwhm
-        preproc.get_node('fwhm_input').iterables = ('fwhm', c.fwhm)
+        preproc.get_node('fwhm_input').iterables = ('fwhm',
+                                                    c.fwhm)
         preproc.inputs.inputspec.standard = standard
         return preproc
 
     if wf_name.lower() == 'vmhc':
 
         preproc = create_vmhc_preproc()
-        preproc.inputs.inputspec.brain_symmetric = brain_symmetric
-        preproc.inputs.inputspec.symm_standard = symm_standard
-        preproc.inputs.inputspec.twomm_brain_mask_dil = twomm_brain_mask_dil
-        preproc.inputs.inputspec.config_file_twomm = config_file_twomm
-        preproc.inputs.inputspec.standard = standard
+        preproc.inputs.inputspec.brain_symmetric = \
+                                        brain_symmetric
+        preproc.inputs.inputspec.symm_standard = \
+                                        symm_standard
+        preproc.inputs.inputspec.twomm_brain_mask_dil = \
+                                        twomm_brain_mask_dil
+        preproc.inputs.inputspec.config_file_twomm = \
+                                        config_file_twomm
+        preproc.inputs.inputspec.standard = \
+                                        standard
         return preproc
 
     if wf_name.lower() == 'sc':
@@ -212,7 +213,8 @@ def get_workflow(wf_name, c):
 
         preproc = selector_wf()
         preproc.inputs.run_scrubbing_input.run_scrubbing = c.scrubData
-        preproc.get_node('run_scrubbing_input').iterables = ('run_scrubbing', c.scrubData)
+        preproc.get_node('run_scrubbing_input').iterables = \
+                                    ('run_scrubbing', c.scrubData)
         return preproc
 
     if wf_name.lower() == 'nuisance':
@@ -220,10 +222,15 @@ def get_workflow(wf_name, c):
         preproc = create_nuisance_preproc()
         preproc.inputs.selector_input.selector = c.Corrections
         preproc.inputs.nc_input.nc = c.ncomponents
-        preproc.inputs.target_angle_deg_input.target_angle_deg = c.target_angle_deg
-        preproc.get_node('selector_input').iterables = ('selector', c.Corrections)
-        preproc.get_node('nc_input').iterables = ('nc', c.ncomponents)
-        preproc.get_node('target_angle_deg_input').iterables = ('target_angle_deg', c.target_angle_deg)
+        preproc.inputs.target_angle_deg_input.target_angle_deg = \
+                                            c.target_angle_deg
+
+        preproc.get_node('selector_input').iterables = \
+                                            ('selector', c.Corrections)
+        preproc.get_node('nc_input').iterables = \
+                                            ('nc', c.ncomponents)
+        preproc.get_node('target_angle_deg_input').iterables = \
+                                ('target_angle_deg', c.target_angle_deg)
 
         return preproc
 
@@ -233,7 +240,6 @@ def get_workflow(wf_name, c):
 
         return preproc
 
-
     if wf_name.lower() == 'func_in_mnioutputs':
         preproc = func_in_mnioutputs()
         preproc.inputs.inputspec.standard = standard
@@ -242,22 +248,29 @@ def get_workflow(wf_name, c):
 
     if wf_name.lower() == 'freq_filter':
 
-
-        preproc = create_filter(c.nuisanceHighPassFilter, c.nuisanceLowPassFilter)
+        preproc = create_filter(c.nuisanceHighPassFilter,
+                                c.nuisanceLowPassFilter)
         if c.nuisanceHighPassFilter:
-            preproc.inputs.hp_input.hp = c.nuisanceHighPassLowCutOff
-            preproc.get_node('hp_input').iterables = ('hp', c.nuisanceHighPassLowCutOff)
+            preproc.inputs.hp_input.hp = \
+                    c.nuisanceHighPassLowCutOff
+            preproc.get_node('hp_input').iterables = \
+                ('hp', c.nuisanceHighPassLowCutOff)
 
         if c.nuisanceLowPassFilter:
-            preproc.inputs.lp_input.lp = c.nuisanceLowPassHighCutOff
-            preproc.get_node('lp_input').iterables = ('lp', c.nuisanceLowPassHighCutOff)
+            preproc.inputs.lp_input.lp = \
+                    c.nuisanceLowPassHighCutOff
+            preproc.get_node('lp_input').iterables = \
+                    ('lp', c.nuisanceLowPassHighCutOff)
 
         return preproc
 
     if wf_name.lower() == 'ts':
 
-        preproc = create_timeseries_preproc(True, True, True)
-        preproc.inputs.inputspec.recon_subjects = c.reconSubjectsDirectory
+        preproc = create_timeseries_preproc(True,
+                                            True,
+                                            True)
+        preproc.inputs.inputspec.recon_subjects = \
+                                    c.reconSubjectsDirectory
         preproc.inputs.inputspec.standard = standard
         preproc.inputs.inputspec.identity_matrix = identity_matrix
         preproc.inputs.inputspec.unitTSOutputs = [True, True]
@@ -280,8 +293,9 @@ def prep_workflow(c):
     workflow.base_dir = c.working_dir
     workflow.crash_dir = c.crash_dir
     workflow.config['execution'] = {'hash_method': 'timestamp'}
-    
-    sublist, rest_session_list, anat_session_list, seed_list = getSubjectAndSeedLists(c)
+
+    sublist, rest_session_list, anat_session_list, seed_list = \
+                                            getSubjectAndSeedLists(c)
 
     """
         BASIC and ALL preprocessing paths implemented below
@@ -290,7 +304,7 @@ def prep_workflow(c):
     """
         grab the subject data
     """
-    flowAnatFunc = create_anat_func_dataflow( sublist,
+    flowAnatFunc = create_anat_func_dataflow(sublist,
                                               rest_session_list,
                                               anat_session_list,
                                               c.subj_dir,
@@ -358,7 +372,7 @@ def prep_workflow(c):
                      segpreproc, 'inputspec.highres2example_func_mat')
     workflow.connect(regpreproc, 'outputspec.stand2highres_warp',
                      segpreproc, 'inputspec.stand2highres_warp')
-    workflow.connect(flowAnatFunc, 'datasource.rest',
+    workflow.connect(funcpreproc, 'outputspec.preprocessed',
                      scpreproc, 'inputspec.rest')
     workflow.connect(funcpreproc, 'outputspec.movement_parameters',
                      scpreproc, 'inputspec.movement_parameters')
@@ -408,7 +422,6 @@ def prep_workflow(c):
         workflow.connect(nuisancepreproc, 'outputspec.residual_file',
                          freq_filter, 'inputspec.in_file')
 
-
     """
         Get Func outputs in MNI
     """
@@ -453,16 +466,13 @@ def prep_workflow(c):
         workflow.connect(freq_filter, 'outputspec.rest_res_filt',
                          scapreproc, 'inputspec.rest_res_filt')
     else:
-       workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+        workflow.connect(nuisancepreproc, 'outputspec.residual_file',
                         scapreproc, 'inputspec.rest_res_filt')
 
     workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
                      scapreproc, 'inputspec.fieldcoeff_file')
-#        workflow.connect(func_in_mni, 'outputspec.residual_file_mni',
-#                         scapreproc, 'inputspec.rest_res2standard')
     workflow.connect(func_in_mni, 'outputspec.preprocessed_mask_mni',
                      scapreproc, 'inputspec.rest_mask2standard')
-
 
     """
         VMHC (Voxel-Mirrored Homotopic Connectivity)
@@ -497,7 +507,6 @@ def prep_workflow(c):
 #    workflow.connect(mflow, 'out_file',
 #                     tspreproc, 'getmask.masks')
 
-
     """
         FSL Group Analysis
     """
@@ -513,24 +522,47 @@ def prep_workflow(c):
 #                     gppreproc, 'seed_files')
 
     """
-        Calling datasink 
+        Calling datasink
     """
     datasink = create_datasink(c.sink_dir)
-    workflow.connect(flowAnatFunc, 'inputnode.subject_id', datasink, 'container')
-    anat_sink(workflow, datasink, mprage_mni)
-    func_sink(workflow, datasink, funcpreproc, func_in_mni)
-    reg_sink(workflow, datasink, regpreproc)
-    seg_sink(workflow, datasink, segpreproc, mprage_mni)
-    nuisance_sink(workflow, datasink, nuisancepreproc)
-    scrubbing_sink(workflow, datasink, scpreproc)
-    sca_sink(workflow, datasink, scapreproc)
-    alff_sink(workflow, datasink, alffpreproc)
-
+    workflow.connect(flowAnatFunc, 'inputnode.subject_id',
+    datasink, 'container')
+    anat_sink(workflow,
+              datasink,
+              mprage_mni)
+    func_sink(workflow,
+              datasink,
+              funcpreproc,
+              func_in_mni)
+    reg_sink(workflow,
+             datasink,
+             regpreproc)
+    seg_sink(workflow,
+             datasink,
+             segpreproc,
+             mprage_mni)
+    nuisance_sink(workflow,
+                  datasink,
+                  nuisancepreproc)
+    scrubbing_sink(workflow,
+                   datasink,
+                   scpreproc)
+    sca_sink(workflow,
+             datasink,
+             scapreproc)
+    alff_sink(workflow,
+              datasink,
+              alffpreproc)
 
     if(not c.run_on_grid):
-        workflow.run(plugin='MultiProc', plugin_args={'n_procs': c.num_cores})
+        workflow.run(plugin='MultiProc',
+                     plugin_args={'n_procs': c.num_cores})
     else:
-        workflow.run(plugin='SGE', plugin_args=dict(qsub_args=c.qsub_args))
+        workflow.run(plugin='SGE',
+                     plugin_args=dict(qsub_args=c.qsub_args))
+
+    workflow.write_graph(graph2use='orig')
+
 
 def main():
 

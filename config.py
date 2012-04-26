@@ -9,30 +9,30 @@ FSLDIR = '/usr/share/fsl/4.1/'
 """
     Point to directory where your subjects reside
 """
-subj_dir = '/home/data/Originals/NYU_TRT/'
+subj_dir = '/home/ssikka/nki_nyu_pipeline/data'
 
 """
     Point to directory where pipeline can store results 
 """
-sink_dir = '/home/data/Projects/nuisance_reliability_paper/results'
+sink_dir = '/home/ssikka/nki_nyu_pipeline/data'
 
 """
     Set Temporary Directory where Nipype can store
     temporary results
 """
-working_dir = '/home/data/Projects/nuisance_reliability_paper/working_dir/'
+working_dir = '/home/ssikka/nki_nyu_pipeline/working_dir/'
 
 """
     Set the location where 3mm and 2mm Tissue Priors
     located.
 """
-prior_dir = '/home/data/Projects/nuisance_reliability_paper/tissuepriors'
+prior_dir = '/home/ssikka/nki_nyu_pipeline/tissuepriors'
 
 """
     Point to directory where pipeline can store crash .npz files
     if it crashes
 """
-crash_dir = '/home/data/Projects/nuisance_reliability_paper'
+crash_dir = '/home/ssikka/nki_nyu_pipeline/crash'
 
 """
     Functional volumes to keep
@@ -40,9 +40,9 @@ crash_dir = '/home/data/Projects/nuisance_reliability_paper'
     stop_idx : Last volume
 """
 start_idx = 0
-stop_idx = 196
-n_vols = 197
-TR = 2.0
+stop_idx = 119
+n_vols = 120
+TR = 2.5
 
 """
     Seed file
@@ -50,7 +50,7 @@ TR = 2.0
     Each line contains full path to seed file
 
 """
-seed_file = '/home/data/Projects/nuisance_reliability_paper/work_lists/seed_list.txt'
+seed_file = '/home/ssikka/nki_nyu_pipeline/seed_list.txt'
 
 """
     subj_file : '/data/ADHD200/docs/subjects.txt'
@@ -59,12 +59,21 @@ seed_file = '/home/data/Projects/nuisance_reliability_paper/work_lists/seed_list
     0010002
     etc.
 """
-func_session_file = '/home/data/Projects/nuisance_reliability_paper/work_lists/session_list.txt'
+func_session_file = '/home/ssikka/nki_nyu_pipeline/sessions.txt'
 anat_session_file = '/home/data/Projects/nuisance_reliability_paper/work_lists/session_list.txt'
-subj_file = '/home/data/Projects/nuisance_reliability_paper/work_lists/subject_list.txt'
+subj_file = '/home/ssikka/nki_nyu_pipeline/data/subjects.txt'
 log_file = None
-standard_res = '3mm'
+standard_res = '2mm'
 fwhm = [6]
+
+"""
+	Set various thresholds for cerebral spinal fluid , white matter 
+	and gray matter mask generation during segmentation
+"""
+cerebralSpinalFluidThreshold = [0.4]
+whiteMatterThreshold = [0.66]
+grayMatterThreshold = [0.2]
+
 
 """
     Value : 1 or 0
@@ -133,28 +142,19 @@ Corrections = [
 """
     Mandatory
     where are your anatomical scans located relative to your Subjects Directory
-    
-    For data organized in session_id/subject_id format:
-    anat_template_list = ['session', 'subject', 'mprage_anonymized']
-    
-    For data organized in subject_id/session_id format:
-    anat_template_list = ['subject', 'session', 'mprage_anonymized']
 """
-anat_template = '%s/%s/anat/%s.nii.gz'
-anat_template_list = ['session', 'subject', 'mprage_anonymized']
+anat_template = '%s/anat/%s.nii.gz'
+anat_template_list = ['subject', 'mprage']
+
 
 """
     Mandatory
     where are your functional scans located relative to your Subjects Directory
-    
-    For data organized in session_id/subject_id format:
-    func_template_list = ['session', 'subject', 'lfo']
-    
-    For data organized in subject_id/session_id format:
-    func_template_list = ['subject', 'session', 'lfo']
 """
-func_template = '%s/%s/func/%s.nii.gz'
-func_template_list = ['session', 'subject', 'lfo']
+
+func_template = '%s/%s/%s.nii.gz'
+func_template_list = ['subject', 'session', 'rest']
+
 
 """
     SET ONLY when analysis is not set to 'all' and u need to run alff
@@ -207,7 +207,7 @@ vmhc_example_func2highres_mat_template = '%s/*/*/%s'
     For Unit Timeseries Extraction Only
 Note: Definitions Directory should contain one subdirectory for each set of units to be generated (e.g., Harvard-Oxford Atlas, AAL, Craddock, Dosenbach-160); one output file / set define   
 """
-unitDefinitionsDirectory = '/usr/share/fsl/4.1/data/atlases/HarvardOxford/'
+unitDefinitionsDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
 
 # Output type: .csv, numPy
 unitTSOutputs = [1, 1]
@@ -216,7 +216,7 @@ unitTSOutputs = [1, 1]
     For Voxel Timeseries Extraction Only
 Note: Definitions Directory should contain one subdirectory for each mask/mask set to be used to select voxels to be output; one output file / mask 
 """
-voxelMasksDirectory = '/usr/share/fsl/4.1/data/atlases/HarvardOxford/'
+voxelMasksDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
 
 
 # Output type: .csv, numPy
@@ -228,7 +228,7 @@ voxelTSOutputs = [0, 1]
 # Output type: .csv, numPy
 verticesTSOutputs = [0, 1]
 
-reconSubjectsDirectory = '/home/data/Projects/nuisance_reliability_paper/recon_subjects'
+reconSubjectsDirectory = '/home/ssikka/nki_nyu_pipeline/recon_subjects'
 """ 
 **************************************************************
 """
