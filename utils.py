@@ -1,59 +1,61 @@
+#!/Library/Frameworks/EPD64.framework/Versions/Current/bin/python
+# Utility Functions ---------------------------------------------------------
 import e_afni
 import nipype.pipeline.engine as pe
 import nipype.interfaces.utility as util
 
-
 def getStartIdx(in_file):
+       print "getStart Idx in_file -----------> ", in_file
 
-    start_indx = []
+       start_indx = []
 
-    if(isinstance(in_file, list)):
-        for file in in_file:
-            f = open(file, 'r')
-            line = f.readline()
-            start_indx.append(int(line.split(",")[0]))
-            f.close()
-        return start_indx
-    else:
-        f = open(in_file, 'r')
-        myList = []
-        line = f.readline()
-        myList.extend(line.split(","))
-        f.close()
-        return int(myList[0])
-
+       if(isinstance(in_file, list)):
+               for file in in_file:
+                       f = open(file, 'r')
+                       line = f.readline()
+                       start_indx.append(int(line.split(",")[0]))
+                       f.close()
+               print "start_indx ", start_indx
+               return start_indx
+       else:
+               f = open(in_file, 'r')
+               myList = []
+               line = f.readline()
+               myList.extend(line.split(","))
+               f.close()
+               return int (myList[0])
 
 def getStopIdx(in_file):
 
-    stop_indx = []
-    if (isinstance(in_file, list)):
-        for file in in_file:
-            f = open(file, 'r')
-            line = f.readline()
-            myList = []
-            myList.extend(line.split(","))
-            length = len(myList)
-            f.close()
+       print "getStop Idx in_file ------------> ", in_file
 
-        if str(myList[length - 1]) == "":
-            stop_indx.append(
-                int(myList[length - 2]))
-        else:
-            stop_indx.append(
-                int(myList[length - 1]))
-        return stop_indx
-    else:
-        f = open(in_file, 'r')
-        line = f.readline()
-        myList = []
-        myList.extend(line.split(","))
-        length = len(myList)
-        f.close()
-        if str(myList[length - 1]) == "":
-            return int(myList[length - 2])
-        else:
-            return int(myList[length - 1])
+       stop_indx = []
+       if (isinstance(in_file, list)):
+               for file in in_file:
+                       f = open(file, 'r')
+                       line = f.readline()
+                       myList = []
+                       myList.extend(line.split(","))
+                       length = len(myList)
+                       f.close()
 
+                       if str(myList[length-1]) == "":
+                               stop_indx.append(int(myList[length-2]))
+                       else:
+                               stop_indx.append(int(myList[length-1]))
+               print "stop_indx ", stop_indx
+               return stop_indx
+       else:
+               f = open(in_file, 'r')
+               line = f.readline()
+               myList = []
+               myList.extend(line.split(","))
+               length = len(myList)
+               f.close()
+               if str(myList[length-1]) == "":
+                       return int(myList[length-2])
+               else:
+                       return int(myList[length-1])
 
 def last_vol(vols):
 
@@ -62,7 +64,6 @@ def last_vol(vols):
         v.append(int(vol) - 1)
 
     return v
-
 
 def TRendminus1(vols):
     v = []
@@ -77,15 +78,16 @@ def scCopy(in_file):
     import os
 
     cwd = os.getcwd()
+    print "****************************** l -->", cwd
 
     out_file = 'pow_params.txt'
     path = os.path.join(cwd, out_file)
+    print "##########path --->", path
     out_file = path
 
     dir_name = os.path.dirname(in_file)
     rest_name = os.path.basename(dir_name)
-    subject_id = os.path.basename(
-                    os.path.dirname(dir_name))
+    subject_id = os.path.basename(os.path.dirname(dir_name))
 
     f = open(out_file, 'a')
 
@@ -96,38 +98,40 @@ def scCopy(in_file):
 
     return out_file
 
-
 def createSC(in_file):
     import subprocess as sb
     import os
 
     out_file = os.path.join(os.getcwd(), 'FD.1D')
 
-    cmd1 = sb.Popen(
-        ['awk', '{x=$4} {y=$5} {z=$6} {a=$1} {b=$2} {c=$3} ' +
-        '{print 2*3.142*50*(a/360),2*3.142*50*(b/360),' +
-        ' 2*3.142*50*(c/360), x, y, z}',
-        in_file], stdin=sb.PIPE, stdout=sb.PIPE,)
 
-    cmd2 = sb.Popen(
-        ['awk', '{a=$1} {b=$2} {c=$3} {x=$4} {y=$5} {z=$6} ' +
-        'NR>1{print a-d, b-e, c-f, x-u, y-v, z-w}' +
-        '{d=a} {e=b} {f=c} {u=x} {v=y} {w=z}'],
-        stdin=cmd1.stdout, stdout=sb.PIPE,)
-    cmd3 = sb.Popen(
-        ['awk', '{ for (i=1; i<=NF; i=i+1) {' +
-        'if ($i < 0) $i = -$i} print}'],
-        stdin=cmd2.stdout, stdout=sb.PIPE,)
-    cmd4 = sb.Popen(
-        ['awk', '{a=$1+$2+$3+$4+$5+$6} {print a}'],
-        stdin=cmd3.stdout, stdout=sb.PIPE,)
+    print "outfile ", out_file
+
+    cmd1 = sb.Popen(['awk', '{x=$4} {y=$5} {z=$6} {a=$1} {b=$2} {c=$3} '+
+                    '{print 2*3.142*50*(a/360),2*3.142*50*(b/360), 2*3.142*50*(c/360), x, y, z}',
+                    in_file], stdin=sb.PIPE, stdout=sb.PIPE,)
+    cmd2 = sb.Popen(['awk', '{a=$1} {b=$2} {c=$3} {x=$4} {y=$5} {z=$6} '+
+                    'NR>1{print a-d, b-e, c-f, x-u, y-v, z-w}{d=a} {e=b} {f=c} {u=x} {v=y} {w=z}'],
+                    stdin=cmd1.stdout, stdout=sb.PIPE,)
+    cmd3 = sb.Popen(['awk', '{ for (i=1; i<=NF; i=i+1) {if ($i < 0) $i = -$i} print}'],
+                    stdin=cmd2.stdout, stdout=sb.PIPE,)
+    cmd4 = sb.Popen(['awk', '{a=$1+$2+$3+$4+$5+$6} {print a}'],
+                    stdin=cmd3.stdout, stdout=sb.PIPE,)
+
 
     stdout_value, stderr_value = cmd4.communicate()
+
     output = stdout_value.split()
     f = open(out_file, 'w')
+
     for out in output:
-        print >>f, float(out)
+      print >>f, float(out)
+
     f.close()
+
+    print "stdout in createSC --> ", stdout_value
+    print "stderr in createSC ---> ", stderr_value
+
     return out_file
 
 
@@ -137,9 +141,11 @@ def setMeanFD(infile_a, infile_b):
     import os
 
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
-    copycmd = sb.Popen(['cp', infile_a, out_file],
-                       stdin=sb.PIPE, stdout=sb.PIPE)
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
+
 
     cmd = sb.Popen(['awk', '{a += $1} END {print a/NR}', infile_b],
                    stdin=sb.PIPE, stdout=sb.PIPE,)
@@ -153,8 +159,10 @@ def setMeanFD(infile_a, infile_b):
 
     f.close()
 
-    return out_file
+    print "stdout in setMeanFD --> ", stdout_value
+    print "stderr in setMeanFD---> ", stderr_value
 
+    return out_file
 
 def setNumFD(infile_a, infile_b):
 
@@ -163,9 +171,10 @@ def setNumFD(infile_a, infile_b):
 
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
 
-    copycmd = sb.Popen(['cp', infile_a, out_file],
-                       stdin=sb.PIPE, stdout=sb.PIPE)
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
 
     cmd = sb.Popen(['awk', '{ if($1>=0.5) {a += 1}} END {print a}',
                     infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
@@ -179,8 +188,11 @@ def setNumFD(infile_a, infile_b):
         f.write('%.4f,' % float(out))
 
     f.close()
-    return out_file
 
+    print "stdout in setNumFD --> ", stdout_value
+    print "stderr in setNumFD---> ", stderr_value
+
+    return out_file
 
 def setPercentFD(infile_a, infile_b):
 
@@ -189,25 +201,27 @@ def setPercentFD(infile_a, infile_b):
 
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
 
-    copycmd = sb.Popen(['cp', infile_a, out_file],
-                       stdin=sb.PIPE, stdout=sb.PIPE)
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
 
-    cmd = sb.Popen(['awk',
-                '{ if($1>=0.5) {a += 1}} END {print (a/(NR+1)*100)}',
-                infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
+    cmd = sb.Popen(['awk', '{ if($1>=0.5) {a += 1}} END {print (a/(NR+1)*100)}',
+                   infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
     stdout_value, stderr_value = cmd.communicate()
 
     output = stdout_value.split()
     f = open(out_file, 'a')
 
     for out in output:
-        f.write('%.4f,' % float(out))
+       f.write('%.4f,' % float(out))
 
     f.close()
 
-    return out_file
+    print "stdout in setPercentFD --> ", stdout_value
+    print "stderr in setPercentFD---> ", stderr_value
 
+    return out_file
 
 def setFramesEx(in_file):
 
@@ -225,12 +239,14 @@ def setFramesEx(in_file):
     f = open(out_file, 'a')
 
     for out in output:
-        f.write('%s,' % int(out))
+       f.write('%s,' % int(out))
 
     f.close()
 
-    return out_file
+    print "stdout in setFramesEx --> ", stdout_value
+    print "stderr in setFramesEx---> ", stderr_value
 
+    return out_file
 
 def setFramesIN(in_file):
 
@@ -248,9 +264,12 @@ def setFramesIN(in_file):
     f = open(out_file, 'a')
 
     for out in output:
-        f.write('%s,' % int(out))
+       f.write('%s,' % int(out))
 
     f.close()
+
+    print "stdout in setFramesIn --> ", stdout_value
+    print "stderr in setFramesIn---> ", stderr_value
 
     return out_file
 
@@ -271,12 +290,14 @@ def setFramesInList(in_file):
     f = open(out_file, 'a')
 
     for out in output:
-        print >>f, int(out)
+       print >>f, int(out)
 
     f.close()
 
-    return out_file
+    print "stdout in setFramesInList --> ", stdout_value
+    print "stderr in setFramesInList---> ", stderr_value
 
+    return out_file
 
 def setMeanDVARS(infile_a, infile_b):
 
@@ -284,12 +305,13 @@ def setMeanDVARS(infile_a, infile_b):
     import os
 
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
-    copycmd = sb.Popen(['cp', infile_a, out_file],
-                       stdin=sb.PIPE, stdout=sb.PIPE)
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
 
     cmd = sb.Popen(['awk', '{a += $1} END {print a/NR}',
-                   infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
+                    infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
 
     stdout_value, stderr_value = cmd.communicate()
 
@@ -297,12 +319,14 @@ def setMeanDVARS(infile_a, infile_b):
     f = open(out_file, 'a')
 
     for out in output:
-        f.write('%.4f,' % float(out))
+      f.write('%.4f,' % float(out))
 
     f.close()
 
-    return out_file
+    print "stdout in setMeanDVARS --> ", stdout_value
+    print "stderr in setMeanDVARS---> ", stderr_value
 
+    return out_file
 
 def setNUM5(infile_a, infile_b):
 
@@ -310,9 +334,10 @@ def setNUM5(infile_a, infile_b):
     import os
 
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
-    copycmd = sb.Popen(['cp', infile_a, out_file],
-                       stdin=sb.PIPE, stdout=sb.PIPE)
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
 
     cmd = sb.Popen(['awk', '{ if($1>=5) {a += 1}} END {print a}',
                     infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
@@ -323,12 +348,14 @@ def setNUM5(infile_a, infile_b):
     f = open(out_file, 'a')
 
     for out in output:
-        f.write('%.4f,' % float(out))
+      f.write('%.4f,' % float(out))
 
     f.close()
 
-    return out_file
+    print "stdout in setNUM5 --> ", stdout_value
+    print "stderr in setNUM5---> ", stderr_value
 
+    return out_file
 
 def setNUM10(infile_a, infile_b):
 
@@ -336,9 +363,10 @@ def setNUM10(infile_a, infile_b):
     import os
 
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
-    copycmd = sb.Popen(['cp', infile_a, out_file],
-                       stdin=sb.PIPE, stdout=sb.PIPE)
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
 
     cmd = sb.Popen(['awk', '{ if($1>=10) {a += 1}} END {print a}',
                     infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
@@ -349,14 +377,17 @@ def setNUM10(infile_a, infile_b):
     f = open(out_file, 'a')
 
     for out in output:
-        f.write('%.4f,' % float(out))
+      f.write('%.4f,' % float(out))
 
     f.close()
+
+    print "stdout in setNUM5 --> ", stdout_value
+    print "stderr in setNUM5---> ", stderr_value
 
     return out_file
 
 
-def setSqrtMeanDeriv(in_file):
+def setSqrtMeanDeriv (in_file):
     import subprocess as sb
     import os
 
@@ -371,12 +402,14 @@ def setSqrtMeanDeriv(in_file):
     f = open(out_file, 'a')
 
     for out in output:
-        print >>f, float(out)
+      print >>f, float(out)
 
     f.close()
 
-    return out_file
+    print "stdout in setSqrtMeanDeriv --> ", stdout_value
+    print "stderr in setSqrtMeanDeriv---> ", stderr_value
 
+    return out_file
 
 def setSqrtMeanRaw(in_file):
 
@@ -394,9 +427,12 @@ def setSqrtMeanRaw(in_file):
     f = open(out_file, 'a')
 
     for out in output:
-        print >>f, float(out)
+      print >>f, float(out)
 
     f.close()
+
+    print "stdout in setSqrtMeanRaw --> ", stdout_value
+    print "stderr in setSqrtMeanRaw---> ", stderr_value
 
     return out_file
 
@@ -420,11 +456,15 @@ def setFtoFPercentChange(infile_a, infile_b):
     f = open(out_file, 'a')
 
     for out in output:
-        print >>f, float(out)
+      print >>f, float(out)
 
     f.close()
 
+    print "stdout in ftofPercentChange --> ", stdout_value
+    print "stderr in ftofPercentChange---> ", stderr_value
+
     return out_file
+
 
 
 def setNUMFD(in_file):
@@ -443,12 +483,14 @@ def setNUMFD(in_file):
     f = open(out_file, 'a')
 
     for out in output:
-        f.write('%.4f,' % float(out))
+      f.write('%.4f,' % float(out))
 
     f.close()
 
-    return out_file
+    print "stdout in setNUMFD --> ", stdout_value
+    print "stderr in setNUMFD---> ", stderr_value
 
+    return out_file
 
 def setScrubbedMotion(infile_a, infile_b):
 
@@ -461,9 +503,16 @@ def setScrubbedMotion(infile_a, infile_b):
                    infile_a, infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
 
     stdout_value, stderr_value = cmd.communicate()
+
     f = open(out_file, 'a')
+
     f.write(stdout_value)
+
     f.close()
+
+    print "stdout in setScrubbedMotion --> ", stdout_value
+    print "stderr in setScrubbedMotion---> ", stderr_value
+
     return out_file
 
 
@@ -474,12 +523,12 @@ def pToFile(time_series):
     import commands
     import sys
 
-    dir = os.path.dirname(time_series)
+    dir  = os.path.dirname(time_series)
 
     dir1 = re.sub(r'(.)+_subject_id_(.)+/_mask', '', dir)
 
     dir1 = dir1.split('..')
-    dir1 = dir1[len(dir1) - 1]
+    dir1 = dir1[len(dir1) -1]
     dir1 = dir1.split('.nii.gz')
     dir1 = dir1[0]
 
@@ -487,7 +536,7 @@ def pToFile(time_series):
     cmd = "cp %s %s" % (time_series, ts_oneD)
     print cmd
 
-    sys.stderr.write('\n' + commands.getoutput(cmd))
+    sys.stderr.write('\n'+ commands.getoutput(cmd))
     return os.path.abspath(ts_oneD)
 
 
@@ -497,7 +546,6 @@ def mean_roi_signal(data_volume, roi_mask):
     Yc = Y - np.tile(Y.mean(0), (Y.shape[0], 1))
     return Yc.mean(1)
 
-
 def get_standard_background_img(in_file):
     import os
 
@@ -505,9 +553,10 @@ def get_standard_background_img(in_file):
     img = load(in_file)
     hdr = img.get_header()
     group_mm = int(hdr.get_zooms()[2])
+    print "gorup_mm -> ", group_mm
     path = '/usr/local/fsl' + '/data/standard/MNI152_T1_%smm_brain.nii.gz' % (group_mm)
+    print "path ->", path
     return os.path.abspath(path)
-
 
 def get_nvols(in_file):
 
@@ -518,20 +567,20 @@ def get_nvols(in_file):
     op_string = '-abs -bin -Tmean -mul %d' % (n_vol)
     return op_string
 
-
 def copyGeom(infile_a, infile_b):
     import subprocess as sb
     out_file = infile_b
-    cmd = sb.Popen(['fslcpgeom',
-                   infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE,)
+    cmd = sb.Popen(['fslcpgeom', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE,)
     stdout_value, stderr_value = cmd.communicate()
     return out_file
 
-
 def getTuple(infile_a, infile_b):
 
-    return (infile_a, infile_b[1])
+    print "inisde getTuple"
+    print "infile_a -> ", infile_a
+    print "infile_b -> ", infile_b[1]
 
+    return (infile_a, infile_b[1])
 
 def getOpString(mean, std_dev):
 
@@ -541,11 +590,11 @@ def getOpString(mean, std_dev):
 
     return op_string
 
-
 def pick_wm_0(probability_maps):
 
     import sys
     import os
+
 
     if(isinstance(probability_maps, list)):
 
@@ -563,6 +612,7 @@ def pick_wm_1(probability_maps):
 
     import sys
     import os
+
 
     if(isinstance(probability_maps, list)):
 
@@ -591,7 +641,6 @@ def pick_wm_2(probability_maps):
                 return file
     return None
 
-
 def getImgNVols(in_files):
 
     out = []
@@ -609,18 +658,17 @@ def getImgNVols(in_files):
         n_vol = int(hdr.get_data_shape()[3])
         return [n_vol]
 
-
 def getImgTR(in_files):
 
     out = []
     from nibabel import load
-    if(isinstance(in_files, list)):
+    if(isinstance(in_files,list)):
         for in_file in in_files:
             img = load(in_file)
             hdr = img.get_header()
             tr = float(hdr.get_zooms()[3])
             if tr > 10:
-                tr = float(float(tr) / 1000.0)
+                tr = float(float(tr)/1000.0)
             out.append(tr)
         return out
     else:
@@ -628,32 +676,33 @@ def getImgTR(in_files):
         hdr = img.get_header()
         tr = float(hdr.get_zooms()[3])
         if tr > 10:
-            tr = float(float(tr) / 1000.0)
+            tr = float(float(tr)/1000.0)
         return [tr]
 
 
 def getN1(TR, nvols, HP):
 
-    n_lp = float(HP) * float(int(nvols)) * float(TR)
+    n_lp = float(HP) * float(int(nvols)) * float (TR)
     n1 = int("%1.0f" % (float(n_lp - 1.0)))
+
+    print '>>>n_lp ', n_lp
+    print '>>>n1 ', n1
 
     return n1
 
-
 def getN2(TR, nvols, LP, HP):
 
-    n_lp = float(HP) * float(int(nvols)) * float(TR)
-    n_hp = float(LP) * float(int(nvols)) * float(TR)
+    n_lp = float(HP) * float(int(nvols)) * float (TR)
+    n_hp = float(LP) * float(int(nvols)) * float (TR)
     n2 = int("%1.0f" % (float(n_hp - n_lp + 1.0)))
 
     return n2
-
 
 def takemod(nvols):
 
     decisions = []
     for vol in nvols:
-        mod = int(int(vol) % 2)
+        mod = int (int(vol) % 2)
 
         if mod == 1:
             decisions.append([0])
@@ -683,20 +732,19 @@ def set_op1_str(nvols):
 
     return strs
 
-
 def set_gauss(fwhm):
+
 
     op_string = ""
 
     fwhm = float(fwhm)
 
-    sigma = float(fwhm / 2.3548)
+    sigma = float(fwhm/2.3548)
 
     op = "-kernel gauss %f -fmean -mas " % (sigma) + "%s"
     op_string = op
 
     return op_string
-
 
 def getEXP(nvols):
 
@@ -741,42 +789,37 @@ def selector_wf():
 
     swf = pe.Workflow(name='scrubbing_selector')
 
-    inputNode = pe.Node(util.IdentityInterface(fields=[
-                                            'preprocessed',
-                                            'movement_parameters',
-                                            'scrubbed_preprocessed',
-                                            'scrubbed_movement_parameters'
-                                            ]),
+    inputNode = pe.Node(util.IdentityInterface(fields=['preprocessed',
+                                                       'movement_parameters',
+                                                       'scrubbed_preprocessed',
+                                                       'scrubbed_movement_parameters'
+                                                      ]),
                         name='inputspec')
 
     iRun = pe.Node(util.IdentityInterface(fields=['run_scrubbing']),
                              name='run_scrubbing_input')
 
-    outputNode = pe.Node(util.IdentityInterface(fields=[
-                                                'preprocessed_selector',
-                                                'movement_parameters_selector'
-                                                ]),
+
+    outputNode = pe.Node(util.IdentityInterface(fields=['preprocessed_selector',
+                                                        'movement_parameters_selector'
+                                                       ]),
                         name='outputspec')
 
-    selectP = pe.MapNode(util.Function(input_names=[
-                                              'pp',
-                                              'run_scrubbing',
-                                              'sc_pp'],
-                                      output_names=['pp_s'],
-                        function=select),
-                        name='selectP', iterfield=['pp',
-                                                'sc_pp'])
 
-    selectP1 = pe.MapNode(util.Function(input_names=[
-                                        'movement_parameters',
-                                        'run_scrubbing',
-                                        'scrubbed_movement_parameters'],
-                                        output_names=['mp'],
-                          function=selectM),
-                          name='selectP1',
-                          iterfield=[
-                                'movement_parameters',
-                                'scrubbed_movement_parameters'])
+    selectP = pe.MapNode(util.Function(input_names=['pp',
+                                                  'run_scrubbing',
+                                                  'sc_pp'],
+                                      output_names=['pp_s'], function=select),
+                        name='selectP', iterfield=['pp', 'sc_pp'])
+
+
+    selectP1 = pe.MapNode(util.Function(input_names=['movement_parameters',
+                                                  'run_scrubbing',
+                                                  'scrubbed_movement_parameters'],
+                                        output_names=['mp'], function=selectM),
+                        name='selectP1',
+                        iterfield=['movement_parameters',
+                                    'scrubbed_movement_parameters'])
 
     swf.connect(inputNode, 'preprocessed',
                 selectP, 'pp')
@@ -797,6 +840,7 @@ def selector_wf():
     swf.connect(selectP1, 'mp',
                 outputNode, 'movement_parameters_selector')
 
+
     return swf
 
 
@@ -814,151 +858,106 @@ def getStatsDir(in_files):
 
     return stats_dir
 
-
-def create_anat_func_dataflow(sublist,
-                              sessionlist,
-                              anat_session_list,
-                              analysisdirectory,
-                              at,
-                              rt,
-                              at_list,
-                              rt_list):
-    """
+def create_anat_func_dataflow(sublist, sessionlist, anat_session_list, analysisdirectory, at, rt, at_list, rt_list):
+    '''
         Example parameters
         anat_name = 'mprage'
         rest_name = 'lfo'
         at = '%s/%s/%s.nii.gz'
         rt = '%s/%s/%s.nii.gz'
-    """
+    '''
     import nipype.pipeline.engine as pe
     import nipype.interfaces.io as nio
     from nipype.interfaces.utility import IdentityInterface
-
+    
     wf = pe.Workflow(name='inputnode_datasource')
 
-    inputnode = pe.Node(interface=IdentityInterface(
-                                fields=['session_id',
-                                        'subject_id'],
-                                mandatory_inputs=True),
-                        name='inputnode')
-    inputnode.iterables = [('session_id', sessionlist),
-                           ('subject_id', sublist)]
 
-    datasource = pe.Node(interface=nio.DataGrabber(
-                                    infields=['subject',
-                                              'session'],
-                                    outfields=['anat',
-                                               'rest']),
-                         name='datasource')
+    inputnode = pe.Node(interface=IdentityInterface(fields=['session', 'subject'],
+                                                    mandatory_inputs=True),
+                        name='inputnode')
+    inputnode.iterables = [('session', sessionlist),
+                           ('subject', sublist)]
+
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['subject', 'session'], outfields=['anat', 'rest']), name='datasource')
     datasource.inputs.base_directory = analysisdirectory
     #datasource.inputs.template = '%s/*/%s.nii.gz'
 
-    datasource.inputs.field_template = dict(anat=at,
-                                            rest=rt)
+    datasource.inputs.field_template = dict(anat=at, rest=rt)
     datasource.inputs.template = '*'
-    datasource.inputs.template_args = dict(anat=[at_list],
-                                           rest=[rt_list])
+#    datasource.inputs.template_args = dict(anat=[['subject', 'session', anat_name]], rest=[['subject', 'session', rest_name]])
+    datasource.inputs.template_args = dict(anat=[at_list], rest=[rt_list])
+#    datasource.iterables = [('subject', sublist), ('session', sessionlist)]
 
-    wf.connect(inputnode, 'session_id',
-               datasource, 'session')
-    wf.connect(inputnode, 'subject_id',
-               datasource, 'subject')
+    wf.connect(inputnode, 'session', datasource, 'session')
+    wf.connect(inputnode, 'subject', datasource, 'subject')
 
     return wf
 
 
-def create_alff_dataflow(name,
-                         sublist,
-                         analysisdirectory,
-                         rest_name,
-                         at,
-                         atw):
+def create_alff_dataflow(name, sublist, analysisdirectory, rest_name, at, atw):
 
     import nipype.pipeline.engine as pe
     import nipype.interfaces.io as nio
 
-    datasource = pe.Node(interface=nio.DataGrabber(
-                                    infields=['subject_id'],
-                                    outfields=['rest_res',
-                                        'rest_mask',
-                                        'rest_mask2standard']),
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
+                                                   outfields=['rest_res', 'rest_mask', 'rest_mask2standard' ]),
                          name=name)
     datasource.inputs.base_directory = analysisdirectory
+    #datasource.inputs.template = '%s/*/%s.nii.gz'
     datasource.inputs.template = at
-    datasource.inputs.template_args = dict(
-                                    rest_res=[['subject_id',
-                                              rest_name + '_res']],
-                                    rest_mask=[['subject_id',
-                                              rest_name + '_mask']],
-                                    rest_mask2standard=[['subject_id',
-                                    rest_name + '_mask2standard']])
+    datasource.inputs.template_args = dict(rest_res=[['subject_id', rest_name +'_res' ]],
+                                           rest_mask=[['subject_id', rest_name + '_mask']],
+                                           rest_mask2standard=[['subject_id', rest_name + '_mask2standard']])
     datasource.iterables = ('subject_id', sublist)
 
-    datasource_warp = pe.Node(interface=nio.DataGrabber(
-                                            infields=['subject_id'],
-                                            outfields=['premat',
-                                                'fieldcoeff_file']),
+    datasource_warp = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
+                                                        outfields=['premat', 'fieldcoeff_file' ]),
                               name=name + '_warp')
 
     datasource_warp.inputs.base_directory = analysisdirectory
+    #datasource_warp.inputs.template = '%s/*/%s.nii.gz'
     datasource_warp.inputs.template = atw
-    datasource_warp.inputs.template_args = dict(
-                                    premat=[['subject_id',
-                                            'example_func2highres.mat']],
-                                    fieldcoeff_file=[['subject_id',
-                                        'highres2standard_warp.nii.gz']])
-    datasource_warp.iterables = ('subject_id',
-                                sublist)
+    datasource_warp.inputs.template_args = dict(premat=[['subject_id', 'example_func2highres.mat' ]],
+                                                fieldcoeff_file=[['subject_id', 'highres2standard_warp.nii.gz']])
+    datasource_warp.iterables = ('subject_id', sublist)
 
     return datasource, datasource_warp
-
 
 def create_sca_dataflow(name, sublist, analysisdirectory, rt, rtw):
 
     import nipype.pipeline.engine as pe
     import nipype.interfaces.io as nio
 
-    datasource = pe.Node(interface=nio.DataGrabber(
-                                    infields=['subject_id'],
-                                    outfields=['rest_res2standard',
-                                               'rest_res_filt',
-                                               'rest_mask2standard',
-                                               'ref']),
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
+                                                   outfields=['rest_res2standard',
+                                                              'rest_res_filt',
+                                                              'rest_mask2standard',
+                                                              'ref' ]),
                          name=name)
     datasource.inputs.base_directory = analysisdirectory
     #datasource.inputs.template = '%s/*/%s.nii.gz'
     datasource.inputs.template = rt
-    datasource.inputs.template_args = dict(
-                        rest_res2standard=[['subject_id',
-                                rest_name + '_res2standard']],
-                        rest_res_filt=[['subject_id',
-                                rest_name + '_res_filt']],
-                        rest_mask2standard=[['subject_id',
-                                rest_name + '_mask2standard']],
-                        ref=[['subject_id',
-                                'example_func']])
-    datasource.iterables = ('subject_id',
-                            sublist)
+    datasource.inputs.template_args = dict(rest_res2standard=[['subject_id', rest_name + '_res2standard']],
+                                           rest_res_filt=[['subject_id', rest_name + '_res_filt']],
+                                           rest_mask2standard=[['subject_id', rest_name + '_mask2standard']],
+                                           ref=[['subject_id', 'example_func' ]])
+    datasource.iterables = ('subject_id', sublist)
 
-    datasource_warp = pe.Node(interface=nio.DataGrabber(
-                                        infields=['subject_id'],
-                                        outfields=['premat',
-                                                   'fieldcoeff_file',
-                                                   'warp',
-                                                   'postmat']),
-                              name=name + '_warp')
+
+    datasource_warp = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
+                                                        outfields=['premat',
+                                                                   'fieldcoeff_file',
+                                                                   'warp',
+                                                                   'postmat']),
+                              name=name+'_warp')
     datasource_warp.inputs.base_directory = analysisdirectory
     #datasource_warp.inputs.template = '%s/*/%s.nii.gz'
     datasource_warp.inputs.template = rtw
-    datasource_warp.inputs.template_args = dict(
-                                        premat=[['subject_id',
-                                        'example_func2highres.mat']],
-                                        fieldcoeff_file=[['subject_id',
-                                        'highres2standard_warp.nii.gz']],
-                                        warp=[['subject_id',
-                                        'stand2highres_warp.nii.gz']],
-                                        postmat=[['subject_id',
-                                        'highres2example_func.mat']])
+    datasource_warp.inputs.template_args = dict(premat=[['subject_id', 'example_func2highres.mat' ]],
+                                                fieldcoeff_file=[['subject_id', 'highres2standard_warp.nii.gz']],
+                                                warp=[['subject_id', 'stand2highres_warp.nii.gz' ]],
+                                                postmat=[['subject_id', 'highres2example_func.mat' ]])
     datasource_warp.iterables = ('subject_id', sublist)
 
     return datasource, datasource_warp
@@ -983,9 +982,8 @@ def create_seed_dataflow(seed_file):
 
     f.close()
 
-    datasource = pe.Node(interface=nio.DataGrabber(
-                                        infields=['seeds'],
-                                        outfields=['out_file']),
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['seeds'],
+                                                   outfields=['out_file']),
                          name="datasource_seeds")
     datasource.inputs.base_directory = seed_dir
     datasource.inputs.template = '*'
@@ -995,99 +993,71 @@ def create_seed_dataflow(seed_file):
 
     return datasource
 
-
-def create_vmhc_dataflow(name,
-                         sublist,
-                         analysisdirectory,
-                         anat_name,
-                         rest_name,
-                         vt,
-                         vta,
-                         vtw):
+def create_vmhc_dataflow(name, sublist, analysisdirectory, anat_name, rest_name, vt, vta, vtw):
 
     import nipype.pipeline.engine as pe
     import nipype.interfaces.io as nio
 
-    datasource = pe.Node(interface=nio.DataGrabber(
-                                    infields=['subject_id'],
-                                    outfields=['rest_res']),
-                         name=name + '_res')
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
+                                                   outfields=['rest_res']),
+                         name=name+'_res')
     datasource.inputs.base_directory = analysisdirectory
+    #datasource.inputs.template = '%s/*/%s.nii.gz'
     datasource.inputs.template = vt
-    datasource.inputs.template_args = dict(
-                                    rest_res=[['subject_id',
-                                    rest_name + '_res']])
-    datasource.iterables = ('subject_id',
-                            sublist)
+    datasource.inputs.template_args = dict(rest_res=[['subject_id', rest_name + '_res']])
+    datasource.iterables = ('subject_id', sublist)
 
-    da = pe.Node(interface=nio.DataGrabber(
-                                    infields=['subject_id'],
-                                    outfields=['reorient',
-                                               'brain']),
-                 name=name + '_RPI')
+
+    da = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
+                                           outfields=['reorient', 'brain']),
+                 name=name+'_RPI')
     da.inputs.base_directory = analysisdirectory
     da.inputs.template = vta
-    da.inputs.template_args = dict(reorient=[['subject_id',
-                                    anat_name + '_RPI']],
-                                   brain=[['subject_id',
-                                    anat_name + '_brain']])
-    da.iterables = ('subject_id',
-                   sublist)
+    da.inputs.template_args = dict(reorient=[['subject_id', anat_name + '_RPI']], brain=[['subject_id', anat_name + '_brain']])
+    da.iterables = ('subject_id', sublist)
+
 
     datasource_warp = pe.Node(interface=nio.DataGrabber(infields=['subject_id'],
-                                                outfields=['example_func2highres_mat']),
-                              name=name + '_example_func')
+                                                        outfields=['example_func2highres_mat']),
+                              name=name+'_example_func')
     datasource_warp.inputs.base_directory = analysisdirectory
     #datasource_warp.inputs.template = '%s/*/%s.nii.gz'
     datasource_warp.inputs.template = vtw
-    datasource_warp.inputs.template_args = dict(example_func2highres_mat=[['subject_id',
-                                                'example_func2highres.mat']])
-    datasource_warp.iterables = ('subject_id',
-                                sublist)
+    datasource_warp.inputs.template_args = dict(example_func2highres_mat=[['subject_id', 'example_func2highres.mat' ]])
+    datasource_warp.iterables = ('subject_id', sublist)
 
     return datasource, da, datasource_warp
 
 
-def create_gp_dataflow(base_dir, modelist, seedlist, name):
+def create_gp_dataflow(base_dir, modelist, dervlist, template_dict, template_args, name):
+    
     import nipype.pipeline.engine as pe
     import nipype.interfaces.io as nio
+    from nipype.interfaces.utility import IdentityInterface
+    
+        
+    wf = pe.Workflow(name='inputnode_dataflow')
 
-    subject_dir = '*/*/%s.nii.gz'
 
-    datasource = pe.Node(interface=nio.DataGrabber(
-                                    infields=['model_name',
-                                              'seed'],
-                                    outfields=['mat',
-                                        'con',
-                                        'fts',
-                                        'grp',
-                                        'seedfiles']),
+    inputnode = pe.Node(interface=IdentityInterface(fields=['model', 'derivative'],
+                                                    mandatory_inputs=True),
+                        name='inputnode')
+    inputnode.iterables = [('model', modelist),
+                           ('derivative', dervlist)]
+    
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['model_name', 'derivative'],
+                                                   outfields=['mat', 'con', 'fts', 'grp', 'derv']),
                          name=name)
     datasource.inputs.base_directory = base_dir
     datasource.inputs.template = '*'
-    datasource.inputs.field_template = dict(mat='*/%s/%s.mat',
-                                        con='*/%s/%s.con',
-                                        fts='*/%s/%s.fts',
-                                        grp='*/%s/%s.grp',
-                                        seedfiles=subject_dir)
+    
+    datasource.inputs.field_template = template_dict
+    datasource.inputs.template_args = template_args
+    
+    wf.connect(inputnode, 'model', datasource, 'model_name')
+    wf.connect(inputnode, 'derivative', datasource, 'derivative')
 
-    datasource.inputs.template_args = dict(
-                                    mat=[['model_name',
-                                        'model_name']],
-                                    con=[['model_name',
-                                        'model_name']],
-                                    fts=[['model_name',
-                                        'model_name']],
-                                    grp=[['model_name',
-                                        'model_name']],
-                                    seedfiles=[['seed']])
-
-    datasource.iterables = [('model_name',
-                            modelist),
-                            ('seed',
-                            seedlist)]
-
-    return datasource
+    return wf
 
 
 def extract_subjectID(out_file):
@@ -1096,46 +1066,47 @@ def extract_subjectID(out_file):
 
     outs = (out_file.split('_subject_id_'))[1]
     out_file = (outs.split('/'))[0]
-#    print "extract_subjectID out_file", out_file
-#    sys.stderr.write('\n>>>>>D<<<<< ' + out_file)
+    print "extract_subjectID out_file", out_file
+    sys.stderr.write('\n>>>>>D<<<<< ' + out_file)
 
     return out_file
 
+def listdir_nohidden(path):
+    import os
+    list1 = []
+    for f in os.listdir(path):
+        if not f.startswith('.'):
+            list1.append(os.path.splitext(os.path.splitext(f)[0])[0])
+    return list1
 
 def create_parc_dataflow(unitDefinitionsDirectory):
 
     import nipype.interfaces.io as nio
     import os
 
-    unitlist = [os.path.splitext(os.path.splitext(f)[0])[0]
-                for f in os.listdir(unitDefinitionsDirectory)]
-#    print "unitList ->", unitlist
-    datasource = pe.Node(interface=nio.DataGrabber(
-                                infields=['parcelation'],
-                                outfields=['out_file']),
+    unitlist = listdir_nohidden(unitDefinitionsDirectory)
+    print "unitList ->", unitlist
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['parcelation'],
+                                                   outfields=['out_file']),
                          name="datasource_parc")
     datasource.inputs.base_directory = unitDefinitionsDirectory
     datasource.inputs.template = '*'
     datasource.inputs.field_template = dict(out_file='%s.nii.gz')
     datasource.inputs.template_args = dict(out_file=[['parcelation']])
-    datasource.iterables = ('parcelation',
-                            unitlist)
+    datasource.iterables = ('parcelation', unitlist)
+
 
     return datasource
-
 
 def create_mask_dataflow(voxelMasksDirectory):
 
     import nipype.interfaces.io as nio
     import os
 
-    masklist = [os.path.splitext(
-                    os.path.splitext(f)[0])[0]
-                    for f in os.listdir(voxelMasksDirectory)]
-#    print masklist
-    datasource = pe.Node(interface=nio.DataGrabber(
-                                        infields=['mask'],
-                                        outfields=['out_file']),
+    masklist = listdir_nohidden(voxelMasksDirectory)
+    print masklist
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['mask'],
+                                                   outfields=['out_file']),
                          name="datasource_mask")
     datasource.inputs.base_directory = voxelMasksDirectory
     datasource.inputs.template = '*'
@@ -1145,10 +1116,7 @@ def create_mask_dataflow(voxelMasksDirectory):
 
     return datasource
 
-
-def gen_csv_for_parcelation(data_file,
-                            template,
-                            unitTSOutputs):
+def gen_csv_for_parcelation(data_file, template, unitTSOutputs):
 
     import nibabel as nib
     import csv
@@ -1173,25 +1141,23 @@ def gen_csv_for_parcelation(data_file,
             time_points, no_of_voxels = node_array.shape
             list1 = [n]
             node_str = 'node %s' % (n)
-            node_dict[node_str] = node_array
+            node_dict[node_str]= node_array
             for t in range(0, time_points):
                 avg = node_array[t].mean()
                 avg = np.round(avg, 3)
                 list1.append(avg)
             sorted_list.append(list1)
 
-    tmp_file = os.path.splitext(
-                    os.path.basename(template))[0]
+    tmp_file = os.path.splitext(os.path.basename(template))[0]
     tmp_file = os.path.splitext(tmp_file)[0]
-    csv_file = os.path.abspath('parc_' + tmp_file + '.csv')
-    numpy_file = os.path.abspath('parc_' + tmp_file + '.npz')
+    csv_file = os.path.abspath('parc_'+tmp_file+'.csv')
+    numpy_file = os.path.abspath('parc_'+tmp_file+'.npz')
 
     if unitTSOutputs[0]:
         f = open(csv_file, 'wt')
-        writer = csv.writer(f, delimiter=',',
-                                quoting=csv.QUOTE_MINIMAL)
+        writer = csv.writer(f, delimiter=',', quoting=csv.QUOTE_MINIMAL)
         headers = ['node/volume']
-        for i in range(0, vol):
+        for i in range (0, vol):
             headers.append(i)
         writer.writerow(headers)
         writer.writerows(sorted_list)
@@ -1204,15 +1170,13 @@ def gen_csv_for_parcelation(data_file,
 
     return out_list
 
-
-def gen_csv_for_mask(data_file,
-                     template,
-                     voxelTSOutputs):
+def gen_csv_for_mask(data_file, template, voxelTSOutputs):
 
     import nibabel as nib
     import numpy as np
     import csv
     import os
+
 
     unit = nib.load(template)
     unit_data = unit.get_data()
@@ -1229,21 +1193,19 @@ def gen_csv_for_mask(data_file,
     time_points = node_array.shape[0]
     for t in range(0, time_points):
         str = 'vol %s' % (t)
-        vol_dict[str] = node_array[t]
+        vol_dict[str]= node_array[t]
         val = node_array[t].tolist()
         val.insert(0, t)
         sorted_list.append(val)
 
-    tmp_file = os.path.splitext(
-                  os.path.basename(template))[0]
+    tmp_file = os.path.splitext(os.path.basename(template))[0]
     tmp_file = os.path.splitext(tmp_file)[0]
-    csv_file = os.path.abspath('mask_' + tmp_file + '.csv')
-    numpy_file = os.path.abspath('mask_' + tmp_file + '.npz')
+    csv_file = os.path.abspath('mask_'+tmp_file+'.csv')
+    numpy_file = os.path.abspath('mask_'+tmp_file+'.npz')
 
     if voxelTSOutputs[0]:
         f = open(csv_file, 'wt')
-        writer = csv.writer(f, delimiter=',',
-                            quoting=csv.QUOTE_MINIMAL)
+        writer = csv.writer(f, delimiter=',', quoting=csv.QUOTE_MINIMAL)
         one = np.array([1])
         headers = ['volume/xyz']
         cordinates = np.argwhere(unit_data != 0)
@@ -1264,10 +1226,7 @@ def gen_csv_for_mask(data_file,
 
     return out_list
 
-
-def gen_csv_for_surface(rh_surface_file,
-                        lh_surface_file,
-                        verticesTSOutputs):
+def gen_csv_for_surface(rh_surface_file, lh_surface_file, verticesTSOutputs):
 
     import gradunwarp
     import numpy as np
@@ -1275,61 +1234,58 @@ def gen_csv_for_surface(rh_surface_file,
     out_list = []
 
     if verticesTSOutputs[0]:
-        rh_file = os.path.splitext(
-                        os.path.basename(rh_surface_file))[0] + '_rh.csv'
+        rh_file = os.path.splitext(os.path.basename(rh_surface_file))[0] +'_rh.csv'
         mghobj1 = gradunwarp.mgh.MGH()
 
         mghobj1.load(rh_surface_file)
         vol = mghobj1.vol
-        (x, y) = vol.shape
-#        print "rh shape", x, y
+        (x, y)= vol.shape
+        print "rh shape", x, y
 
         np.savetxt(rh_file, vol, delimiter=',')
         out_list.append(rh_file)
 
-        lh_file = os.path.splitext(os.path.basename(lh_surface_file))[0] + '_lh.csv'
+        lh_file = os.path.splitext(os.path.basename(lh_surface_file))[0] +'_lh.csv'
         mghobj2 = gradunwarp.mgh.MGH()
 
         mghobj2.load(lh_surface_file)
         vol = mghobj2.vol
         (x, y) = vol.shape
-#        print "lh shape", x, y
+        print "lh shape", x, y
 
-        np.savetxt(lh_file,
-                   vol,
-                   delimiter=',')
+        np.savetxt(lh_file, vol, delimiter=',')
         out_list.append(lh_file)
 
     return out_list
 
-
 def create_datasink(source_dir):
 
     import nipype.interfaces.io as nio
-#    print"create data sink"
+    print"create data sink"
     datasink = pe.Node(nio.DataSink(), name='data_sink')
     datasink.inputs.base_directory = source_dir
-#    datasink.inputs.container = 'result'
-    datasink.inputs.regexp_substitutions = [(r"[/](_)+", '/'),
-                                            (r"^(_)+", ''),
-                                            (r"[\w]+rename(\d)+[/]", '')]
-
-
+    datasink.inputs.regexp_substitutions = [(r"[/](_)+", '/'), (r"^(_)+", ''), (r"[\w]*rename(\d)+[/]", ''),
+                                            (r"_subject_(\w)*(\d)*", ''), (r"apply_warp(\d)+[/]", 'mni_outputs/'),
+                                            (r"func_(\w)+(\d)+[/]", ''), (r"median_angle(\d)+", ''),
+                                            (r"sc_(\d)*(\w)+(\d)+[/]", ''), (r"seg_(\w)+(\d)+[/]", ''),
+                                            (r"timeseries_(\w)+(\d)+[/]", ''), (r"(\.nii.gz)[/]",'/')]
     return datasink
 
+def create_gp_datasink(source_dir):
 
-def formatpath(in_file, filename):
-
+    import nipype.interfaces.io as nio
     import os
+    print"create gp data sink"
+    datasink = pe.Node(nio.DataSink(), name='gp_data_sink')
+    dir= os.path.join(source_dir,'groupAnalysis')
+    datasink.inputs.base_directory = dir
+    datasink.inputs.regexp_substitutions = [(r"[/](_)+", '/'),
+                                            (r"^(_)+", ''), 
+                                            (r"[\w]*rename(\d)+[/]", ''),
+                                            (r"derivative_(\w)*(\d)*(\w)*_model", 'model'),
+                                            (r"gp_(\w)+(\d)+",''), 
+                                            (r"Merged/model_(\w)*(\d)*(\w)*[/]", 'Merged/')]
+    return datasink
+    
+    
 
-    out_list = []
-    if (isinstance(in_file, list)):
-        for file in in_file:
-            filepath = os.path.dirname(file)
-            newpath = os.path.join(filepath, filename)
-            out_list.append(newpath)
-        return out_list
-    else:
-        filepath = os.path.dirname(in_file)
-        newpath = os.path.join(filepath, filename)
-        return newpath
