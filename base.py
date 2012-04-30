@@ -10,7 +10,6 @@ import nipype.interfaces.io as nio
 import nipype.interfaces.utility as util
 from utils import *
 
-
 def create_filter(high_pass_filter_bool, low_pass_filter_bool):
 
     preproc = pe.Workflow(name='frequency_filter')
@@ -827,6 +826,7 @@ def create_seg_preproc():
 
     return preproc
 
+
 def create_scrubbing_preproc():
 
 
@@ -1177,19 +1177,19 @@ def create_vmhc_preproc():
 
     return vmhc
 
-#def reho(in_file, mask_file):
-#
-#    import nibabel as nb
-#    from utils import reho_statistic_filter
-#
-#    lfo = np.load(in_file).get_data().as_type('float64')
-#
-#    W = reho_statistic_filter(lfo, 0)
-#
-#    out_file = None
-#
-#
-#    return out_file
+def reho(in_file, mask_file):
+
+    import nibabel as nb
+    from utils import reho_statistic_filter
+
+    lfo = np.load(in_file).get_data().as_type('float64')
+
+    W = reho_statistic_filter(lfo, 0)
+
+    out_file = None
+
+
+    return out_file
 
 
 def create_reho_preproc():
@@ -1423,7 +1423,6 @@ def create_sca_preproc():
     return rsfc
 
 
-
 def create_group_analysis(f_test):
 
     grp_analysis = pe.Workflow(name='group_analysis')
@@ -1434,7 +1433,8 @@ def create_group_analysis(f_test):
                                                         'grp_file',
                                                         'zmap_files',
                                                         'z_threshold',
-                                                        'p_threshold']),
+                                                        'p_threshold',
+                                                        'parameters']),
                          name='inputspec')
 
     outputnode = pe.Node(util.IdentityInterface(fields=['merged',
@@ -1517,10 +1517,17 @@ def create_group_analysis(f_test):
                                      output_names=['out_file'], function=get_nvols),
                        name='gp_nvols')
 
-    gp_getbackgroundimage = pe.MapNode(util.Function(input_names=['in_file'],
+    gp_getbackgroundimage = pe.MapNode(util.Function(input_names=['in_file',
+                                                                  'file_parameters'],
                                                      output_names=['out_file'],
                             function=get_standard_background_img),
                             name='gp_getbackgroundimage', iterfield=['in_file'])
+
+    gp_getbackgroundimage2 = pe.Node(util.Function(input_names=['in_file',
+                                                                'file_parameters'],
+                                                     output_names=['out_file'],
+                            function=get_standard_background_img),
+                            name='gp_getbackgroundimage2')
 
     grp_analysis.connect(inputnode, 'zmap_files', gp_fslmerge, 'in_files')
     grp_analysis.connect(gp_fslmerge, 'merged_file', gp_fslmaths, 'in_file')
@@ -1545,6 +1552,7 @@ def create_group_analysis(f_test):
     grp_analysis.connect(gp_flameo, 'zstats', gp_fslmultimaths, 'in_file')
     grp_analysis.connect(gp_fslmaths, 'out_file', gp_fslmultimaths, 'operand_files')
     grp_analysis.connect(gp_fslmultimaths, 'out_file', gp_getbackgroundimage, 'in_file' )
+    grp_analysis.connect(inputnode, 'parameters', gp_getbackgroundimage, 'file_parameters')
     grp_analysis.connect(gp_getbackgroundimage, 'out_file', gp_fslcpgeom, 'infile_a' )
     grp_analysis.connect(gp_fslmultimaths, 'out_file', gp_fslcpgeom, 'infile_b')
     grp_analysis.connect(gp_fslcpgeom, 'out_file', gp_cluster, 'in_file')
@@ -1559,8 +1567,9 @@ def create_group_analysis(f_test):
     grp_analysis.connect(gp_cluster, 'threshold_file', gp_overlay, 'stat_image')
     grp_analysis.connect(gp_merge, 'out_file', gp_overlay, 'stat_thresh')
 
-    grp_analysis.connect(gp_fslmaths, ('out_file', get_standard_background_img), gp_overlay, 'background_image')
-
+    grp_analysis.connect(gp_fslmaths, 'out_file', gp_getbackgroundimage2, 'in_file' )
+    grp_analysis.connect(inputnode, 'parameters', gp_getbackgroundimage2, 'file_parameters')
+    grp_analysis.connect(gp_getbackgroundimage2, 'out_file', gp_overlay, 'background_image')
     grp_analysis.connect(gp_overlay, 'out_file', gp_slicer, 'in_file')
 
     grp_analysis.connect(gp_fslmerge, 'merged_file', gp_nvols, 'in_file')
@@ -1602,8 +1611,11 @@ def create_alff_preproc():
                                             'alff_Z_2standard_fwhm_img',
                                             'falff_Z_2standard_fwhm_img']),
                           name='outputspec')
-    inputnode_hplp = pe.Node(util.IdentityInterface(fields=['hp', 'lp']),
-                             name='hplp_input')
+    inputnode_hp = pe.Node(util.IdentityInterface(fields=['hp']),
+                             name='hp_input')
+
+    inputnode_lp = pe.Node(util.IdentityInterface(fields=['lp']),
+                             name='lp_input')
 
     inputnode_fwhm = pe.Node(util.IdentityInterface(fields=['fwhm']),
                              name='fwhm_input')
@@ -1784,16 +1796,16 @@ def create_alff_preproc():
                  calcN1, 'nvols')
     alff.connect(TR, 'TR',
                  calcN1, 'TR')
-    alff.connect(inputnode_hplp, 'hp',
+    alff.connect(inputnode_hp, 'hp',
                  calcN1, 'HP')
 
     alff.connect(NVOLS, 'nvols',
                  calcN2, 'nvols')
     alff.connect(TR, 'TR',
                  calcN2, 'TR')
-    alff.connect(inputnode_hplp, 'lp',
+    alff.connect(inputnode_lp, 'lp',
                  calcN2, 'LP')
-    alff.connect(inputnode_hplp, 'hp',
+    alff.connect(inputnode_hp, 'hp',
                  calcN2, 'HP')
 
     alff.connect(sqrt, 'out_file',

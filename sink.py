@@ -152,7 +152,7 @@ def sca_sink(workflow, datasink, scapreproc):
                     'sca_rename', 'Z_2standard.nii.gz'),
                    (scapreproc, 'outputspec.Z_2standard_FWHM',
                     'sca_rename', 'Z_FWHM_2standard.nii.gz')]
-    rename_connections(workflow, datasink, rename_list, 'iFC')
+    rename_connections(workflow, datasink, rename_list, 'sca')
 
 
 def alff_sink(workflow, datasink, alffpreproc):

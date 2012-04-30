@@ -42,10 +42,10 @@ def getSubjectAndSeedLists(c):
         flines = open(fname, 'r').readlines()
         return [fline.rstrip('\r\n') for fline in flines]
 
-    return get_list(c.subj_file),\
-                    get_list(c.func_session_file),\
-                    get_list(c.anat_session_file),\
-                    get_list(c.seed_file)
+    return get_list(c.subjectList),\
+                    get_list(c.funcSessionFile),\
+                    get_list(c.anatSessionFile),\
+                    get_list(c.seedFile)
 
 
 def get_seed_list(seed_file):
@@ -67,7 +67,7 @@ def getModelandSeedList(c):
     seedlist = []
 
     try:
-        fp = open(c.model_file, 'r')
+        fp = open(c.modelsFile, 'r')
         models = fp.readlines()
         fp.close()
 
@@ -75,7 +75,7 @@ def getModelandSeedList(c):
             model = model.rstrip('\r\n')
             modelist.append(os.path.basename(model))
 
-        f = open(c.seed_file, 'r')
+        f = open(c.seedFile, 'r')
         seeds = f.readlines()
         f.close()
 
@@ -122,15 +122,15 @@ def getGroupAnalysisInputs(c):
                              con=c.con,
                              fts=c.fts,
                              grp=c.grp,
-                             derv=c.derv_template)
+                             derv=c.dervTemplate)
 
         print 'checking for template_dict', template_dict
 
-        template_args = dict(mat=[c.mat_template_list],
-                             con=[c.con_template_list],
-                             fts=[c.fts_template_list],
-                             grp=[c.grp_template_list],
-                             derv=[c.derv_template_list])
+        template_args = dict(mat=[c.matTemplateList],
+                             con=[c.conTemplateList],
+                             fts=[c.ftsTemplateList],
+                             grp=[c.grpTemplateList],
+                             derv=[c.dervTemplateList])
 
         print 'checking for template_args', template_args
 
@@ -146,18 +146,18 @@ def get_workflow(wf_name, c):
     """
         setup standard file paths
     """
-    prior_path = os.path.join(c.prior_dir, c.standard_res)
+    prior_path = os.path.join(c.priorDirectory, c.standardResolution)
     PRIOR_CSF = os.path.join(prior_path, 'avg152T1_csf_bin.nii.gz')
     PRIOR_GRAY = os.path.join(prior_path, 'avg152T1_gray_bin.nii.gz')
     PRIOR_WHITE = os.path.join(prior_path, 'avg152T1_white_bin.nii.gz')
     standard_res_brain = os.path.join(c.FSLDIR,
-            'data/standard/MNI152_T1_%s_brain.nii.gz' % (c.standard_res))
+            'data/standard/MNI152_T1_%s_brain.nii.gz' % (c.standardResolution))
     standard = os.path.join(c.FSLDIR,
-            'data/standard/MNI152_T1_%s.nii.gz' % (c.standard_res))
+            'data/standard/MNI152_T1_%s.nii.gz' % (c.standardResolution))
     standard_brain_mask_dil = os.path.join(c.FSLDIR,
-            'data/standard/MNI152_T1_%s_brain_mask_dil.nii.gz' % (c.standard_res))
+            'data/standard/MNI152_T1_%s_brain_mask_dil.nii.gz' % (c.standardResolution))
     config_file = os.path.join(c.FSLDIR,
-            'etc/flirtsch/T1_2_MNI152_%s.cnf' % (c.standard_res))
+            'etc/flirtsch/T1_2_MNI152_%s.cnf' % (c.standardResolution))
     brain_symmetric = os.path.join(c.FSLDIR,
             'data/standard/MNI152_T1_2mm_brain_symmetric.nii.gz')
     symm_standard = os.path.join(c.FSLDIR,
@@ -176,8 +176,8 @@ def get_workflow(wf_name, c):
     if wf_name.lower() == 'func':
 
         preproc = create_func_preproc()
-        preproc.inputs.inputspec.start_idx = c.start_idx
-        preproc.inputs.inputspec.stop_idx = c.stop_idx
+        preproc.inputs.inputspec.start_idx = c.startIdx
+        preproc.inputs.inputspec.stop_idx = c.stopIdx
 
         return preproc
 
@@ -219,12 +219,12 @@ def get_workflow(wf_name, c):
 
         preproc = create_alff_preproc()
         preproc.inputs.inputspec.standard = standard
-        preproc.inputs.hplp_input.hp = c.highPassFreqALFF
-        preproc.inputs.hplp_input.lp = c.lowPassFreqALFF
+        preproc.inputs.hp_input.hp = c.highPassFreqALFF
+        preproc.inputs.lp_input.lp = c.lowPassFreqALFF
         preproc.inputs.fwhm_input.fwhm = c.fwhm
-        preproc.get_node('hplp_input').iterables = ('hp',
-                                                    c.highPassFreqALFF,
-                                                    'lp',
+        preproc.get_node('hp_input').iterables = ('hp',
+                                                    c.highPassFreqALFF)
+        preproc.get_node('lp_input').iterables = ('lp',
                                                     c.lowPassFreqALFF)
         preproc.get_node('fwhm_input').iterables = ('fwhm',
                                                     c.fwhm)
@@ -272,16 +272,16 @@ def get_workflow(wf_name, c):
 
         preproc = create_nuisance_preproc()
         preproc.inputs.selector_input.selector = c.Corrections
-        preproc.inputs.nc_input.nc = c.ncomponents
+        preproc.inputs.nc_input.nc = c.nComponents
         preproc.inputs.target_angle_deg_input.target_angle_deg = \
-                                            c.target_angle_deg
+                                            c.targetAngleDeg
 
         preproc.get_node('selector_input').iterables = \
                                             ('selector', c.Corrections)
         preproc.get_node('nc_input').iterables = \
-                                            ('nc', c.ncomponents)
+                                            ('nc', c.nComponents)
         preproc.get_node('target_angle_deg_input').iterables = \
-                                ('target_angle_deg', c.target_angle_deg)
+                                ('target_angle_deg', c.targetAngleDeg)
 
         return preproc
 
@@ -303,22 +303,22 @@ def get_workflow(wf_name, c):
                                 c.nuisanceLowPassFilter)
         if c.nuisanceHighPassFilter:
             preproc.inputs.hp_input.hp = \
-                    c.nuisanceHighPassLowCutOff
+                    c.nuisanceHighFreqLowCutOff
             preproc.get_node('hp_input').iterables = \
-                ('hp', c.nuisanceHighPassLowCutOff)
+                ('hp', c.nuisanceHighFreqLowCutOff)
 
         if c.nuisanceLowPassFilter:
             preproc.inputs.lp_input.lp = \
-                    c.nuisanceLowPassHighCutOff
+                    c.nuisanceLowFreqHighCutOff
             preproc.get_node('lp_input').iterables = \
-                    ('lp', c.nuisanceLowPassHighCutOff)
+                    ('lp', c.nuisanceLowFreqHighCutOff)
 
         return preproc
 
 
     if wf_name.lower() == 'ts':
 
-        preproc = create_timeseries_preproc(True, True, True, c.runSurfaceRegistraion[0])
+        preproc = create_timeseries_preproc(True, True, True, c.runSurfaceRegistraion)
         preproc.inputs.inputspec.recon_subjects = c.reconSubjectsDirectory
         preproc.inputs.inputspec.standard = standard
         preproc.inputs.inputspec.identity_matrix = identity_matrix
@@ -329,9 +329,11 @@ def get_workflow(wf_name, c):
 
     if wf_name.lower() == 'group_analysis':
 
-        preproc = create_group_analysis(c.f_test)
-        preproc.inputs.inputspec.z_threshold = c.z_threshold
-        preproc.inputs.inputspec.p_threshold = c.p_threshold
+        preproc = create_group_analysis(c.fTest)
+        preproc.inputs.inputspec.z_threshold = c.zThreshold
+        preproc.inputs.inputspec.p_threshold = c.pThreshold
+        preproc.inputs.inputspec.parameters = (c.FSLDIR,
+                                               c.MNI)
         return preproc
 
 
@@ -339,8 +341,8 @@ def prep_workflow(c):
 
     wfname = 'resting_preproc'
     workflow = pe.Workflow(name=wfname)
-    workflow.base_dir = c.working_dir
-    workflow.crash_dir = c.crash_dir
+    workflow.base_dir = c.workingDirectory
+    workflow.crash_dir = c.crashLogDirectory
     workflow.config['execution'] = {'hash_method': 'timestamp'}
 
     sublist, rest_session_list, anat_session_list, seed_list = \
@@ -356,11 +358,11 @@ def prep_workflow(c):
     flowAnatFunc = create_anat_func_dataflow(sublist,
                                               rest_session_list,
                                               anat_session_list,
-                                              c.subj_dir,
-                                              c.anat_template,
-                                              c.func_template,
-                                              c.anat_template_list,
-                                              c.func_template_list)
+                                              c.subjectDirectory,
+                                              c.anatTemplate,
+                                              c.funcTemplate,
+                                              c.anatTemplateList,
+                                              c.funcTemplateList)
 
 
     """
@@ -368,13 +370,13 @@ def prep_workflow(c):
     """
 #    modelist, dervlist, template_dict, template_args = getGroupAnalysisInputs(c)
 
-#    gp_flow = create_gp_dataflow(c.sink_dir, modelist,
+#    gp_flow = create_gp_dataflow(c.sinkDirectory, modelist,
 #                                 dervlist, template_dict,
 #                                 template_args, 'gpflow')
     """
         grab the seeds data
     """
-    seedFlow = create_seed_dataflow(c.seed_file)
+    seedFlow = create_seed_dataflow(c.seedFile)
 
     """
         grab parcellation data for time series extraction
@@ -386,8 +388,6 @@ def prep_workflow(c):
     """
     mflow = create_mask_dataflow(c.voxelMasksDirectory)
 
-    #modelist, seedlist = getModelandSeedList(c)
-    #gp_flow = create_gp_dataflow(c.base_dir, modelist, seedlist, 'gpflow')
     """
         Define workflows and set parameters
     """
@@ -583,14 +583,14 @@ def prep_workflow(c):
 #                 gppreproc, 'inputspec.zmap_files')
 
 
-#    gp_datasink=create_gp_datasink(c.sink_dir)
+#    gp_datasink=create_gp_datasink(c.sinkDirectory)
 #    workflow.connect(gp_flow, 'inputnode.derivative', gp_datasink, 'container')
 
 
     """
         Calling datasink
     """
-    datasink = create_datasink(c.sink_dir)
+    datasink = create_datasink(c.sinkDirectory)
     workflow.connect(flowAnatFunc, 'inputnode.subject_id',
     datasink, 'container')
     anat_sink(workflow,
@@ -616,7 +616,7 @@ def prep_workflow(c):
 #    timeseries_sink(workflow,
 #                    datasink,
 #                    tspreproc,
-#                    c.runSurfaceRegistraion[0])
+#                    c.runSurfaceRegistraion)
     sca_sink(workflow,
              datasink,
              scapreproc)
@@ -626,14 +626,14 @@ def prep_workflow(c):
 
 #    group_analysis_sink(workflow, gp_datasink, gppreproc)
 
-    if(not c.run_on_grid):
+    if(not c.runOnGrid):
         workflow.run(plugin='MultiProc',
-                     plugin_args={'n_procs': c.num_cores})
+                     plugin_args={'n_procs': c.numCores})
     else:
         workflow.run(plugin='SGE',
-                     plugin_args=dict(qsub_args=c.qsub_args))
+                     plugin_args=dict(qsub_args=c.qsubArgs))
 
-    workflow.write_graph(graph2use='orig')
+    workflow.write_graph()
 
 
 def main():

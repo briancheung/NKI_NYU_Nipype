@@ -2,13 +2,13 @@ import e_afni
 import nipype.pipeline.engine as pe
 import nipype.interfaces.utility as util
 
-#def reho_statistic_filter(lfo, tied):
-#
-#    import nibabel as nb
-#    import numpy as np
-#
-#    V = np.pad(lfo, ((1, 1), (1, 1), (1, 1), (0, 0)), 'edge')
-#
+def reho_statistic_filter(lfo, tied):
+
+    import nibabel as nb
+    import numpy as np
+
+    V = np.pad(lfo, ((1, 1), (1, 1), (1, 1), (0, 0)), 'edge')
+
 
 
 def getStartIdx(in_file):
@@ -506,16 +506,17 @@ def mean_roi_signal(data_volume, roi_mask):
     return Yc.mean(1)
 
 
-def get_standard_background_img(in_file):
+def get_standard_background_img(in_file, file_parameters):
     import os
-
     from nibabel import load
     img = load(in_file)
     hdr = img.get_header()
     group_mm = int(hdr.get_zooms()[2])
-    path = '/usr/share/fsl/4.1' + '/data/standard/MNI152_T1_%smm_brain.nii.gz' % (group_mm)
+    FSLDIR, MNI = file_parameters
+    print "gorup_mm -> ", group_mm
+    path = FSLDIR + '/data/standard/' + MNI +'_T1_%smm_brain.nii.gz' % (group_mm)
+    print "path ->", path
     return os.path.abspath(path)
-
 
 def get_nvols(in_file):
 

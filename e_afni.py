@@ -520,7 +520,6 @@ class ThreedAutomask(AFNICommand):
 For complete details, see the `3dAutomask Documentation.
 <http://afni.nimh.nih.gov/pub/dist/doc/program_help/3dAutomask.html>`_
 """
-    import os
 
     _cmd = '3dAutomask'
     input_spec = ThreedAutomaskInputSpec
@@ -533,13 +532,11 @@ For complete details, see the `3dAutomask Documentation.
         if  name == 'head_file':
             _, fname, ext = split_filename(self.inputs.in_file)
             fname = os.path.basename(fname)
-            self.inputs.out_file= os.path.join(os.curdir, self.inputs.out_file)
             return (str(self.inputs.out_file)+ '+orig'+ '.HEAD')
 
         if  name == 'brik_file':
             _, fname, ext = split_filename(self.inputs.in_file)
             fname = os.path.basename(fname)
-            self.inputs.out_file= os.path.join(os.curdir, self.inputs.out_file)
             return (str(self.inputs.out_file)+ '+orig'+ '.BRIK')
 
 
@@ -622,21 +619,17 @@ For complete details, see the `3dvolreg Documentation.
 
     def _gen_filename(self, name):
         """Generate output file name
-"""     
-        import os
+"""
         if name == 'out_file':
             _, fname, ext = split_filename(self.inputs.in_file)
-            fname=os.path.join(os.curdir, fname)
             return (fname+ '_3dv'+ext)
 
         if name == 'oned_file':
             _, fname, ext = split_filename(self.inputs.in_file)
-            fname=os.path.join(os.curdir, fname)
             return (fname+ '_3dv1D'+'.1D')
 
         if name == 'md1d_file':
             _, fname, ext = split_filename(self.inputs.in_file)
-            fname=os.path.join(os.curdir, fname)
             return (fname+ '_3dvmd1D'+'.1D')
 
     def _list_outputs(self):
@@ -938,7 +931,6 @@ class ThreedSkullStrip(AFNICommandGenFile):
 
         if not isdefined(out_file) and isdefined(self.inputs.in_file):
             out_file = self._gen_fname(self.inputs.in_file, suffix="_surf")
-            #os.path.abspath(self._gen_filename('out_file'))
             #out_file = self._gen_fname(self.inputs.in_file, suffix="_surf")
         return out_file
 
