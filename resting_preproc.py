@@ -42,10 +42,16 @@ def getSubjectAndSeedLists(c):
         flines = open(fname, 'r').readlines()
         return [fline.rstrip('\r\n') for fline in flines]
 
-    return get_list(c.subjectList),\
-                    get_list(c.funcSessionFile),\
-                    get_list(c.anatSessionFile),\
-                    get_list(c.seedFile)
+    if c.derivatives[1]:
+        return get_list(c.subjectList),\
+                       get_list(c.funcSessionFile),\
+                       get_list(c.anatSessionFile),\
+                       get_list(c.seedFile)
+    else:
+        return get_list(c.subjectList),\
+                       get_list(c.funcSessionFile),\
+                       get_list(c.anatSessionFile),\
+                       []
 
 
 def get_seed_list(seed_file):
