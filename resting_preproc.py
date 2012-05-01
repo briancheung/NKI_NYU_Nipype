@@ -42,16 +42,42 @@ def getSubjectAndSeedLists(c):
         flines = open(fname, 'r').readlines()
         return [fline.rstrip('\r\n') for fline in flines]
 
-    if c.derivatives[1]:
-        return get_list(c.subjectList),\
-                       get_list(c.funcSessionFile),\
-                       get_list(c.anatSessionFile),\
-                       get_list(c.seedFile)
+    def remove_subjects(sub_list, ex_sub_list):
+
+        for sub in ex_sub_list:
+            sub_list.remove(sub)
+
+        return sub_list
+
+    sublist = None
+    func_session_list = None
+    anat_session_list = None
+
+    if c.subjectList is None:
+        import commands
+        commands.getoutput('ls -1 %s/ > CPAC_SUB_Auto.txt' % (c.subjectDirectory))
+
+        sublist = get_list('CPAC_SUB_Auto.txt')
+        commands.getoutput('rm -f CPAC_SUB_Auto.txt')
     else:
-        return get_list(c.subjectList),\
-                       get_list(c.funcSessionFile),\
-                       get_list(c.anatSessionFile),\
-                       []
+        sublist = get_list(c.subjectList)
+
+    if not c.exclusionSubjectList is None:
+            ex_sub_list = get_list(c.exclusionSubjectList)
+            remove_subjects(sublist, ex_sub_list)
+
+    func_session_list = get_list(c.funcSessionFile)
+    anat_session_list = get_list(c.anatSessionFile)
+    if c.derivatives[1]:
+        return sublist,\
+               func_session_list,\
+               anat_session_list,\
+               get_list(c.seedFile)
+    else:
+        return sublist,\
+               func_session_list,\
+               anat_session_list,\
+               []
 
 
 def get_seed_list(seed_file):

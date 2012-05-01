@@ -54,17 +54,23 @@ crashLogDirectory = '/home/ssikka/nki_nyu_pipeline/crash'
             /data/projects/ADHD200/usable/0010001
             /data/projects/ADHD200/usable/0010002
     	subjectDirectory : '/data/projects/ADHD200/usable'
-    	subjectList : Full path to the file that contains subject numbers, one per line.
-
+    	subjectList(Optional): Full path to the file that contains subject numbers, one per line.
+		exclusionSubjectList(Optional) : File containing subjects which should be left unprocessed.
     	For Ex: subjectList : '/data/projects/ADHD200/docs/subjects.txt'
 
     	$ cat subjects.txt
     		0010001
     		0010002
+		$ cat 
+
+		Note: When subjectList is set to None, all the subjects in the subject directory, except the ones in
+			  exclusionSubjectList are processed
+
 """
 subjectDirectory = '/home/ssikka/nki_nyu_pipeline/data'
-subjectList = '/home/ssikka/nki_nyu_pipeline/data/subjects.txt'
-
+#subjectList = '/home/ssikka/nki_nyu_pipeline/data/subjects.txt'
+subjectList = None
+exclusionSubjectList = '/home/ssikka/nki_nyu_pipeline/exclude.txt'
 
 """
 		Anatomical File Name and Location within Subject Directory
@@ -313,7 +319,7 @@ nuisanceLowFreqHighCutOff = [0.1]
 		-Vertices Extraction
 		-FSL Group Analysis: http://www.fmrib.ox.ac.uk/fsl/feat5/detail.html#higher
 """
-derivatives = [True, True, True, True, False, False, False]
+derivatives = [True, True, True, False, False, False, False]
 
 
 """
