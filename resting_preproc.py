@@ -365,28 +365,33 @@ def prep_workflow(c):
                                               c.funcTemplateList)
 
 
-    """
-        grab the Group Analysis Data 
-    """
-#    modelist, dervlist, template_dict, template_args = getGroupAnalysisInputs(c)
+    if c.derivatives[6]:
+        """
+            grab the Group Analysis Data 
+        """
+        modelist, dervlist, template_dict, template_args = getGroupAnalysisInputs(c)
 
-#    gp_flow = create_gp_dataflow(c.sinkDirectory, modelist,
-#                                 dervlist, template_dict,
-#                                 template_args, 'gpflow')
-    """
-        grab the seeds data
-    """
-    seedFlow = create_seed_dataflow(c.seedFile)
+        gp_flow = create_gp_dataflow(c.sinkDirectory, modelist,
+                                     dervlist, template_dict,
+                                     template_args, 'gpflow')
 
-    """
-        grab parcellation data for time series extraction
-    """
-    pflow = create_parc_dataflow(c.unitDefinitionsDirectory)
+    if c.derivatives[1]:
+        """
+            grab the seeds data
+        """
+        seedFlow = create_seed_dataflow(c.seedFile)
 
-    """
-        grab mask data for time series extraction
-    """
-    mflow = create_mask_dataflow(c.voxelMasksDirectory)
+    if c.derivatives[4]:
+        """
+            grab parcellation data for time series extraction
+        """
+        pflow = create_parc_dataflow(c.unitDefinitionsDirectory)
+
+    if c.derivatives[5]:
+        """
+            grab mask data for time series extraction
+        """
+        mflow = create_mask_dataflow(c.voxelMasksDirectory)
 
     """
         Define workflows and set parameters
@@ -401,11 +406,27 @@ def prep_workflow(c):
     mprage_mni = get_workflow('mprage_in_mnioutputs', c)
     func_in_mni = get_workflow('func_in_mnioutputs', c)
     freq_filter = get_workflow('freq_filter', c)
-    alffpreproc = get_workflow('alff', c)
-    scapreproc = get_workflow('sca', c)
-    vmhcpreproc = get_workflow('vmhc', c)
-    tspreproc = get_workflow('ts', c)
-#    gppreproc = get_workflow('group_analysis', c)
+
+    if c.derivatives[0]:
+        alffpreproc = get_workflow('alff', c)
+
+    if c.derivatives[1]:
+        scapreproc = get_workflow('sca', c)
+
+    if c.derivatives[2]:
+        vmhcpreproc = get_workflow('vmhc', c)
+
+    if c.derivatives[4] or c.derivatives[5]:
+        tspreproc = get_workflow('ts', c)
+
+    if c.derivatives[6]:
+        gppreproc = get_workflow('group_analysis', c)
+    """
+        Calling datasink
+    """
+    datasink = create_datasink(c.sinkDirectory)
+    workflow.connect(flowAnatFunc, 'inputnode.subject_id',
+    datasink, 'container')
     """
         Make Connections
     """
@@ -494,105 +515,7 @@ def prep_workflow(c):
     workflow.connect(nuisancepreproc, 'outputspec.residual_file',
                      func_in_mni, 'inputspec.residual_file')
 
-    """
-        ALFF/fALFF
-    """
-    workflow.connect(nuisancepreproc, 'outputspec.residual_file',
-                     alffpreproc, 'inputspec.rest_res')
-    workflow.connect(funcpreproc, 'outputspec.preprocessed_mask',
-                     alffpreproc, 'inputspec.rest_mask')
-    workflow.connect(func_in_mni, 'outputspec.preprocessed_mask_mni',
-                     alffpreproc, 'inputspec.rest_mask2standard')
-    workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
-                     alffpreproc, 'inputspec.premat')
-    workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
-                     alffpreproc, 'inputspec.fieldcoeff_file')
 
-    """
-        SCA (Seed Based Correlation Analysis)
-    """
-    workflow.connect(seedFlow, 'out_file',
-                     scapreproc, 'seed_list_input.seed_list')
-    workflow.connect(funcpreproc, 'outputspec.example_func',
-                     scapreproc, 'inputspec.ref')
-    workflow.connect(regpreproc, 'outputspec.stand2highres_warp',
-                     scapreproc, 'inputspec.warp')
-    workflow.connect(regpreproc, 'outputspec.highres2example_func_mat',
-                     scapreproc, 'inputspec.postmat')
-    workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
-                     scapreproc, 'inputspec.premat')
-
-    if(c.nuisanceLowPassFilter or c.nuisanceHighPassFilter):
-        workflow.connect(freq_filter, 'outputspec.rest_res_filt',
-                         scapreproc, 'inputspec.rest_res_filt')
-    else:
-        workflow.connect(nuisancepreproc, 'outputspec.residual_file',
-                        scapreproc, 'inputspec.rest_res_filt')
-
-    workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
-                     scapreproc, 'inputspec.fieldcoeff_file')
-    workflow.connect(func_in_mni, 'outputspec.preprocessed_mask_mni',
-                     scapreproc, 'inputspec.rest_mask2standard')
-
-    """
-        VMHC (Voxel-Mirrored Homotopic Connectivity)
-    """
-    workflow.connect(nuisancepreproc, 'outputspec.residual_file',
-                     vmhcpreproc, 'inputspec.rest_res')
-    workflow.connect(anatpreproc, 'outputspec.reorient',
-                     vmhcpreproc, 'inputspec.reorient')
-    workflow.connect(anatpreproc, 'outputspec.brain',
-                     vmhcpreproc, 'inputspec.brain')
-    workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
-                     vmhcpreproc, 'inputspec.example_func2highres_mat')
-
-    """
-        Time Series Extraction, Voxel Based and Vertices based
-        Generates CSV and NUMPY files
-    """
-    #timeseries preproc
-#    workflow.connect(anatpreproc, 'outputspec.brain',
-#                     tspreproc, 'inputspec.brain')
-#    workflow.connect(anatpreproc, 'outputspec.reorient',
-#                     tspreproc, 'inputspec.reorient')
-#    workflow.connect(funcpreproc, 'outputspec.motion_correct',
-#                     tspreproc, 'inputspec.motion_correct')
-#    workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
-#                     tspreproc, 'inputspec.warp_file')
-#    workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
-#                     tspreproc, 'inputspec.premat')
-#
-#    workflow.connect(pflow, 'out_file',
-#                     tspreproc, 'getparc.parcelations')
-#    workflow.connect(mflow, 'out_file',
-#                     tspreproc, 'getmask.masks')
-
-    """
-        FSL Group Analysis
-    """
-
-#    workflow.connect(gp_flow, 'gpflow.mat',
-#                 gppreproc, 'inputspec.mat_file')
-#    workflow.connect(gp_flow, 'gpflow.con',
-#                 gppreproc, 'inputspec.con_file')
-#    workflow.connect(gp_flow, 'gpflow.fts',
-#                 gppreproc, 'inputspec.fts_file')
-#    workflow.connect(gp_flow, 'gpflow.grp',
-#                 gppreproc, 'inputspec.grp_file')
-#    workflow.connect(gp_flow, 'gpflow.derv',
-#                 gppreproc, 'inputspec.zmap_files')
-
-
-#    gp_datasink=create_gp_datasink(c.sinkDirectory)
-#    workflow.connect(gp_flow, 'inputnode.derivative', gp_datasink, 'container')
-
-
-    """
-        Calling datasink
-    """
-    datasink = create_datasink(c.sinkDirectory)
-    workflow.connect(flowAnatFunc, 'inputnode.subject_id',
-    datasink, 'container')
     anat_sink(workflow,
               datasink,
               mprage_mni)
@@ -607,24 +530,122 @@ def prep_workflow(c):
              datasink,
              segpreproc,
              mprage_mni)
-    nuisance_sink(workflow,
-                  datasink,
-                  nuisancepreproc)
     scrubbing_sink(workflow,
                    datasink,
                    scpreproc)
-#    timeseries_sink(workflow,
-#                    datasink,
-#                    tspreproc,
-#                    c.runSurfaceRegistraion)
-    sca_sink(workflow,
-             datasink,
-             scapreproc)
-    alff_sink(workflow,
-              datasink,
-              alffpreproc)
+    nuisance_sink(workflow,
+                  datasink,
+                  nuisancepreproc)
 
-#    group_analysis_sink(workflow, gp_datasink, gppreproc)
+    if c.derivatives[0]:
+        """
+                ALFF/fALFF
+        """
+        workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+                         alffpreproc, 'inputspec.rest_res')
+        workflow.connect(funcpreproc, 'outputspec.preprocessed_mask',
+                         alffpreproc, 'inputspec.rest_mask')
+        workflow.connect(func_in_mni, 'outputspec.preprocessed_mask_mni',
+                         alffpreproc, 'inputspec.rest_mask2standard')
+        workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
+                         alffpreproc, 'inputspec.premat')
+        workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
+                         alffpreproc, 'inputspec.fieldcoeff_file')
+        alff_sink(workflow,
+                  datasink,
+                  alffpreproc)
+
+
+    if c.derivatives[1]:
+        """
+            SCA (Seed Based Correlation Analysis)
+        """
+        workflow.connect(seedFlow, 'out_file',
+                         scapreproc, 'seed_list_input.seed_list')
+        workflow.connect(funcpreproc, 'outputspec.example_func',
+                         scapreproc, 'inputspec.ref')
+        workflow.connect(regpreproc, 'outputspec.stand2highres_warp',
+                         scapreproc, 'inputspec.warp')
+        workflow.connect(regpreproc, 'outputspec.highres2example_func_mat',
+                         scapreproc, 'inputspec.postmat')
+        workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
+                         scapreproc, 'inputspec.premat')
+
+        if(c.nuisanceLowPassFilter or c.nuisanceHighPassFilter):
+            workflow.connect(freq_filter, 'outputspec.rest_res_filt',
+                             scapreproc, 'inputspec.rest_res_filt')
+        else:
+            workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+                             scapreproc, 'inputspec.rest_res_filt')
+
+        workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
+                         scapreproc, 'inputspec.fieldcoeff_file')
+        workflow.connect(func_in_mni, 'outputspec.preprocessed_mask_mni',
+                         scapreproc, 'inputspec.rest_mask2standard')
+        sca_sink(workflow,
+                 datasink,
+                 scapreproc)
+
+
+    if c.derivatives[2]:
+        """
+            VMHC (Voxel-Mirrored Homotopic Connectivity)
+        """
+        workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+                         vmhcpreproc, 'inputspec.rest_res')
+        workflow.connect(anatpreproc, 'outputspec.reorient',
+                         vmhcpreproc, 'inputspec.reorient')
+        workflow.connect(anatpreproc, 'outputspec.brain',
+                         vmhcpreproc, 'inputspec.brain')
+        workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
+                         vmhcpreproc, 'inputspec.example_func2highres_mat')
+
+    """
+        Time Series Extraction, Voxel Based and Vertices based
+        Generates CSV and NUMPY files
+    """
+
+    if c.derivatives[4] or c.derivatives[5]:
+        workflow.connect(anatpreproc, 'outputspec.brain',
+                         tspreproc, 'inputspec.brain')
+        workflow.connect(anatpreproc, 'outputspec.reorient',
+                         tspreproc, 'inputspec.reorient')
+        workflow.connect(funcpreproc, 'outputspec.motion_correct',
+                         tspreproc, 'inputspec.motion_correct')
+        workflow.connect(regpreproc, 'outputspec.highres2standard_warp',
+                         tspreproc, 'inputspec.warp_file')
+        workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
+                         tspreproc, 'inputspec.premat')
+
+        workflow.connect(pflow, 'out_file',
+                         tspreproc, 'getparc.parcelations')
+        workflow.connect(mflow, 'out_file',
+                         tspreproc, 'getmask.masks')
+
+        timeseries_sink(workflow,
+                        datasink,
+                        tspreproc,
+                        c.runSurfaceRegistraion)
+
+    """
+        FSL Group Analysis
+    """
+    if c.derivatives[6]:
+        workflow.connect(gp_flow, 'gpflow.mat',
+                     gppreproc, 'inputspec.mat_file')
+        workflow.connect(gp_flow, 'gpflow.con',
+                     gppreproc, 'inputspec.con_file')
+        workflow.connect(gp_flow, 'gpflow.fts',
+                     gppreproc, 'inputspec.fts_file')
+        workflow.connect(gp_flow, 'gpflow.grp',
+                     gppreproc, 'inputspec.grp_file')
+        workflow.connect(gp_flow, 'gpflow.derv',
+                     gppreproc, 'inputspec.zmap_files')
+
+
+        gp_datasink = create_gp_datasink(c.sinkDirectory)
+        workflow.connect(gp_flow, 'inputnode.derivative', gp_datasink, 'container')
+        group_analysis_sink(workflow, gp_datasink, gppreproc)
 
     if(not c.runOnGrid):
         workflow.run(plugin='MultiProc',

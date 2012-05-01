@@ -42,6 +42,8 @@ def func_sink(workflow, datasink, funcpreproc, func_in_mni):
                     'func_rename', 'rest_mc.1D'),
                    (funcpreproc, 'outputspec.max_displacement',
                     'func_rename', 'rest_maxdisp.1D'),
+                   (funcpreproc, 'outputspec.preprocessed',
+                    'func_rename', 'rest_pp.nii.gz'),
                    (func_in_mni, 'outputspec.preprocessed_mask_mni',
                     'func_rename', 'rest_pp_mask.nii.gz')]
     rename_connections(workflow, datasink, rename_list, 'func')
