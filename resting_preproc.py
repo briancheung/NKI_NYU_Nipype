@@ -28,6 +28,7 @@ from sink import (anat_sink,
                   scrubbing_sink,
                   sca_sink,
                   alff_sink,
+                  vmhc_sink,
                   timeseries_sink,
                   group_analysis_sink)
 
@@ -631,6 +632,10 @@ def prep_workflow(c):
                          vmhcpreproc, 'inputspec.brain')
         workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
                          vmhcpreproc, 'inputspec.example_func2highres_mat')
+
+        vmhc_sink(workflow,
+                  datasink,
+                  vmhcpreproc)
 
     """
         Time Series Extraction, Voxel Based and Vertices based
