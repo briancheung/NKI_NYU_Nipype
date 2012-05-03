@@ -179,6 +179,13 @@ def alff_sink(workflow, datasink, alffpreproc):
     rename_connections(workflow, datasink, rename_list, 'alff')
 
 
+def vmhc_sink(workflow, datasink, vmhcpreproc):
+    rename_list = [(vmhcpreproc, 'outputspec.VMHC_img', 'vmhc_rename', 'VMHC.nii.gz'),
+                   (vmhcpreproc, 'outputspec.VMHC_Z_img', 'vmhc_rename', 'VMHC_Z.nii.gz'),
+                   (vmhcpreproc, 'outputspec.VMHC_Z_stat_img', 'vmhc_rename', 'VMHC_Z_stat.nii.gz')]
+    rename_connections(workflow, datasink, rename_list, 'vmhc')
+
+
 def timeseries_sink(workflow, datasink, tspreproc, runSurfaceRegistration):
 
     rename_list = [(tspreproc, 'outputspec.mask_outputs'),
