@@ -1225,6 +1225,7 @@ class ThreedcalcInputSpec(CommandLineInputSpec):
                       mandatory=True)
     out_file = File(desc='output file from 3dFourier', argstr='-prefix %s',
                     position=-1, genfile=True)
+    list_idx = traits.List(desc='list of time points')
     start_idx = traits.Int(desc='start index for infile_a',
                            requires=['stop_idx'])
     stop_idx = traits.Int(desc='stop index for infile_a',
@@ -1254,7 +1255,6 @@ For complete details, see the `3dcalc Documentation.
 
     def _list_outputs(self):
         import sys
-        print 'inside list outputs >>>'
         outputs = self.output_spec().get()
         if not isdefined(self.inputs.out_file):
             outputs['out_file'] = os.path.abspath(self._gen_filename('out_file'))
@@ -1277,6 +1277,11 @@ For complete details, see the `3dcalc Documentation.
                 arg += '[%d..%d]' % (self.inputs.start_idx, self.inputs.stop_idx)
             if isdefined(self.inputs.single_idx):
                 arg += '[%d]' % (self.inputs.single_idx)
+            if isdefined(self.inputs.list_idx):
+                import re
+                lst = ''.join(str(self.inputs.list_idx))
+                lst = re.sub(' ', '', lst)
+                arg += '%s' % (lst)
             return arg
 
 
@@ -1300,7 +1305,6 @@ For complete details, see the `3dcalc Documentation.
         """
         import tempfile
         import commands
-        print '>>>', name
         if name == 'out_file':
             _, fname, ext = split_filename(self.inputs.infile_a)
             #d_name = tempfile.mkdtemp()
