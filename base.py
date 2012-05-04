@@ -827,6 +827,7 @@ def create_seg_preproc():
     return preproc
 
 
+
 def create_scrubbing_preproc():
 
 
@@ -929,7 +930,7 @@ def create_scrubbing_preproc():
     sc_calc3.inputs.out_file = 'raw_sq'
 
     sc_calc_scrub = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc_scrub',
-                               iterfield=["infile_a", "start_idx", "stop_idx"] )
+                               iterfield=["infile_a", "list_idx"] )
     sc_calc_scrub.inputs.expr = '\'a\''
 
     sc_automask = pe.MapNode(interface=e_afni.ThreedAutomask(), name='sc_automask', iterfield=["in_file"])
@@ -1007,8 +1008,7 @@ def create_scrubbing_preproc():
     sc.connect(sc_createSC, 'out_file', sc_FramesIN, 'in_file')
 
     sc.connect(inputNode, 'preprocessed', sc_calc_scrub, 'infile_a')
-    sc.connect(sc_FramesIN, ('out_file', getStartIdx), sc_calc_scrub, 'start_idx')
-    sc.connect(sc_FramesIN, ('out_file', getStopIdx), sc_calc_scrub, 'stop_idx')
+    sc.connect(sc_FramesIN, ('out_file', getIndx), sc_calc_scrub, 'list_idx')
 
     sc.connect(inputNode, 'movement_parameters', sc_ScrubbedMotion, 'infile_b')
     sc.connect(sc_FramesInList, 'out_file', sc_ScrubbedMotion, 'infile_a' )
@@ -1034,6 +1034,7 @@ def create_scrubbing_preproc():
     sc.connect(sc_ScrubbedMotion, 'out_file', outputNode, 'scrubbed_movement_parameters')
 
     return sc
+
 
 
 def create_vmhc_preproc():

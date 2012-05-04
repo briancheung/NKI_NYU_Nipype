@@ -9,6 +9,27 @@ def reho_statistic_filter(lfo, tied):
 
     V = np.pad(lfo, ((1, 1), (1, 1), (1, 1), (0, 0)), 'edge')
 
+def getIndx(in_file):
+
+       indx = []
+
+       if(isinstance(in_file, list)):
+               for file in in_file:
+                       f = open(file, 'r')
+                       line = f.readline()
+                       line = line.strip(',')
+                       indx.append(map(int, line.split(",")))
+                       f.close()
+               print "indx ", indx
+               return indx
+       else:
+            f = open(file, 'r')
+            line = f.readline()
+            line = line.strip(',')
+            indx.append(map(int, line.split(",")))
+            f.close()
+            print "indx in else", indx
+            return indx
 
 
 def getStartIdx(in_file):
