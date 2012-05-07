@@ -536,6 +536,18 @@ def prep_workflow(c):
         workflow.connect(nuisancepreproc, 'outputspec.residual_file',
                          freq_filter, 'inputspec.in_file')
 
+        import nipype.interfaces.fsl as fsl
+        from utils import set_gauss
+        smooth = pe.MapNode(interface=fsl.MultiImageMaths(),
+                            name='smooth_preproc',
+                            iterfield=['in_file',
+                                       'operand_files'])
+        smooth.inputs.op_string = set_gauss(c.fwhm[0])
+        workflow.connect(freq_filter, 'outputspec.rest_res_filt',
+                         smooth, 'in_file')
+        workflow.connect(funcpreproc, 'outputspec.preprocessed_mask',
+                         smooth, 'operand_files')
+
     """
         Get Func outputs in MNI
     """
