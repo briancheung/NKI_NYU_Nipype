@@ -318,7 +318,7 @@ nuisanceLowFreqHighCutOff = [0.1]
 		-Vertices Extraction
 		-FSL Group Analysis: http://www.fmrib.ox.ac.uk/fsl/feat5/detail.html#higher
 """
-derivatives = [True, True, True, False, False, False, False]
+derivatives = [False, False, False, False, False, False, False]
 
 
 """
