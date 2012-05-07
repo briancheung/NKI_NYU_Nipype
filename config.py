@@ -18,7 +18,7 @@
 """
 runOnGrid = False
 qsubArgs = '-q all.q'
-numCores = 8
+numCores = 20
 
 
 """
@@ -36,12 +36,12 @@ numCores = 8
 		It is recommended to delete this directory once the pipeline completes execution.
 
 """
-workingDirectory = '/home/ssikka/nki_nyu_pipeline/working_dir/'
+workingDirectory = '/home/data/Projects/nuisance_reliability_paper/working_dir_CPAC/'
 
 """
     	Crash Log Directory
 """
-crashLogDirectory = '/home/ssikka/nki_nyu_pipeline/crash'
+crashLogDirectory = '/home/data/Projects/nuisance_reliability_paper'
 
 """
 	b) Data Specifications
@@ -67,10 +67,9 @@ crashLogDirectory = '/home/ssikka/nki_nyu_pipeline/crash'
 			  exclusionSubjectList are processed
 
 """
-subjectDirectory = '/home/ssikka/nki_nyu_pipeline/data'
-#subjectList = '/home/ssikka/nki_nyu_pipeline/data/subjects.txt'
-subjectList = None
-exclusionSubjectList = '/home/ssikka/nki_nyu_pipeline/exclude.txt'
+subjectDirectory = '/home/data/Originals/NYU_TRT/'
+subjectList = '/home/data/Projects/nuisance_reliability_paper/work_lists/subject_list.txt'
+exclusionSubjectList = '/home/data/Projects/nuisance_reliability_paper/work_lists/subject_exclude.txt'
 
 """
 		Anatomical File Name and Location within Subject Directory
@@ -104,8 +103,8 @@ exclusionSubjectList = '/home/ssikka/nki_nyu_pipeline/exclude.txt'
     	anatomicalFilePath = '%s/*/*/%s.nii.gz'
 
 """
-anatTemplate = '%s/anat/%s.nii.gz'
-anatTemplateList = ['subject', 'mprage']
+anatTemplate = '%s/%s/anat/mprage_anonymized.nii.gz'
+anatTemplateList = ['session', 'subject']
 anatSessionFile = '/home/data/Projects/nuisance_reliability_paper/work_lists/session_list.txt'
 
 """
@@ -134,15 +133,15 @@ anatLogFilePath = '%s/*/*/%s'
 		Functional File Name and Location within Subject Directory
 		Note: functionalFileName substituted into functionalDirectorySetup template
 """
-funcTemplate = '%s/%s/%s.nii.gz'
-funcTemplateList = ['subject', 'session', 'rest']
-funcSessionFile = '/home/ssikka/nki_nyu_pipeline/sessions.txt'
+funcTemplate = '%s/%s/func/lfo.nii.gz'
+funcTemplateList = ['session', 'subject']
+funcSessionFile = '/home/data/Projects/nuisance_reliability_paper/work_lists/session_list.txt'
 
 
 """
     	Output Target Directory 
 """
-sinkDirectory = '/home/ssikka/nki_nyu_pipeline/data'
+sinkDirectory = '/home/data/Projects/nuisance_reliability_paper/results'
 
 
 """
@@ -159,7 +158,7 @@ FSLDIR = '/usr/share/fsl/4.1/'
 """
     	Tissue Priors Directory
 """
-priorDirectory = '/home/ssikka/nki_nyu_pipeline/tissuepriors'
+priorDirectory = '/home/data/Projects/nuisance_reliability_paper/tissuepriors'
 
 """
 3. Optional Header and Timeseries Overrides
@@ -168,9 +167,9 @@ priorDirectory = '/home/ssikka/nki_nyu_pipeline/tissuepriors'
     startIdx : starting time point(defaults to 0)
 """
 startIdx = 0
-stopIdx = 119
+stopIdx = 196
 nVols = stopIdx - startIdx + 1
-TR = 2.5
+TR = 2.0
 
 
 """
@@ -186,7 +185,7 @@ TR = 2.5
 """
 	a) MNI Template Resolution Specification For Registration
 """
-standardResolution = '2mm'
+standardResolution = '3mm'
 MNI = 'MNI152'
 
 
@@ -209,7 +208,7 @@ grayMatterThreshold = [0.2]
 	d) Scrub data prior to derivate generation: In accord with Power et al. (2012)
 	   Default value True/False or a list of True/False(if need both at the same time)
 """
-scrubData = [False, True]
+scrubData = [False]
 
 """
 	e) Nuisance Signal Correction
@@ -217,17 +216,17 @@ scrubData = [False, True]
 
 """
 			Select Desired Approach:
-				- Global mean signal regression
-				- Compcor: 				   A component based noise correction method (CompCor)
-										   for BOLD and perfusion based fMRI
-										   Yashar Behzadia, Khaled Restoma, Joy Liaua, Thomas T. Liua, , 
-										   Science Direct: Received 18 December 2006. Revised 23 April 2007.
-										   Accepted 25 April 2007.
-										   Available online 3 May 2007. 
-				- White Matter
-				- CSF regression (CSF)
-				- GRAY Matter
-				- First principal component regression:
+				0 - Global mean signal regression
+				1 - Compcor: 				   A component based noise correction method (CompCor)
+					    					   for BOLD and perfusion based fMRI
+						    				   Yashar Behzadia, Khaled Restoma, Joy Liaua, Thomas T. Liua, , 
+							    			   Science Direct: Received 18 December 2006. Revised 23 April 2007.
+								    		   Accepted 25 April 2007.
+									    	   Available online 3 May 2007. 
+				2 - White Matter
+				3 - CSF regression (CSF)
+				4 - GRAY Matter
+				5 - First principal component regression:
 										   Extracts the  principal components found in white matter and
     									   cerebral spinal fluid.  Algorithm based on:
 										   Y. Behzadi, K. Restom, J. Liau, and T. T. Liu,
@@ -235,19 +234,19 @@ scrubData = [False, True]
 										   method (CompCor) for BOLD and perfusion based fMRI.,
 										   NeuroImage, vol. 37, no. 1,
 										   pp. 90-101, Aug. 2007.
-				- Motion Regression
+				6 - Motion Regression
 
 """
 Corrections = [
-[True, False, False, False, False, False, True],
-[False, True, False, False, False, False, True]
-]
+                [6],
+                [2, 3, 6]
+              ]
 
 
 """
     f) For Compcor Use Only: Number of components to regress
 """
-nComponents = [5, 6]
+nComponents = [5]
 
 
 """
@@ -257,7 +256,7 @@ nComponents = [5, 6]
        H. He and T. T. Liu, A geometric view of global signal confounds
        in resting-state functional MRI, NeuroImage, Sep. 2011.
 """
-targetAngleDeg = [90, 60]
+targetAngleDeg = [90]
 
 
 """

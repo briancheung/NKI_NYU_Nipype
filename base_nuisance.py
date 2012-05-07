@@ -129,12 +129,17 @@ def create_filter_matrix(global_component,
                          gm_component,
                          firstprinc_component,
                          motion_components])
-    fieldnames = ['global', 'compcor', 'wm',
-                    'csf', 'gm', 'firstprinc', 'motion']
+    fieldnames = np.array(['global',
+                           'compcor',
+                           'wm',
+                           'csf',
+                           'gm',
+                           'firstprinc',
+                           'motion'])
 
     selector = np.array(selector)  # Use selector as an index mask
     #Grab component filenames of according to selector
-    filenames = [fieldnames[i] for i, val in enumerate(selector) if val]
+    filenames = fieldnames[selector]
     filter_file = os.path.abspath('filter_%s.txt' % '_'.join(filenames))
 
     z = None
