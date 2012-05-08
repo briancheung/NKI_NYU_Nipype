@@ -2,6 +2,22 @@ import nipype.pipeline.engine as pe
 import nipype.interfaces.fsl as fsl
 import nipype.interfaces.utility as util
 
+def linear_detrend_voxels(realigned_file):
+    import os
+    import nibabel as nb
+    import numpy as np
+    from scipy.signal import detrend
+    
+    nii = nb.load(realigned_file)
+    data = nii.get_data().astype('float64')
+    mask = (data != 0).sum(-1) != 0
+    Y = detrend(data[mask], axis=1, type='linear').T
+    data[mask] = Y.T
+    img = nb.Nifti1Image(data, header=nii.get_header(), affine=nii.get_affine())
+    detrended_file = os.path.join(os.getcwd(), 'linear_detrended.nii.gz')
+    img.to_filename(detrended_file)
+    
+    return detrended_file
 
 def extract_compcor_components(nc,
                                realigned_file,
@@ -258,6 +274,12 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                              fields=['target_angle_deg']),
                              name='target_angle_deg_input')
 
+    linear_detrend = pe.MapNode(util.Function(input_names=['realigned_file'],
+                                              output_names=['detrended_file'],
+                                              function=linear_detrend_voxels),
+                                              name='linear_detrend',
+                                              iterfield=['realigned_file'])
+
     median_angle = pe.MapNode(util.Function(input_names=['target_angle_deg',
                                                          'realigned_file'],
                                             output_names=['corrected_file',
@@ -323,6 +345,8 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                               iterfield=['design_file', 'in_file'])
 
     nuisance_preproc.connect(inputspec, 'realigned_file',
+                             linear_detrend, 'realigned_file')
+    nuisance_preproc.connect(linear_detrend, 'detrended_file',
                              compcor, 'realigned_file')
     nuisance_preproc.connect(inputnode_nc, 'nc',
                              compcor, 'nc')
@@ -330,21 +354,21 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                              compcor, 'wm_mask')
     nuisance_preproc.connect(inputspec, 'csf_mask',
                              compcor, 'csf_mask')
-    nuisance_preproc.connect(inputspec, 'realigned_file',
+    nuisance_preproc.connect(linear_detrend, 'detrended_file',
                              glb_sig, 'realigned_file')
-    nuisance_preproc.connect(inputspec, 'realigned_file',
+    nuisance_preproc.connect(linear_detrend, 'detrended_file',
                              gm_sig, 'realigned_file')
     nuisance_preproc.connect(inputspec, 'gm_mask',
                              gm_sig, 'mask_file')
-    nuisance_preproc.connect(inputspec, 'realigned_file',
+    nuisance_preproc.connect(linear_detrend, 'detrended_file',
                              wm_sig, 'realigned_file')
-    nuisance_preproc.connect(inputspec, 'realigned_file',
+    nuisance_preproc.connect(linear_detrend, 'detrended_file',
                              csf_sig, 'realigned_file')
     nuisance_preproc.connect(inputspec, 'wm_mask',
                              wm_sig, 'mask_file')
     nuisance_preproc.connect(inputspec, 'csf_mask',
                              csf_sig, 'mask_file')
-    nuisance_preproc.connect(inputspec, 'realigned_file',
+    nuisance_preproc.connect(linear_detrend, 'detrended_file',
                              fp1_sig, 'realigned_file')
     nuisance_preproc.connect(glb_sig, 'global_component',
                              addoutliers, 'global_component')
@@ -364,7 +388,7 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                              addoutliers, 'selector')
     nuisance_preproc.connect(addoutliers, 'filter_file',
                              remove_noise, 'design_file')
-    nuisance_preproc.connect(inputspec, 'realigned_file',
+    nuisance_preproc.connect(linear_detrend, 'detrended_file',
                              remove_noise, 'in_file')
 
     #Median angle correction on residual file
