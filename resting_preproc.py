@@ -526,15 +526,15 @@ def prep_workflow(c):
     """
          Nuisance
     """
-    workflow.connect(select, 'outputspec.preprocessed_selector',
-                     nuisancepreproc, 'inputspec.realigned_file')
-    workflow.connect(select, 'outputspec.movement_parameters_selector',
-                     nuisancepreproc, 'inputspec.motion_components')
+#    workflow.connect(select, 'outputspec.preprocessed_selector',
+#                     nuisancepreproc, 'inputspec.realigned_file')
 
     if(c.nuisanceLowPassFilter or c.nuisanceHighPassFilter):
-
-        workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+        workflow.connect(select, 'outputspec.preprocessed_selector',
                          freq_filter, 'inputspec.in_file')
+        
+#        workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+#                         freq_filter, 'inputspec.in_file')
 
         import nipype.interfaces.fsl as fsl
         from utils import set_gauss
@@ -547,6 +547,12 @@ def prep_workflow(c):
                          smooth, 'in_file')
         workflow.connect(funcpreproc, 'outputspec.preprocessed_mask',
                          smooth, 'operand_files')
+
+    workflow.connect(select, 'outputspec.movement_parameters_selector',
+                     nuisancepreproc, 'inputspec.motion_components')
+    workflow.connect(smooth, 'out_file',
+                     nuisancepreproc, 'inputspec.realigned_file')
+
 
     """
         Get Func outputs in MNI
