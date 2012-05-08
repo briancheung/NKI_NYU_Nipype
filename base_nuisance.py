@@ -346,7 +346,7 @@ def create_nuisance_preproc(name='nuisance_preproc'):
 
     nuisance_preproc.connect(inputspec, 'realigned_file',
                              linear_detrend, 'realigned_file')
-    nuisance_preproc.connect(inputspec, 'realigned_file',
+    nuisance_preproc.connect(linear_detrend, 'detrended_file',
                              compcor, 'realigned_file')
     nuisance_preproc.connect(inputnode_nc, 'nc',
                              compcor, 'nc')
