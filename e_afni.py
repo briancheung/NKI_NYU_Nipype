@@ -622,15 +622,15 @@ For complete details, see the `3dvolreg Documentation.
 """
         if name == 'out_file':
             _, fname, ext = split_filename(self.inputs.in_file)
-            return (fname+ '_3dv'+ext)
+            return ('./' + fname+ '_3dv'+ext)
 
         if name == 'oned_file':
             _, fname, ext = split_filename(self.inputs.in_file)
-            return (fname+ '_3dv1D'+'.1D')
+            return ('./' + fname+ '_3dv1D'+'.1D')
 
         if name == 'md1d_file':
             _, fname, ext = split_filename(self.inputs.in_file)
-            return (fname+ '_3dvmd1D'+'.1D')
+            return ('./' +fname+ '_3dvmd1D'+'.1D')
 
     def _list_outputs(self):
         outputs = self.output_spec().get()

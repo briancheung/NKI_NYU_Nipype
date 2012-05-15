@@ -15,7 +15,8 @@ from utils import (create_anat_func_dataflow, create_seed_dataflow,
                     create_alff_dataflow, create_sca_dataflow,
                     create_vmhc_dataflow, selector_wf,
                     create_parc_dataflow, create_mask_dataflow,
-                    create_gp_dataflow, create_datasink)
+                    create_gp_dataflow, create_datasink,
+                    symlink_creator)
 
 from base_nuisance import create_nuisance_preproc
 
@@ -632,8 +633,15 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
         """
             VMHC (Voxel-Mirrored Homotopic Connectivity)
         """
-        workflow.connect(nuisancepreproc, 'outputspec.residual_file',
-                         vmhcpreproc, 'inputspec.rest_res')
+        if(c.nuisanceLowPassFilter or c.nuisanceHighPassFilter):
+
+            workflow.connect(freq_filter, 'outputspec.rest_res_filt',
+                             vmhcpreproc, 'inputspec.rest_res')
+
+        else:
+            workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+                             vmhcpreproc, 'inputspec.rest_res')
+
         workflow.connect(anatpreproc, 'outputspec.reorient',
                          vmhcpreproc, 'inputspec.reorient')
         workflow.connect(anatpreproc, 'outputspec.brain',
@@ -747,6 +755,8 @@ def main():
                 for p in processes[idx: len(sublist) -1]:
                     p.join()
                 idx += (len(sublist) - idx)
+
+    symlink_creator(c.sinkDirectory, sublist)
 
 
 if __name__ == "__main__":
