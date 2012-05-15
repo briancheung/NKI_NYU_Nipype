@@ -1,3 +1,4 @@
+
 import e_afni
 import nipype.pipeline.engine as pe
 import nipype.interfaces.utility as util
@@ -140,7 +141,7 @@ def createSC(in_file):
 
     cmd2 = sb.Popen(
         ['awk', '{a=$1} {b=$2} {c=$3} {x=$4} {y=$5} {z=$6} ' +
-        'NR>1{print a-d, b-e, c-f, x-u, y-v, z-w}' +
+        'NR>=1{print a-d, b-e, c-f, x-u, y-v, z-w}' +
         '{d=a} {e=b} {f=c} {u=x} {v=y} {w=z}'],
         stdin=cmd1.stdout, stdout=sb.PIPE,)
     cmd3 = sb.Popen(
@@ -164,143 +165,175 @@ def setMeanFD(infile_a, infile_b):
 
     import subprocess as sb
     import os
+    import numpy as np
+    from numpy import loadtxt
 
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
-    copycmd = sb.Popen(['cp', infile_a, out_file],
-                       stdin=sb.PIPE, stdout=sb.PIPE)
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
 
-    cmd = sb.Popen(['awk', '{a += $1} END {print a/NR}', infile_b],
-                   stdin=sb.PIPE, stdout=sb.PIPE,)
-    stdout_value, stderr_value = cmd.communicate()
+    data= loadtxt(infile_b)
+    mean  = np.mean(data)
+    print "mean ->", mean
 
-    output = stdout_value.split()
     f = open(out_file, 'a')
-
-    for out in output:
-        f.write('%.4f,' % float(out))
+    f.write('%.4f,' % mean)
 
     f.close()
 
     return out_file
 
 
-def setNumFD(infile_a, infile_b):
+def setNumFD(infile_a, infile_b, threshold):
 
     import subprocess as sb
     import os
+    from numpy import loadtxt
 
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
-
-    copycmd = sb.Popen(['cp', infile_a, out_file],
-                       stdin=sb.PIPE, stdout=sb.PIPE)
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
-
-    cmd = sb.Popen(['awk', '{ if($1>=0.5) {a += 1}} END {print a}',
-                    infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
-
-    stdout_value, stderr_value = cmd.communicate()
-    output = stdout_value.split()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
+    
+    data= loadtxt(infile_b)
+    count = float(data[data >=threshold].size)
+    print "count ->", count
 
     f = open(out_file, 'a')
-
-    for out in output:
-        f.write('%.4f,' % float(out))
+    f.write('%.4f,' % count)
 
     f.close()
+    
     return out_file
 
 
-def setPercentFD(infile_a, infile_b):
+def setPercentFD(infile_a, infile_b, threshold):
 
     import subprocess as sb
     import os
+    import numpy as np
+    from numpy import loadtxt
 
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
-
-    copycmd = sb.Popen(['cp', infile_a, out_file],
-                       stdin=sb.PIPE, stdout=sb.PIPE)
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
-
-    cmd = sb.Popen(['awk',
-                '{ if($1>=0.5) {a += 1}} END {print (a/(NR+1)*100)}',
-                infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
-    stdout_value, stderr_value = cmd.communicate()
-
-    output = stdout_value.split()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
+    
+    data= loadtxt(infile_b)
+    count = np.float(data[data>threshold].size)
+    sum = (count*100/(len(data)+1))
+    print "sum ->", sum
+    
     f = open(out_file, 'a')
-
-    for out in output:
-        f.write('%.4f,' % float(out))
+    f.write('%.4f,' %sum)
 
     f.close()
 
     return out_file
 
 
-def setFramesEx(in_file):
+def setFramesEx(in_file,threshold):
 
     import subprocess as sb
     import os
+    import numpy as np
+    from numpy import loadtxt
 
     out_file = os.path.join(os.getcwd(), 'frames_ex.1D')
-
-    cmd = sb.Popen(['awk', '{ if($1>=0.5) {print NR}}', in_file],
-                   stdin=sb.PIPE, stdout=sb.PIPE,)
-
-    stdout_value, stderr_value = cmd.communicate()
-
-    output = stdout_value.split()
+    data= loadtxt(in_file) 
+    #masking zeroth timepoint value as 0, since the mean displacment value for
+    #zeroth timepoint cannot be calculated, as there is no timepoint before it
+    data[0]=0
+    
+    extra_indices=[]
+    
+    indices=[i[0] for i in (np.argwhere(data>= threshold)).tolist()]  
+    
+    #adding addtional 2 after and one before timepoints
+    for i  in indices:
+    
+     if i>0:
+        extra_indices.append(i-1)
+        if i+1 < data.size:     
+            extra_indices.append(i+1)
+        if i+2 < data.size:
+            extra_indices.append(i+2)
+    
+    indices =list(set(indices) |  set(extra_indices))
+    
+    
     f = open(out_file, 'a')
-
-    for out in output:
-        f.write('%s,' % int(out))
+    
+    print "indices->", indices
+    for idx in indices:
+        f.write('%s,' % int(idx))
 
     f.close()
 
     return out_file
 
-
-def setFramesIN(in_file):
+def setFramesIN(in_file, threshold, exclude_list):
 
     import subprocess as sb
     import os
-
+    import numpy as np
+    from numpy import loadtxt
+    
     out_file = os.path.join(os.getcwd(), 'frames_in.1D')
 
-    cmd = sb.Popen(['awk', '{ if($1<0.5) {print NR}}', in_file],
-                   stdin=sb.PIPE, stdout=sb.PIPE,)
-
-    stdout_value, stderr_value = cmd.communicate()
-
-    output = stdout_value.split()
+    data= loadtxt(in_file)
+    #masking zeroth timepoint value as 0, since the mean displacment value for
+    #zeroth timepoint cannot be calculated, as there is no timepoint before it
+    data[0]=0
+    
+    indices=[i[0] for i in (np.argwhere(data< threshold)).tolist()]
+    
+    indx=[]
+    f = open(exclude_list, 'r')
+    line = f.readline()
+    if line:
+        line = line.strip(',')
+        indx = map(int, line.split(","))
+    f.close()
+    print indx
+    
+    if indx:
+        indices= list(set(indices) - set(indx))
+    
     f = open(out_file, 'a')
 
-    for out in output:
-        f.write('%s,' % int(out))
+    for idx in indices:
+        f.write('%s,' % int(idx))
 
     f.close()
 
     return out_file
-
 
 def setFramesInList(in_file):
 
     import subprocess as sb
     import os
+    import numpy as np
+    from numpy import loadtxt
 
-    out_file = os.path.join(os.getcwd(), 'frames_in.1D')
-
-    cmd = sb.Popen(['awk', '{ if($1<0.5) {print NR}}', in_file],
-                   stdin=sb.PIPE, stdout=sb.PIPE,)
-
-    stdout_value, stderr_value = cmd.communicate()
-
-    output = stdout_value.split()
+    out_file = os.path.join(os.getcwd(), 'frames_in_list.1D')
+    
+    indices=[]
+    f = open(in_file, 'r')
+    line = f.readline()
+    if line:
+        line = line.strip(',')
+        indices = map(int, line.split(","))
+    f.close()
+    
     f = open(out_file, 'a')
 
-    for out in output:
-        print >>f, int(out)
+    for idx in indices:
+        print >>f, int(idx)
 
     f.close()
 
@@ -311,25 +344,24 @@ def setMeanDVARS(infile_a, infile_b):
 
     import subprocess as sb
     import os
+    import numpy as np
+    from numpy import loadtxt
 
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
-    copycmd = sb.Popen(['cp', infile_a, out_file],
-                       stdin=sb.PIPE, stdout=sb.PIPE)
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
 
-    cmd = sb.Popen(['awk', '{a += $1} END {print a/NR}',
-                   infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
-
-    stdout_value, stderr_value = cmd.communicate()
-
-    output = stdout_value.split()
+    data= loadtxt(infile_b)
+    mean  = np.mean(data)
+    
     f = open(out_file, 'a')
 
-    for out in output:
-        f.write('%.4f,' % float(out))
+    f.write('%.4f,' % mean)
 
     f.close()
-
+    
     return out_file
 
 
@@ -337,22 +369,24 @@ def setNUM5(infile_a, infile_b):
 
     import subprocess as sb
     import os
+    import numpy as np
+    from numpy import loadtxt
 
+    ###NUMBER OF relative FRAMES >5%
+    frame_percentage= 5
+    
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
-    copycmd = sb.Popen(['cp', infile_a, out_file],
-                       stdin=sb.PIPE, stdout=sb.PIPE)
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
 
-    cmd = sb.Popen(['awk', '{ if($1>=5) {a += 1}} END {print a}',
-                    infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
+    data = loadtxt(infile_b)
+    count = np.float(data[data>=frame_percentage].size)
 
-    stdout_value, stderr_value = cmd.communicate()
-
-    output = stdout_value.split()
     f = open(out_file, 'a')
-
-    for out in output:
-        f.write('%.4f,' % float(out))
+    
+    f.write('%.4f,' % count)
 
     f.close()
 
@@ -363,22 +397,23 @@ def setNUM10(infile_a, infile_b):
 
     import subprocess as sb
     import os
+    import numpy as np
+    from numpy import loadtxt
+    
+    ###NUMBER OF relative FRAMES >10%
+    frame_percentage= 10
 
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
-    copycmd = sb.Popen(['cp', infile_a, out_file],
-                       stdin=sb.PIPE, stdout=sb.PIPE)
+    copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
+    print "outval ---> ", out_val
+    print "error_val -->", error_val
+    
+    data = loadtxt(infile_b)
+    count = np.float(data[data>=frame_percentage].size)
 
-    cmd = sb.Popen(['awk', '{ if($1>=10) {a += 1}} END {print a}',
-                    infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
-
-    stdout_value, stderr_value = cmd.communicate()
-
-    output = stdout_value.split()
     f = open(out_file, 'a')
-
-    for out in output:
-        f.write('%.4f,' % float(out))
+    f.write('%.4f,' % count)
 
     f.close()
 
@@ -456,23 +491,21 @@ def setFtoFPercentChange(infile_a, infile_b):
     return out_file
 
 
-def setNUMFD(in_file):
+def setNUMFD(in_file, threshold):
 
     import subprocess as sb
     import os
+    import numpy as np
+    from numpy import loadtxt
 
     out_file = os.path.join(os.getcwd(), 'numFD')
 
-    cmd = sb.Popen(['awk', '{ if($1>=0.5) {a += 1}} END {print a}',
-                   in_file], stdin=sb.PIPE, stdout=sb.PIPE,)
+    data= loadtxt(in_file)
+    count = np.float(data[data >=threshold].size)
+    print "count ->", count
 
-    stdout_value, stderr_value = cmd.communicate()
-
-    output = stdout_value.split()
     f = open(out_file, 'a')
-
-    for out in output:
-        f.write('%.4f,' % float(out))
+    f.write('%.4f,' % count)
 
     f.close()
 
@@ -852,7 +885,7 @@ def create_anat_func_dataflow(sublist,
                               at,
                               rt,
                               at_list,
-                              rt_list):
+                              rt_list):    
     """
         Example parameters
         anat_name = 'mprage'

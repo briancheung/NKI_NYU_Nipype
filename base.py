@@ -827,7 +827,6 @@ def create_seg_preproc():
     return preproc
 
 
-
 def create_scrubbing_preproc():
 
 
@@ -837,6 +836,9 @@ def create_scrubbing_preproc():
                                                     'preprocessed'
                                                     ]),
                         name='inputspec')
+    
+    inputnode_threshold = pe.Node(util.IdentityInterface(fields=['threshold']),
+                             name='threshold_input')
 
     outputNode = pe.Node(util.IdentityInterface(fields=['mean_deriv_sq_1D',
                                                             'mean_raw_sq_1D',
@@ -859,91 +861,147 @@ def create_scrubbing_preproc():
                                                             'scrubbed_movement_parameters']),
                         name='outputspec')
 
-    NVOLS = pe.Node(util.Function(input_names=['in_files'], output_names=['nvols'],
-                                  function=getImgNVols), name='NVOLS')
+    NVOLS = pe.Node(util.Function(input_names=['in_files'], 
+                                  output_names=['nvols'],
+                                  function=getImgNVols), 
+                    name='NVOLS')
 
-    sc_copy = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                       function=scCopy), name='sc_copy', iterfield=["in_file"])
+    sc_copy = pe.MapNode(util.Function(input_names=['in_file'], 
+                                       output_names=['out_file'],
+                                       function=scCopy), 
+                         name='sc_copy', 
+                         iterfield=["in_file"])
 
-    sc_createSC = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                           function=createSC), name='sc_createSC', iterfield=["in_file"])
+    sc_createSC = pe.MapNode(util.Function(input_names=['in_file'], 
+                                           output_names=['out_file'],
+                                           function=createSC), 
+                             name='sc_createSC', 
+                             iterfield=["in_file"])
 
-    sc_MeanFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                         function=setMeanFD), name='sc_MeanFD', iterfield=["infile_a", "infile_b"])
+    sc_MeanFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], 
+                                         output_names=['out_file'],
+                                         function=setMeanFD), 
+                           name='sc_MeanFD', 
+                           iterfield=["infile_a", "infile_b"])
 
-    sc_NumFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                        function=setNumFD), name='sc_NumFD', iterfield=["infile_a", "infile_b"])
+    sc_NumFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b', 'threshold'], 
+                                        output_names=['out_file'],
+                                        function=setNumFD), 
+                          name='sc_NumFD', 
+                          iterfield=["infile_a", "infile_b"])
 
-    sc_PercentFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                            function=setPercentFD), name='sc_PercentFD', iterfield=["infile_a", "infile_b"])
+    sc_PercentFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b', 'threshold'], 
+                                            output_names=['out_file'],
+                                            function=setPercentFD), 
+                              name='sc_PercentFD', 
+                              iterfield=["infile_a", "infile_b"])
 
-    sc_FramesEx = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                           function=setFramesEx), name='sc_FramesEx', iterfield=["in_file"])
+    sc_FramesEx = pe.MapNode(util.Function(input_names=['in_file', 'threshold'], 
+                                           output_names=['out_file'],
+                                           function=setFramesEx), 
+                             name='sc_FramesEx', 
+                             iterfield=["in_file"])
 
-    sc_FramesIN = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                           function=setFramesIN), name='sc_FramesIN', iterfield=["in_file"])
+    sc_FramesIN = pe.MapNode(util.Function(input_names=['in_file', 'threshold','exclude_list'], 
+                                           output_names=['out_file'],
+                                           function=setFramesIN), 
+                             name='sc_FramesIN', 
+                             iterfield=["in_file", "exclude_list"])
 
-    sc_FramesInList = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                               function=setFramesInList), name='sc_FramesInList', iterfield=["in_file"])
+    sc_FramesInList = pe.MapNode(util.Function(input_names=['in_file'], 
+                                               output_names=['out_file'],
+                                               function=setFramesInList), 
+                                 name='sc_FramesInList', 
+                                 iterfield=["in_file"])
 
-    sc_MeanDVARS = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                            function=setMeanDVARS), name='sc_MeanDVARS', iterfield=["infile_a", "infile_b"])
+    sc_MeanDVARS = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], 
+                                            output_names=['out_file'],
+                                            function=setMeanDVARS), 
+                              name='sc_MeanDVARS', 
+                              iterfield=["infile_a", "infile_b"])
 
-    sc_NUM5 = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                       function=setNUM5), name='sc_NUM5', iterfield=["infile_a", "infile_b"])
+    sc_NUM5 = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], 
+                                       output_names=['out_file'],
+                                       function=setNUM5), 
+                         name='sc_NUM5', 
+                         iterfield=["infile_a", "infile_b"])
 
-    sc_NUM10 = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                        function=setNUM10), name='sc_NUM10', iterfield=["infile_a", "infile_b"])
+    sc_NUM10 = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], 
+                                        output_names=['out_file'],
+                                        function=setNUM10), 
+                          name='sc_NUM10', 
+                          iterfield=["infile_a", "infile_b"])
 
-    sc_NUMFD = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                        function=setNUMFD), name='sc_NUMFD', iterfield=["in_file"])
+    sc_NUMFD = pe.MapNode(util.Function(input_names=['in_file', 'threshold'], 
+                                        output_names=['out_file'],
+                                        function=setNUMFD), 
+                          name='sc_NUMFD', 
+                          iterfield=["in_file"])
 
-    sc_ScrubbedMotion = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                                 function=setScrubbedMotion), name='sc_ScrubbedMotion',
+    sc_ScrubbedMotion = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], 
+                                                 output_names=['out_file'],
+                                                 function=setScrubbedMotion), 
+                                   name='sc_ScrubbedMotion',
                                    iterfield=["infile_a", "infile_b"])
 
-    sc_FtoFPercentChange = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], output_names=['out_file'],
-                                                    function=setFtoFPercentChange),
-                                      name='sc_FtoFPercentChange', iterfield=["infile_a", "infile_b"])
+    sc_FtoFPercentChange = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], 
+                                                    output_names=['out_file'],
+                                                    function=setFtoFPercentChange), 
+                                      name='sc_FtoFPercentChange', 
+                                      iterfield=["infile_a", "infile_b"])
 
     sc_SqrtMeanDeriv = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                                function=setSqrtMeanDeriv), name='sc_SqrtMeanDeriv',
+                                                function=setSqrtMeanDeriv), 
+                                  name='sc_SqrtMeanDeriv',
                                   iterfield=["in_file"])
 
-    sc_SqrtMeanRaw = pe.MapNode(util.Function(input_names=['in_file'], output_names=['out_file'],
-                                              function=setSqrtMeanRaw), name='sc_SqrtMeanRaw', iterfield=["in_file"])
+    sc_SqrtMeanRaw = pe.MapNode(util.Function(input_names=['in_file'], 
+                                              output_names=['out_file'],
+                                              function=setSqrtMeanRaw), 
+                                name='sc_SqrtMeanRaw', 
+                                iterfield=["in_file"])
 
-    sc_calc1 = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc1',
+    sc_calc1 = pe.MapNode(interface=e_afni.Threedcalc(), 
+                          name='sc_calc1',
                           iterfield=["infile_a", "stop_idx", "infile_b", "stop_idx2"])
     sc_calc1.inputs.start_idx = 4
     sc_calc1.inputs.start_idx2 = 3
     sc_calc1.inputs.expr = '\'(a-b)\''
     sc_calc1.inputs.out_file = 'temp_deriv'
 
-    sc_calc2 = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc2', iterfield=["infile_a"])
+    sc_calc2 = pe.MapNode(interface=e_afni.Threedcalc(), 
+                          name='sc_calc2', 
+                          iterfield=["infile_a"])
     sc_calc2.inputs.expr = '\'a*a\''
     sc_calc2.inputs.out_file = 'temp_deriv_sq'
 
-    sc_calc3 = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc3', iterfield=["infile_a", "stop_idx"])
+    sc_calc3 = pe.MapNode(interface=e_afni.Threedcalc(), 
+                          name='sc_calc3', 
+                          iterfield=["infile_a", "stop_idx"])
     sc_calc3.inputs.start_idx = 3
     sc_calc3.inputs.expr = '\'a*a\''
     sc_calc3.inputs.out_file = 'raw_sq'
 
-    sc_calc_scrub = pe.MapNode(interface=e_afni.Threedcalc(), name='sc_calc_scrub',
+    sc_calc_scrub = pe.MapNode(interface=e_afni.Threedcalc(), 
+                               name='sc_calc_scrub',
                                iterfield=["infile_a", "list_idx"] )
     sc_calc_scrub.inputs.expr = '\'a\''
 
-    sc_automask = pe.MapNode(interface=e_afni.ThreedAutomask(), name='sc_automask', iterfield=["in_file"])
+    sc_automask = pe.MapNode(interface=e_afni.ThreedAutomask(), 
+                             name='sc_automask', 
+                             iterfield=["in_file"])
     sc_automask.inputs.dilate = 1
     sc_automask.inputs.genbrickhead = True
     sc_automask.inputs.out_file = './mask'
 
 
-    sc_3dROIstats_1 = pe.MapNode(interface=e_afni.ThreedROIstats(), name='sc_3dROIstats_1',
+    sc_3dROIstats_1 = pe.MapNode(interface=e_afni.ThreedROIstats(), 
+                                 name='sc_3dROIstats_1',
                                  iterfield=["in_file", "mask"])
     sc_3dROIstats_1.inputs.quiet = True
 
-    sc_3dROIstats_2 = pe.MapNode(interface=e_afni.ThreedROIstats(), name='sc_3dROIstats_2',
+    sc_3dROIstats_2 = pe.MapNode(interface=e_afni.ThreedROIstats(), 
+                                 name='sc_3dROIstats_2',
                                  iterfield=["in_file", "mask"])
     sc_3dROIstats_2.inputs.quiet = True
 
@@ -982,11 +1040,13 @@ def create_scrubbing_preproc():
     ##NUMBER OF FRAMES >0.5mm FD
     sc.connect(sc_MeanFD, 'out_file', sc_NumFD, 'infile_a')
     sc.connect(sc_createSC, 'out_file', sc_NumFD, 'infile_b')
+    sc.connect(inputnode_threshold, 'threshold', sc_NumFD, 'threshold')
 
     ##NUMBER OF FRAMES >0.5mm FD as percentage of total num frames
     sc.connect(sc_NumFD, 'out_file', sc_PercentFD, 'infile_a')
     sc.connect(sc_createSC, 'out_file', sc_PercentFD, 'infile_b')
-
+    sc.connect(inputnode_threshold, 'threshold', sc_PercentFD, 'threshold')
+    
     ####Mean DVARS
     sc.connect(sc_PercentFD, 'out_file', sc_MeanDVARS, 'infile_a')
     sc.connect(sc_FtoFPercentChange, 'out_file', sc_MeanDVARS, 'infile_b')
@@ -1004,8 +1064,13 @@ def create_scrubbing_preproc():
     ## but because images start at 0, it's ok to take the frame number directly from the FD file 
     ## (i.e., if the 5th number in the FD file indicates a bad frame, removing timepoint "5" will correctly remove the 6th frame).
     sc.connect(sc_createSC, 'out_file', sc_FramesEx, 'in_file')
-    sc.connect(sc_createSC, 'out_file', sc_FramesInList, 'in_file')
+    sc.connect(inputnode_threshold, 'threshold', sc_FramesEx, 'threshold')
+    
+    sc.connect(sc_FramesIN, 'out_file', sc_FramesInList, 'in_file')
+    
     sc.connect(sc_createSC, 'out_file', sc_FramesIN, 'in_file')
+    sc.connect(inputnode_threshold, 'threshold', sc_FramesIN, 'threshold')
+    sc.connect(sc_FramesEx, 'out_file', sc_FramesIN, 'exclude_list')
 
     sc.connect(inputNode, 'preprocessed', sc_calc_scrub, 'infile_a')
     sc.connect(sc_FramesIN, ('out_file', getIndx), sc_calc_scrub, 'list_idx')

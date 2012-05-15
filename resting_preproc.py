@@ -32,6 +32,9 @@ from sink import (anat_sink,
                   timeseries_sink,
                   group_analysis_sink)
 
+from multiprocessing import Pool
+from multiprocessing import Process
+
 def getSubjectAndSeedLists(c):
 
     """
@@ -291,6 +294,8 @@ def get_workflow(wf_name, c):
     if wf_name.lower() == 'sc':
 
         preproc = create_scrubbing_preproc()
+        preproc.inputs.threshold_input.threshold = c.scrubbingThreshold
+        preproc.get_node('threshold_input').iterables = ('threshold', c.scrubbingThreshold)
         return preproc
 
     if wf_name.lower() == 'select':
@@ -370,16 +375,16 @@ def get_workflow(wf_name, c):
         return preproc
 
 
-def prep_workflow(c):
+def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
 
-    wfname = 'resting_preproc'
+
+
+    wfname = 'resting_preproc' + str(sub)
     workflow = pe.Workflow(name=wfname)
     workflow.base_dir = c.workingDirectory
     workflow.crash_dir = c.crashLogDirectory
     workflow.config['execution'] = {'hash_method': 'timestamp'}
 
-    sublist, rest_session_list, anat_session_list, seed_list = \
-                                            getSubjectAndSeedLists(c)
 
     """
         BASIC and ALL preprocessing paths implemented below
@@ -388,7 +393,7 @@ def prep_workflow(c):
     """
         grab the subject data
     """
-    flowAnatFunc = create_anat_func_dataflow(sublist,
+    flowAnatFunc = create_anat_func_dataflow([sub],
                                               rest_session_list,
                                               anat_session_list,
                                               c.subjectDirectory,
@@ -400,7 +405,7 @@ def prep_workflow(c):
 
     if c.derivatives[6]:
         """
-            grab the Group Analysis Data 
+                grab the Group Analysis Data 
         """
         modelist, dervlist, template_dict, template_args = getGroupAnalysisInputs(c)
 
@@ -418,6 +423,9 @@ def prep_workflow(c):
         """
             grab parcellation data for time series extraction
         """
+        pflow = create_parc_dataflow(c.unitDefinitionsDirectory)
+
+    if c.derivatives[5]:
         pflow = create_parc_dataflow(c.unitDefinitionsDirectory)
 
     if c.derivatives[5]:
@@ -679,14 +687,16 @@ def prep_workflow(c):
         workflow.connect(gp_flow, 'gpflow.derv',
                      gppreproc, 'inputspec.zmap_files')
 
-
         gp_datasink = create_gp_datasink(c.sinkDirectory)
         workflow.connect(gp_flow, 'inputnode.derivative', gp_datasink, 'container')
         group_analysis_sink(workflow, gp_datasink, gppreproc)
 
     if(not c.runOnGrid):
+        from copy import deepcopy
+        flatgraph = workflow._create_flat_graph()
+        execgraph = pe.generate_expanded_graph(deepcopy(flatgraph))
         workflow.run(plugin='MultiProc',
-                     plugin_args={'n_procs': c.numCores})
+                     plugin_args={'n_procs': 1})
     else:
         workflow.run(plugin='SGE',
                      plugin_args=dict(qsub_args=c.qsubArgs))
@@ -707,7 +717,37 @@ def main():
     path, fname = os.path.split(os.path.realpath(args.config))
     sys.path.append(path)
     c = __import__(fname.split('.')[0])
-    prep_workflow(c)
+    sublist, rest_session_list, anat_session_list, seed_list = \
+                                            getSubjectAndSeedLists(c)
+
+    processes = [Process(target=prep_workflow, args=(sub, rest_session_list, anat_session_list, seed_list, c)) for sub in sublist]
+
+    if len(sublist) <= c.numCores:
+        for p in processes:
+            p.start()
+
+        for p in processes:
+            p.join()
+
+    else:
+        idx = 0
+        while(idx < len(sublist)):
+
+            if(idx + c.numCores -1 < len(sublist)):
+                for p in processes[idx: idx + c.numCores -1]:
+                    p.start()
+
+                for p in processes[idx: idx + c.numCores -1]:
+                    p.join()
+                idx = idx + c.numCores
+            else:
+                for p in processes[idx: len(sublist) -1]:
+                    p.start()
+
+                for p in processes[idx: len(sublist) -1]:
+                    p.join()
+                idx += (len(sublist) - idx)
+
 
 if __name__ == "__main__":
 
