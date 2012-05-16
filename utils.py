@@ -420,8 +420,8 @@ def setMeanFD(infile_a, infile_b):
     print "outval ---> ", out_val
     print "error_val -->", error_val
 
-    data= loadtxt(infile_b)
-    mean  = np.mean(data)
+    data = loadtxt(infile_b)
+    mean = np.mean(data)
     print "mean ->", mean
 
     f = open(out_file, 'a')
@@ -443,16 +443,16 @@ def setNumFD(infile_a, infile_b, threshold):
     out_val, error_val = copycmd.communicate()
     print "outval ---> ", out_val
     print "error_val -->", error_val
-    
-    data= loadtxt(infile_b)
-    count = float(data[data >=threshold].size)
+
+    data = loadtxt(infile_b)
+    count = float(data[data >= threshold].size)
     print "count ->", count
 
     f = open(out_file, 'a')
     f.write('%.4f,' % count)
 
     f.close()
-    
+
     return out_file
 
 
@@ -468,12 +468,12 @@ def setPercentFD(infile_a, infile_b, threshold):
     out_val, error_val = copycmd.communicate()
     print "outval ---> ", out_val
     print "error_val -->", error_val
-    
-    data= loadtxt(infile_b)
-    count = np.float(data[data>threshold].size)
+
+    data = loadtxt(infile_b)
+    count = np.float(data[data > threshold].size)
     sum = (count*100/(len(data)+1))
     print "sum ->", sum
-    
+
     f = open(out_file, 'a')
     f.write('%.4f,' %sum)
 
@@ -482,7 +482,7 @@ def setPercentFD(infile_a, infile_b, threshold):
     return out_file
 
 
-def setFramesEx(in_file,threshold):
+def setFramesEx(in_file, threshold):
 
     import subprocess as sb
     import os
@@ -490,30 +490,30 @@ def setFramesEx(in_file,threshold):
     from numpy import loadtxt
 
     out_file = os.path.join(os.getcwd(), 'frames_ex.1D')
-    data= loadtxt(in_file) 
+    data = loadtxt(in_file)
     #masking zeroth timepoint value as 0, since the mean displacment value for
     #zeroth timepoint cannot be calculated, as there is no timepoint before it
-    data[0]=0
-    
-    extra_indices=[]
-    
-    indices=[i[0] for i in (np.argwhere(data>= threshold)).tolist()]  
-    
+    data[0] = 0
+
+    extra_indices = []
+
+    indices = [i[0] for i in (np.argwhere(data >= threshold)).tolist()]
+
     #adding addtional 2 after and one before timepoints
-    for i  in indices:
-    
-     if i>0:
+    for i in indices:
+
+     if i > 0:
         extra_indices.append(i-1)
-        if i+1 < data.size:     
+        if i+1 < data.size:
             extra_indices.append(i+1)
         if i+2 < data.size:
             extra_indices.append(i+2)
-    
-    indices =list(set(indices) |  set(extra_indices))
-    
-    
+
+    indices = list(set(indices) | set(extra_indices))
+
+
     f = open(out_file, 'a')
-    
+
     print "indices->", indices
     for idx in indices:
         f.write('%s,' % int(idx))
@@ -528,17 +528,17 @@ def setFramesIN(in_file, threshold, exclude_list):
     import os
     import numpy as np
     from numpy import loadtxt
-    
+
     out_file = os.path.join(os.getcwd(), 'frames_in.1D')
 
-    data= loadtxt(in_file)
+    data = loadtxt(in_file)
     #masking zeroth timepoint value as 0, since the mean displacment value for
     #zeroth timepoint cannot be calculated, as there is no timepoint before it
-    data[0]=0
-    
-    indices=[i[0] for i in (np.argwhere(data< threshold)).tolist()]
-    
-    indx=[]
+    data[0] = 0
+
+    indices = [i[0] for i in (np.argwhere(data < threshold)).tolist()]
+
+    indx = []
     f = open(exclude_list, 'r')
     line = f.readline()
     if line:
@@ -546,10 +546,10 @@ def setFramesIN(in_file, threshold, exclude_list):
         indx = map(int, line.split(","))
     f.close()
     print indx
-    
+
     if indx:
-        indices= list(set(indices) - set(indx))
-    
+        indices = list(set(indices) - set(indx))
+
     f = open(out_file, 'a')
 
     for idx in indices:
@@ -567,15 +567,15 @@ def setFramesInList(in_file):
     from numpy import loadtxt
 
     out_file = os.path.join(os.getcwd(), 'frames_in_list.1D')
-    
-    indices=[]
+
+    indices = []
     f = open(in_file, 'r')
     line = f.readline()
     if line:
         line = line.strip(',')
         indices = map(int, line.split(","))
     f.close()
-    
+
     f = open(out_file, 'a')
 
     for idx in indices:
@@ -599,15 +599,15 @@ def setMeanDVARS(infile_a, infile_b):
     print "outval ---> ", out_val
     print "error_val -->", error_val
 
-    data= loadtxt(infile_b)
-    mean  = np.mean(data)
-    
+    data = loadtxt(infile_b)
+    mean = np.mean(data)
+
     f = open(out_file, 'a')
 
     f.write('%.4f,' % mean)
 
     f.close()
-    
+
     return out_file
 
 
@@ -619,8 +619,8 @@ def setNUM5(infile_a, infile_b):
     from numpy import loadtxt
 
     ###NUMBER OF relative FRAMES >5%
-    frame_percentage= 5
-    
+    frame_percentage = 5
+
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
     copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
@@ -628,10 +628,10 @@ def setNUM5(infile_a, infile_b):
     print "error_val -->", error_val
 
     data = loadtxt(infile_b)
-    count = np.float(data[data>=frame_percentage].size)
+    count = np.float(data[data >= frame_percentage].size)
 
     f = open(out_file, 'a')
-    
+
     f.write('%.4f,' % count)
 
     f.close()
@@ -645,18 +645,18 @@ def setNUM10(infile_a, infile_b):
     import os
     import numpy as np
     from numpy import loadtxt
-    
+
     ###NUMBER OF relative FRAMES >10%
-    frame_percentage= 10
+    frame_percentage = 10
 
     out_file = os.path.join(os.getcwd(), 'pow_params.txt')
     copycmd = sb.Popen(['cp', infile_a, out_file], stdin=sb.PIPE, stdout=sb.PIPE )
     out_val, error_val = copycmd.communicate()
     print "outval ---> ", out_val
     print "error_val -->", error_val
-    
+
     data = loadtxt(infile_b)
-    count = np.float(data[data>=frame_percentage].size)
+    count = np.float(data[data >= frame_percentage].size)
 
     f = open(out_file, 'a')
     f.write('%.4f,' % count)
@@ -746,8 +746,8 @@ def setNUMFD(in_file, threshold):
 
     out_file = os.path.join(os.getcwd(), 'numFD')
 
-    data= loadtxt(in_file)
-    count = np.float(data[data >=threshold].size)
+    data = loadtxt(in_file)
+    count = np.float(data[data >= threshold].size)
     print "count ->", count
 
     f = open(out_file, 'a')
@@ -760,17 +760,21 @@ def setNUMFD(in_file, threshold):
 
 def setScrubbedMotion(infile_a, infile_b):
 
-    import subprocess as sb
     import os
 
     out_file = os.path.join(os.getcwd(), 'rest_mc_scrubbed.1D')
 
-    cmd = sb.Popen(['awk', 'FNR==NR{a[$1];next}(FNR in a){print}',
-                   infile_a, infile_b], stdin=sb.PIPE, stdout=sb.PIPE,)
+    f1 = open(infile_a)
+    f2 = open(infile_b)
+    l1 = f1.readlines()
+    l2 = f2.readlines()
+    f1.close()
+    f2.close()
 
-    stdout_value, stderr_value = cmd.communicate()
     f = open(out_file, 'a')
-    f.write(stdout_value)
+    for l in l1:
+        data = l2[int(l.strip())]
+        f.write(data)
     f.close()
     return out_file
 
@@ -1131,7 +1135,7 @@ def create_anat_func_dataflow(sublist,
                               at,
                               rt,
                               at_list,
-                              rt_list):    
+                              rt_list):
     """
         Example parameters
         anat_name = 'mprage'

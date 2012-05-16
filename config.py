@@ -18,7 +18,8 @@
 """
 runOnGrid = False
 qsubArgs = '-q all.q'
-numCores = 12
+numSubjectsAtOnce = 6
+numCoresPerSubject = 2
 
 
 """
@@ -36,12 +37,12 @@ numCores = 12
         It is recommended to delete this directory once the pipeline completes execution.
 
 """
-workingDirectory = '/home/ssikka/nki_nyu_pipeline/working_dir/'
+workingDirectory = '/sam/projects/sharad_pydicom/working_dir/'
 
 """
         Crash Log Directory
 """
-crashLogDirectory = '/home/ssikka/nki_nyu_pipeline/crash'
+crashLogDirectory = '/home/sharad/nki_nyu_pipeline/crash'
 
 """
     b) Data Specifications
@@ -67,8 +68,8 @@ crashLogDirectory = '/home/ssikka/nki_nyu_pipeline/crash'
               exclusionSubjectList are processed
 
 """
-subjectDirectory = '/home/data/Projects/Pipelines_testing/Dickstein/subjects/'
-subjectList = '/home/ssikka/nki_nyu_pipeline/subjects.txt'
+subjectDirectory = '/data/projects/Dickstein/subjects/'
+subjectList = '/data/projects/Dickstein/documents/subjects.txt'
 #subjectList = None
 exclusionSubjectList = None
 
@@ -106,7 +107,7 @@ exclusionSubjectList = None
 """
 anatTemplate = '%s/anat/%s.nii.gz'
 anatTemplateList = ['subject', 'mprage']
-anatSessionFile = '/home/data/Projects/nuisance_reliability_paper/work_lists/session_list.txt'
+anatSessionFile = '/home/sharad/nki_nyu_pipeline/sessions.txt'
 
 """
         anatLogFile: In case of multiple anatomical scans per subject.
@@ -136,13 +137,13 @@ anatLogFilePath = '%s/*/*/%s'
 """
 funcTemplate = '%s/%s/%s.nii.gz'
 funcTemplateList = ['subject', 'session', 'rest']
-funcSessionFile = '/home/ssikka/nki_nyu_pipeline/sessions.txt'
+funcSessionFile = '/home/sharad/nki_nyu_pipeline/sessions.txt'
 
 
 """
         Output Target Directory 
 """
-sinkDirectory = '/home/ssikka/nki_nyu_pipeline/results'
+sinkDirectory = '/sam/projects/sharad_pydicom/results'
 
 
 """
@@ -153,13 +154,13 @@ sinkDirectory = '/home/ssikka/nki_nyu_pipeline/results'
 """
         Set FSL Directory (For Purposes of Template Selection)
 """
-FSLDIR = '/usr/share/fsl/4.1/'
+FSLDIR = '/frodo/shared/fsl_03_12/'
 
 
 """
         Tissue Priors Directory
 """
-priorDirectory = '/home/ssikka/nki_nyu_pipeline/tissuepriors'
+priorDirectory = '/home/sharad/nki_nyu_pipeline/tissuepriors'
 
 """
 3. Optional Header and Timeseries Overrides
@@ -168,9 +169,9 @@ priorDirectory = '/home/ssikka/nki_nyu_pipeline/tissuepriors'
     startIdx : starting time point(defaults to 0)
 """
 startIdx = 0
-stopIdx = 119
+stopIdx = 255
 nVols = stopIdx - startIdx + 1
-TR = 2.5
+TR = 2.0
 
 
 """
@@ -186,7 +187,7 @@ TR = 2.5
 """
     a) MNI Template Resolution Specification For Registration
 """
-standardResolution = '2mm'
+standardResolution = '3mm'
 MNI = 'MNI152'
 
 
@@ -209,7 +210,7 @@ grayMatterThreshold = [0.2]
     d) Scrub data prior to derivate generation: In accord with Power et al. (2012)
        Default value True/False or a list of True/False(if need both at the same time)
 """
-scrubData = [False]
+scrubData = [True, False]
 scrubbingThreshold = [0.5, 0.2]
 """
     e) Nuisance Signal Correction
@@ -353,7 +354,7 @@ lowPassFreqALFF = [0.1]
         Each line of the seedFile contains full path to a seed.
 
 """
-seedFile = '/home/ssikka/nki_nyu_pipeline/seed_list.txt'
+seedFile = '/data/projects/Dickstein/scripts/seeds.txt'
 
 
 """
@@ -365,7 +366,7 @@ seedFile = '/home/ssikka/nki_nyu_pipeline/seed_list.txt'
             Note: Definitions Directory should contain one subdirectory for each set of units
                     to be generated (e.g., Harvard-Oxford Atlas, AAL, Craddock, Dosenbach-160);
 """
-unitDefinitionsDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
+unitDefinitionsDirectory = '/home/sharad/nki_nyu_pipeline/tsdata'
 
 # Output type: .csv, numPy
 unitTSOutputs = [True, True]
@@ -375,7 +376,7 @@ unitTSOutputs = [True, True]
             Note: Definitions Directory should contain one subdirectory for each
                     mask/mask set to be used to select voxels to be output; one output file / mask 
 """
-voxelMasksDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
+voxelMasksDirectory = '/home/sharad/nki_nyu_pipeline/tsdata'
 
 
 # Output type: .csv, numPy
@@ -387,7 +388,7 @@ voxelTSOutputs = [False, True]
 # Output type: .csv, numPy
 verticesTSOutputs = [False, True]
 runSurfaceRegistraion = False
-reconSubjectsDirectory = '/home/ssikka/nki_nyu_pipeline/recon_subjects'
+reconSubjectsDirectory = '/home/sharad/nki_nyu_pipeline/recon_subjects'
 
 
 """

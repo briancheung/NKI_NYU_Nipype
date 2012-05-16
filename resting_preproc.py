@@ -704,7 +704,7 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
         flatgraph = workflow._create_flat_graph()
         execgraph = pe.generate_expanded_graph(deepcopy(flatgraph))
         workflow.run(plugin='MultiProc',
-                     plugin_args={'n_procs': 1})
+                     plugin_args={'n_procs': c.numCoresPerSubject})
     else:
         workflow.run(plugin='SGE',
                      plugin_args=dict(qsub_args=c.qsubArgs))
@@ -730,7 +730,7 @@ def main():
 
     processes = [Process(target=prep_workflow, args=(sub, rest_session_list, anat_session_list, seed_list, c)) for sub in sublist]
 
-    if len(sublist) <= c.numCores:
+    if len(sublist) <= c.numSubjectsAtOnce:
         for p in processes:
             p.start()
 
@@ -741,13 +741,13 @@ def main():
         idx = 0
         while(idx < len(sublist)):
 
-            if(idx + c.numCores -1 < len(sublist)):
-                for p in processes[idx: idx + c.numCores -1]:
+            if(idx + c.numSubjectsAtOnce -1 < len(sublist)):
+                for p in processes[idx: idx + c.numSubjectsAtOnce -1]:
                     p.start()
 
-                for p in processes[idx: idx + c.numCores -1]:
+                for p in processes[idx: idx + c.numSubjectsAtOnce -1]:
                     p.join()
-                idx = idx + c.numCores
+                idx = idx + c.numSubjectsAtOnce
             else:
                 for p in processes[idx: len(sublist) -1]:
                     p.start()
