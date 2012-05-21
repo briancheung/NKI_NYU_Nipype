@@ -455,9 +455,9 @@ def create_nuisance_preproc(name='nuisance_preproc'):
     remove_noise = pe.MapNode(util.Function(input_names=['realigned_file',
                                                          'regressors_file'],
                                             output_names=['residual_file'],
-                                            function=extract_residuals,
+                                            function=extract_residuals),
                                             name='regress_nuisance',
-                                            iterfield['realigned_file', 'regressors_file']))
+                                            iterfield=['realigned_file', 'regressors_file'])
 
 #    nuisance_preproc.connect(inputspec, 'realigned_file',
 #                             linear_detrend, 'realigned_file')
@@ -520,7 +520,7 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                              outputspec, 'median_angle_corrected_file')
     nuisance_preproc.connect(median_angle, 'angles',
                              outputspec, 'angles')
-    nuisance_preproc.connect(remove_noise, 'out_file',
+    nuisance_preproc.connect(remove_noise, 'residual_file',
                              outputspec, 'residual_file')
 
     return nuisance_preproc
