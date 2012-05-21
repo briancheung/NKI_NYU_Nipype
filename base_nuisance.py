@@ -2,12 +2,12 @@ import nipype.pipeline.engine as pe
 import nipype.interfaces.fsl as fsl
 import nipype.interfaces.utility as util
 
-def bandpass_voxels(realigned_file, sample_period, LowCutoff, HighCutoff):
+def bandpass_voxels(realigned_file, sample_period, bandpass_freqs):
     import os
     import nibabel as nb
     import numpy as np
 
-    def ideal_bandpass(data, sample_period, LowCutoff, HighCutoff):
+    def ideal_bandpass(data, sample_period, bandpass_freqs):
         #Derived from YAN Chao-Gan 120504 based on REST.
         from scipy.fftpack import fft, ifft
         
@@ -26,12 +26,16 @@ def bandpass_voxels(realigned_file, sample_period, LowCutoff, HighCutoff):
         data_p = np.zeros(nextpow2(sample_length))
         data_p[:sample_length] = data
         
-        if(LowCutoff > sample_freq/2.): #Cutoff beyond fs/2 (all-stop filter)
+        LowCutoff, HighCutoff = bandpass_freqs
+        
+        if(LowCutoff is None): #No lower cutoff (low-pass filter)
+            low_cutoff_i = 0
+        elif(LowCutoff > sample_freq/2.): #Cutoff beyond fs/2 (all-stop filter)
             low_cutoff_i = int(data_p.shape[0]/2)
         else:
             low_cutoff_i = np.ceil(LowCutoff*data_p.shape[0]*sample_period).astype('int')
-            
-        if(HighCutoff > sample_freq/2.): #Cutoff beyond fs/2 (become a highpass filter)
+        
+        if(HighCutoff > sample_freq/2. or HighCutoff is None): #Cutoff beyond fs/2 or unspecified (become a highpass filter)
             high_cutoff_i = int(data_p.shape[0]/2)
         else:
             high_cutoff_i = np.fix(HighCutoff*data_p.shape[0]*sample_period).astype('int')
@@ -55,7 +59,7 @@ def bandpass_voxels(realigned_file, sample_period, LowCutoff, HighCutoff):
     
     Y_bp = np.zeros_like(Y)
     for j in range(Y.shape[1]):
-        Y_bp[:,j] = ideal_bandpass(Yc[:,j], sample_period, LowCutoff, HighCutoff)
+        Y_bp[:,j] = ideal_bandpass(Yc[:,j], sample_period, bandpass_freqs)
         
     data[mask] = Y_bp.T
     img = nb.Nifti1Image(data, header=nii.get_header(), affine=nii.get_affine())
