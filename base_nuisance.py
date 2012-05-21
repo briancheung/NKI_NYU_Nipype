@@ -2,6 +2,68 @@ import nipype.pipeline.engine as pe
 import nipype.interfaces.fsl as fsl
 import nipype.interfaces.utility as util
 
+def bandpass_voxels(realigned_file, sample_period, LowCutoff, HighCutoff):
+    import os
+    import nibabel as nb
+    import numpy as np
+
+    def ideal_bandpass(data, sample_period, LowCutoff, HighCutoff):
+        #Derived from YAN Chao-Gan 120504 based on REST.
+        from scipy.fftpack import fft, ifft
+        
+    #    sample_period = T
+    #    LowCutoff = 10.
+    #    HighCutoff = 15.
+    #    data = x
+        
+        def nextpow2(n):
+            x = np.log2(n)
+            return 2**np.ceil(x)
+        
+        sample_freq = 1./sample_period
+        sample_length = data.shape[0]
+        
+        data_p = np.zeros(nextpow2(sample_length))
+        data_p[:sample_length] = data
+        
+        if(LowCutoff > sample_freq/2.): #Cutoff beyond fs/2 (all-stop filter)
+            low_cutoff_i = int(data_p.shape[0]/2)
+        else:
+            low_cutoff_i = np.ceil(LowCutoff*data_p.shape[0]*sample_period).astype('int')
+            
+        if(HighCutoff > sample_freq/2.): #Cutoff beyond fs/2 (become a highpass filter)
+            high_cutoff_i = int(data_p.shape[0]/2)
+        else:
+            high_cutoff_i = np.fix(HighCutoff*data_p.shape[0]*sample_period).astype('int')
+        
+        freq_mask = np.zeros_like(data_p, dtype='bool')
+        freq_mask[low_cutoff_i:high_cutoff_i+1] = True
+        freq_mask[data_p.shape[0]-high_cutoff_i:data_p.shape[0]+1-low_cutoff_i] = True
+        
+        
+        f_data = fft(data_p)
+        f_data[freq_mask != True] = 0.
+        data_bp = np.real_if_close(ifft(f_data)[:sample_length])
+        
+        return data_bp
+
+    nii = nb.load(realigned_file)
+    data = nii.get_data().astype('float64')
+    mask = (data != 0).sum(-1) != 0
+    Y = data[mask].T
+    Yc = Y - np.tile(Y.mean(0), (Y.shape[0], 1))
+    
+    Y_bp = np.zeros_like(Y)
+    for j in range(Y.shape[1]):
+        Y_bp[:,j] = ideal_bandpass(Yc[:,j], sample_period, LowCutoff, HighCutoff)
+        
+    data[mask] = Y_bp.T
+    img = nb.Nifti1Image(data, header=nii.get_header(), affine=nii.get_affine())
+    bandpassed_file = os.path.join(os.getcwd(), 'bandpassed_demeaned_filtered.nii.gz')
+    img.to_filename(bandpassed_file)
+    
+    return bandpassed_file
+
 def linear_detrend_voxels(realigned_file):
     import os
     import nibabel as nb
@@ -264,6 +326,28 @@ def median_angle_correct(target_angle_deg, realigned_file):
 
     return corrected_file, angles_file
 
+def extract_residuals(realigned_file, regressors_file):
+    import os
+    import nibabel as nb
+    import numpy as np
+    
+    nii = nb.load(realigned_file)
+    data = nii.get_data().astype('float64')
+    mask = (data != 0).sum(-1) != 0
+    Y = data[mask].T
+    
+    X = np.genfromtxt(regressors_file)
+    B = np.dot(np.dot(np.linalg.inv(np.dot(X.T,X)), X.T), Y)
+    XB = np.dot(X,B)
+    Y_res = Y - XB
+    
+    data[mask] = Y_res.T
+    
+    img = nb.Nifti1Image(data, header=nii.get_header(), affine=nii.get_affine())
+    residual_file = os.path.join(os.getcwd(), 'residual.nii.gz')
+    img.to_filename(residual_file)
+    
+    return residual_file
 
 def create_nuisance_preproc(name='nuisance_preproc'):
     inputspec = pe.Node(util.IdentityInterface(fields=['realigned_file',
