@@ -449,9 +449,15 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                                       'linear_component',
                                                       'motion_components'])
 
-    remove_noise = pe.MapNode(fsl.FilterRegressor(filter_all=True),
-                              name='regress_nuisance',
-                              iterfield=['design_file', 'in_file'])
+#    remove_noise = pe.MapNode(fsl.FilterRegressor(filter_all=True),
+#                              name='regress_nuisance',
+#                              iterfield=['design_file', 'in_file'])
+    remove_noise = pe.MapNode(util.Function(input_names=['realigned_file',
+                                                         'regressors_file'],
+                                            output_names=['residual_file'],
+                                            function=extract_residuals,
+                                            name='regress_nuisance',
+                                            iterfield['realigned_file', 'regressors_file']))
 
 #    nuisance_preproc.connect(inputspec, 'realigned_file',
 #                             linear_detrend, 'realigned_file')
@@ -500,12 +506,12 @@ def create_nuisance_preproc(name='nuisance_preproc'):
     nuisance_preproc.connect(inputnode_selector, 'selector',
                              addoutliers, 'selector')
     nuisance_preproc.connect(addoutliers, 'filter_file',
-                             remove_noise, 'design_file')
+                             remove_noise, 'regressors_file')
     nuisance_preproc.connect(inputspec, 'realigned_file',
-                             remove_noise, 'in_file')
+                             remove_noise, 'realigned_file')
 
     #Median angle correction on residual file
-    nuisance_preproc.connect(remove_noise, 'out_file',
+    nuisance_preproc.connect(remove_noise, 'residual_file',
                              median_angle, 'realigned_file')
     nuisance_preproc.connect(inputnode_target_angle_deg, 'target_angle_deg',
                              median_angle, 'target_angle_deg')
