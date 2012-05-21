@@ -341,6 +341,7 @@ def extract_residuals(realigned_file, regressors_file):
     Y = data[mask].T
     
     X = np.genfromtxt(regressors_file)
+    X = np.hstack((X,np.ones((X.shape[0],1)))) #Add constant regressor to model
     B = np.dot(np.dot(np.linalg.inv(np.dot(X.T,X)), X.T), Y)
     XB = np.dot(X,B)
     Y_res = Y - XB

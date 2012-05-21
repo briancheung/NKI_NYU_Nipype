@@ -332,6 +332,7 @@ def get_workflow(wf_name, c):
 
     if wf_name.lower() == 'freq_filter':
         from base_nuisance import bandpass_voxels
+        import nipype.interfaces.utility as util
         preproc = pe.MapNode(util.Function(input_names=['realigned_file',
                                                         'sample_period',
                                                         'bandpass_freqs'],
@@ -542,7 +543,7 @@ def prep_workflow(c):
     workflow.connect(select, 'outputspec.movement_parameters_selector',
                      nuisancepreproc, 'inputspec.motion_components')
 
-    if(c.nuisanceLowPassFilter or c.nuisanceHighPassFilter):
+    if(c.nuisanceBandpassFreq):
 
         workflow.connect(nuisancepreproc, 'outputspec.residual_file',
                          freq_filter, 'realigned_file')
