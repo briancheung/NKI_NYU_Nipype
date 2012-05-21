@@ -116,6 +116,20 @@ def extract_firstprinc_component(realigned_file):
 
     return components_file
 
+def extract_linear_component(realigned_file):
+    import os
+    import nibabel as nb
+    import numpy as np
+
+    data = nb.load(realigned_file).get_data().astype('float64')
+    lt = np.arange(0, data.shape[-1])
+    
+    components_file = os.path.join(os.getcwd(), 'linear_component.txt')
+    print 'Saving components file:', components_file
+    np.savetxt(components_file, lt)
+
+    return components_file
+
 #Nuisance selection structure
 #based on https://github.com/satra/BrainImagingPipelines/tree/master/fmri
 
@@ -126,6 +140,7 @@ def create_filter_matrix(global_component,
                          csf_component,
                          gm_component,
                          firstprinc_component,
+                         linear_component,
                          motion_components,
                          selector):
     import numpy as np
@@ -144,6 +159,7 @@ def create_filter_matrix(global_component,
                          csf_component,
                          gm_component,
                          firstprinc_component,
+                         linear_component,
                          motion_components])
     fieldnames = np.array(['global',
                            'compcor',
@@ -151,6 +167,7 @@ def create_filter_matrix(global_component,
                            'csf',
                            'gm',
                            'firstprinc',
+                           'lt',
                            'motion'])
 
     selector = np.array(selector)  # Use selector as an index mask
@@ -320,6 +337,12 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                        function=extract_firstprinc_component),
                                        name='fp1_sig',
                                        iterfield=['realigned_file'])
+    
+    lt_sig = pe.MapNode(util.Function(input_names=['realigned_file'],
+                                      output_names=['linear_component'],
+                                      function=extract_linear_component),
+                                      name='lt_sig',
+                                      iterfield=['realigned_file'])
 
     addoutliers = pe.MapNode(util.Function(input_names=['global_component',
                                                         'compcor_components',
@@ -327,6 +350,7 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                                         'csf_component',
                                                         'gm_component',
                                                         'firstprinc_component',
+                                                        'linear_component',
                                                         'motion_components',
                                                         'selector'],
                                            output_names=['filter_file'],
@@ -338,15 +362,16 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                                                       'csf_component',
                                                       'gm_component',
                                                       'firstprinc_component',
+                                                      'linear_component',
                                                       'motion_components'])
 
     remove_noise = pe.MapNode(fsl.FilterRegressor(filter_all=True),
                               name='regress_nuisance',
                               iterfield=['design_file', 'in_file'])
 
+#    nuisance_preproc.connect(inputspec, 'realigned_file',
+#                             linear_detrend, 'realigned_file')
     nuisance_preproc.connect(inputspec, 'realigned_file',
-                             linear_detrend, 'realigned_file')
-    nuisance_preproc.connect(linear_detrend, 'detrended_file',
                              compcor, 'realigned_file')
     nuisance_preproc.connect(inputnode_nc, 'nc',
                              compcor, 'nc')
@@ -354,22 +379,24 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                              compcor, 'wm_mask')
     nuisance_preproc.connect(inputspec, 'csf_mask',
                              compcor, 'csf_mask')
-    nuisance_preproc.connect(linear_detrend, 'detrended_file',
+    nuisance_preproc.connect(inputspec, 'realigned_file',
                              glb_sig, 'realigned_file')
-    nuisance_preproc.connect(linear_detrend, 'detrended_file',
+    nuisance_preproc.connect(inputspec, 'realigned_file',
                              gm_sig, 'realigned_file')
     nuisance_preproc.connect(inputspec, 'gm_mask',
                              gm_sig, 'mask_file')
-    nuisance_preproc.connect(linear_detrend, 'detrended_file',
+    nuisance_preproc.connect(inputspec, 'realigned_file',
                              wm_sig, 'realigned_file')
-    nuisance_preproc.connect(linear_detrend, 'detrended_file',
+    nuisance_preproc.connect(inputspec, 'realigned_file',
                              csf_sig, 'realigned_file')
     nuisance_preproc.connect(inputspec, 'wm_mask',
                              wm_sig, 'mask_file')
     nuisance_preproc.connect(inputspec, 'csf_mask',
                              csf_sig, 'mask_file')
-    nuisance_preproc.connect(linear_detrend, 'detrended_file',
+    nuisance_preproc.connect(inputspec, 'realigned_file',
                              fp1_sig, 'realigned_file')
+    nuisance_preproc.connect(inputspec, 'realigned_file',
+                             lt_sig, 'realigned_file')
     nuisance_preproc.connect(glb_sig, 'global_component',
                              addoutliers, 'global_component')
     nuisance_preproc.connect(gm_sig, 'mask_mean_component',
@@ -382,13 +409,15 @@ def create_nuisance_preproc(name='nuisance_preproc'):
                              addoutliers, 'csf_component')
     nuisance_preproc.connect(fp1_sig, 'firstprinc_component',
                              addoutliers, 'firstprinc_component')
+    nuisance_preproc.connect(lt_sig, 'linear_component',
+                             addoutliers, 'linear_component')
     nuisance_preproc.connect(inputspec, 'motion_components',
                              addoutliers, 'motion_components')
     nuisance_preproc.connect(inputnode_selector, 'selector',
                              addoutliers, 'selector')
     nuisance_preproc.connect(addoutliers, 'filter_file',
                              remove_noise, 'design_file')
-    nuisance_preproc.connect(linear_detrend, 'detrended_file',
+    nuisance_preproc.connect(inputspec, 'realigned_file',
                              remove_noise, 'in_file')
 
     #Median angle correction on residual file
