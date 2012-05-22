@@ -331,20 +331,32 @@ def get_workflow(wf_name, c):
         return preproc
 
     if wf_name.lower() == 'freq_filter':
-
-        preproc = create_filter(c.nuisanceHighPassFilter,
-                                c.nuisanceLowPassFilter)
-        if c.nuisanceHighPassFilter:
-            preproc.inputs.hp_input.hp = \
-                    c.nuisanceHighFreqLowCutOff
-            preproc.get_node('hp_input').iterables = \
-                ('hp', c.nuisanceHighFreqLowCutOff)
-
-        if c.nuisanceLowPassFilter:
-            preproc.inputs.lp_input.lp = \
-                    c.nuisanceLowFreqHighCutOff
-            preproc.get_node('lp_input').iterables = \
-                    ('lp', c.nuisanceLowFreqHighCutOff)
+        from base_nuisance import bandpass_voxels
+        import nipype.interfaces.utility as util
+        preproc = pe.MapNode(util.Function(input_names=['realigned_file',
+                                                        'sample_period',
+                                                        'bandpass_freqs'],
+                                           output_names=['bandpassed_file'],
+                                           function=bandpass_voxels),
+                                           name='bandpass_filter',
+                                           iterfield=['realigned_file', 'bandpass_freqs'])
+        preproc.inputs.bandpass_freqs = c.nuisanceBandpassFreq
+        preproc.inputs.sample_period = c.TR
+        
+                                           
+#        preproc = create_filter(c.nuisanceHighPassFilter,
+#                                c.nuisanceLowPassFilter)
+#        if c.nuisanceHighPassFilter:
+#            preproc.inputs.hp_input.hp = \
+#                    c.nuisanceHighFreqLowCutOff
+#            preproc.get_node('hp_input').iterables = \
+#                ('hp', c.nuisanceHighFreqLowCutOff)
+#
+#        if c.nuisanceLowPassFilter:
+#            preproc.inputs.lp_input.lp = \
+#                    c.nuisanceLowFreqHighCutOff
+#            preproc.get_node('lp_input').iterables = \
+#                    ('lp', c.nuisanceLowFreqHighCutOff)
 
         return preproc
 
@@ -526,15 +538,10 @@ def prep_workflow(c):
     """
          Nuisance
     """
-#    workflow.connect(select, 'outputspec.preprocessed_selector',
-#                     nuisancepreproc, 'inputspec.realigned_file')
 
-    if(c.nuisanceLowPassFilter or c.nuisanceHighPassFilter):
+    if(c.nuisanceBandpassFreq):
         workflow.connect(select, 'outputspec.preprocessed_selector',
-                         freq_filter, 'inputspec.in_file')
-        
-#        workflow.connect(nuisancepreproc, 'outputspec.residual_file',
-#                         freq_filter, 'inputspec.in_file')
+                         freq_filter, 'realigned_file')
 
         import nipype.interfaces.fsl as fsl
         from utils import set_gauss
@@ -543,7 +550,7 @@ def prep_workflow(c):
                             iterfield=['in_file',
                                        'operand_files'])
         smooth.inputs.op_string = set_gauss(c.fwhm[0])
-        workflow.connect(freq_filter, 'outputspec.rest_res_filt',
+        workflow.connect(freq_filter, 'bandpassed_file',
                          smooth, 'in_file')
         workflow.connect(funcpreproc, 'outputspec.preprocessed_mask',
                          smooth, 'operand_files')
@@ -623,7 +630,7 @@ def prep_workflow(c):
                          scapreproc, 'inputspec.premat')
 
         if(c.nuisanceLowPassFilter or c.nuisanceHighPassFilter):
-            workflow.connect(freq_filter, 'outputspec.rest_res_filt',
+            workflow.connect(freq_filter, 'bandpassed_file',
                              scapreproc, 'inputspec.rest_res_filt')
         else:
             workflow.connect(nuisancepreproc, 'outputspec.residual_file',

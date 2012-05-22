@@ -268,8 +268,8 @@ targetAngleDeg = [90]
 		nuisanceHighPassFilter: Turn HighPassFilter ON(value : True/1), OFF(value : False/0)
 		nuisanceLowPassFilter:  Turn LowPassFilter ON(value : True/1), OFF(value : False/0)
 """
-nuisanceHighPassFilter = 1
-nuisanceLowPassFilter = 1
+#nuisanceHighPassFilter = 1
+#nuisanceLowPassFilter = 1
 
 """
 		highFreqLowCutoffNuisance: if HighPassFilter ON(value : True/1), then set this to a decimal value / List
@@ -277,8 +277,9 @@ nuisanceLowPassFilter = 1
 		
 		Note: Values for highFreqLowCutoffNuisance, lowFreqHighCutoffNuisance can be a list.
 """
-nuisanceHighFreqLowCutOff = [0.01]
-nuisanceLowFreqHighCutOff = [0.1]
+nuisanceBandpassFreq = [(0.01, 0.1)]
+#nuisanceHighFreqLowCutOff = [0.01]
+#nuisanceLowFreqHighCutOff = [0.1]
 
 
 """
