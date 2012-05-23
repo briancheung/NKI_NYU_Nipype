@@ -69,13 +69,10 @@ def get_strategies(K, iterables):
     strat_vect = get_vectors(strat)
     return strat_vect
 
-def get_match(sink_dir, p, strategies):
+def get_match(p, strategies):
 
-    p1 = p.split(sink_dir)[1:]
-    p1 = p1[0]
-    p_vals = p1.split('/')[2:]
+    p_vals = p.split('/')[1:]
 
-    print p_vals
     flag = 0
     strats = []
     for strat in strategies:
@@ -94,13 +91,13 @@ def get_match(sink_dir, p, strategies):
 
     return strats
 
-def smash(sink_dir, maps, strategies):
+def smash(maps, strategies):
 
     new_maps = {}
 
     for p in sorted(maps.keys()):
 
-        strats = get_match(sink_dir, p, strategies)
+        strats = get_match(p, strategies)
 
 
         for strat in strats:
@@ -152,7 +149,7 @@ def make_links(new_maps, sink_dir, sub):
 
             for file in new_maps[strat]:
 
-                if '/' + wf + '/' in file:
+                if wf in file:
                     cmd = 'ln -s %s %s' %(file, os.path.join(wf_path, os.path.basename(file)))
                     print cmd
                     commands.getoutput(cmd)
@@ -160,36 +157,54 @@ def make_links(new_maps, sink_dir, sub):
     f.close()
 
 
-def make_sym_links(sink_dir, strategies, subj_list):
+def make_sym_links(strategies, subj_list, sink_dir):
 
+    for sub in subj_list:
 
-    for subject in subj_list:
-        maps = {}
-
-        dfs_string = commands.getoutput("find %s/ -type f | perl -lne 'print tr:/::, \" $_\"' | sort -n | cut -d' ' -f2" % (os.path.join(sink_dir, subject)))
+        subjectDir = os.path.join(sink_dir, sub)
+        dfs_string = commands.getoutput("find %s/ -type f | perl -lne 'print tr:/::, \" $_\"' | sort -n | cut -d' ' -f2" % (subjectDir))
 
         dfs_files = dfs_string.split('\n')
 
+        maps = {}
+
+        m1 = {}
         for file in dfs_files:
+            f = str(file)
+            file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/vmhc' % (sub), '', file)
+            file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/alff' % (sub), '', file)
+            file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/nuisance' % (sub), '', file)
+            file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/sca' % (sub), '', file)
+            file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/scrubbing' % (sub), '', file)
+            file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/anat' % (sub), '', file)
+            file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/func' % (sub), '', file)
+            file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/reg' % (sub), '', file)
+            file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/segment' % (sub), '', file)
+            #print file
             pdir = os.path.dirname(file)
 
             val = None
+            v = None
             if pdir in maps:
                 val = maps[pdir]
+                v = m1[pdir]
                 val.append(file)
+                v.append(f)
             else:
                 val = [file]
-            maps[os.path.dirname(file)] = val
+                v = [f]
+            m1[os.path.dirname(file)] = v
 
-        new_maps = smash(sink_dir, maps, strategies)
+        new_maps = smash(m1, strategies)
 
-        make_links(new_maps, sink_dir, subject)
+        make_links(new_maps, sink_dir, sub)
+
 
 def main():
 
-    sink_dir = '/home/sharad/nki_nyu_pipeline/results/'
-    subj_list = ['s1001', 's1004']
-    subjectDir = '/home/sharad/nki_nyu_pipeline/results/%s' % (subj_list[0])
+    sink_dir = '/home/ssikka/nki_nyu_pipeline/results/'
+    subj_list = ['s1001', 's1004', 's1007']
+    subjectDir = '/home/ssikka/nki_nyu_pipeline/results/%s' % (subj_list[0])
 
     iterables = ['threshold', 'csf_threshold', 'fwhm', 'gm_threshold', 'hp', 'lp', 'nc', 'run_scrubbing', 'seeds', 'selector', 'session_id', 'target_angle', 'wm_threshold']
     wfs = os.listdir(subjectDir)
@@ -206,26 +221,15 @@ def main():
     m1 = {}
     for file in dfs_files:
         f = str(file)
-        spath = os.path.join(sink_dir, subj_list[0])
-        vmhc_path = os.path.join(spath, 'vmhc')
-        alff_path = os.path.join(spath, 'alff')
-        nuisance_path = os.path.join(spath, 'nuisance')
-        sca_path = os.path.join(spath, 'sca')
-        scrubbing_path = os.path.join(spath, 'scrubbing')
-        anat_path = os.path.join(spath, 'anat')
-        func_path = os.path.join(spath, 'func')
-        seg_path = os.path.join(spath, 'segment')
-        reg_path = os.path.join(spath, 'reg')
-
-        file = re.sub(r'%s' % (vmhc_path), '', file)
-        file = re.sub(r'%s' % (alff_path), '', file)
-        file = re.sub(r'%s' % (nuisance_path), '', file)
-        file = re.sub(r'%s' % (sca_path), '', file)
-        file = re.sub(r'%s' % (scrubbing_path), '', file)
-        file = re.sub(r'%s' % (anat_path), '', file)
-        file = re.sub(r'%s' % (func_path), '', file)
-        file = re.sub(r'%s' % (reg_path), '', file)
-        file = re.sub(r'%s' % (seg_path), '', file)
+        file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/vmhc' % (subj_list[0]), '', file)
+        file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/alff' % (subj_list[0]), '', file)
+        file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/nuisance' % (subj_list[0]), '', file)
+        file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/sca' % (subj_list[0]), '', file)
+        file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/scrubbing' % (subj_list[0]), '', file)
+        file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/anat' % (subj_list[0]), '', file)
+        file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/func' % (subj_list[0]), '', file)
+        file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/reg' % (subj_list[0]), '', file)
+        file = re.sub(r'/home/ssikka/nki_nyu_pipeline/results/%s/segment' % (subj_list[0]), '', file)
         #print file
         pdir = os.path.dirname(file)
 
@@ -242,12 +246,9 @@ def main():
         maps[os.path.dirname(file)] = val
         m1[os.path.dirname(file)] = v
 
-    strategies = list(get_strategies(maps.keys(), iterables))
+    strategies = get_strategies(maps.keys(), iterables)
 
-    print strategies
-
-    make_sym_links(sink_dir, strategies, subj_list)
-
+    make_sym_links(strategies, subj_list, sink_dir)
 
 if __name__ == "__main__":
 

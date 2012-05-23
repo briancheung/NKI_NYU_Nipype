@@ -144,12 +144,11 @@ def scrubbing_sink(workflow, datasink, scpreproc):
 
 
 def sca_sink(workflow, datasink, scapreproc):
-    rename_list = [(scapreproc, 'outputspec.seed_mni2func',
-                    'sca_rename', 'seed_native.nii.gz'),
+    rename_list = [
                    (scapreproc, 'outputspec.correlations',
-                    'sca_rename', 'correlations_native.nii.gz'),
+                    'sca_rename', 'correlations.nii.gz'),
                    (scapreproc, 'outputspec.Z_trans_correlations',
-                    'sca_rename', 'Z_native.nii.gz'),
+                    'sca_rename', 'Z.nii.gz'),
                    (scapreproc, 'outputspec.Z_2standard',
                     'sca_rename', 'Z_2standard.nii.gz'),
                    (scapreproc, 'outputspec.Z_2standard_FWHM',

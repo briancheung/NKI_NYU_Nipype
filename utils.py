@@ -1050,6 +1050,7 @@ def selectM(movement_parameters,
     return mp
 
 
+
 def selector_wf():
 
     swf = pe.Workflow(name='scrubbing_selector')
@@ -1281,17 +1282,19 @@ def create_seed_dataflow(seed_file):
 
     import nipype.interfaces.io as nio
     import os
-
+    import re
     f = open(seed_file, 'r')
 
     seeds = f.readlines()
     seed_dir = None
 
     seed_list = []
+    seed1 = (seeds[0]).rstrip('\r\n')
+    seed1 = (seed1.split(os.path.basename(seed1)))[0]
+    seed1 = re.sub('home/', 'home2/', seed1)
+    seed_dir = seed1
     for seed in seeds:
         seed_path = seed.rstrip('\r\n')
-        if seed_dir == None:
-            seed_dir = os.path.dirname(seed_path)
         seed_list.append(os.path.basename(seed_path))
 
     f.close()
@@ -1457,6 +1460,7 @@ def create_mask_dataflow(voxelMasksDirectory):
     return datasource
 
 
+
 def gen_csv_for_parcelation(data_file,
                             template,
                             unitTSOutputs):
@@ -1514,6 +1518,7 @@ def gen_csv_for_parcelation(data_file,
         out_list.append(numpy_file)
 
     return out_list
+
 
 
 def gen_csv_for_mask(data_file,
@@ -1576,6 +1581,7 @@ def gen_csv_for_mask(data_file,
     return out_list
 
 
+
 def gen_csv_for_surface(rh_surface_file,
                         lh_surface_file,
                         verticesTSOutputs):
@@ -1612,6 +1618,7 @@ def gen_csv_for_surface(rh_surface_file,
         out_list.append(lh_file)
 
     return out_list
+
 
 
 def create_datasink(source_dir):

@@ -256,7 +256,7 @@ def create_anat_preproc():
                                                     'brain']),
                          name='outputspec')
 
-    anat_refit = pe.Node(interface=afni.Refit(),
+    anat_refit = pe.Node(interface=e_afni.Threedrefit(),
                          name='anat_refit')
     anat_refit.inputs.deoblique = True
 
@@ -279,9 +279,9 @@ def create_anat_preproc():
     preproc.connect(anat_reorient, 'out_file',
                     anat_skullstrip, 'in_file')
     preproc.connect(anat_skullstrip, 'out_file',
-                    anat_calc, 'infile_b')
+                    anat_calc, 'in_file_b')
     preproc.connect(anat_reorient, 'out_file',
-                    anat_calc, 'infile_a')
+                    anat_calc, 'in_file_a')
 
     preproc.connect(anat_refit, 'out_file',
                     outputNode, 'refit')
@@ -321,10 +321,10 @@ def create_func_preproc():
 
     func_calc = pe.MapNode(interface=afni.Calc(),
                            name='func_calc',
-                           iterfield=['infile_a'])
+                           iterfield=['in_file_a'])
     func_calc.inputs.expr = '\'a\''
 
-    func_refit = pe.MapNode(interface=afni.Refit(),
+    func_refit = pe.MapNode(interface=e_afni.Threedrefit(),
                             name='func_refit',
                             iterfield=['in_file'])
     func_refit.inputs.deoblique = True
@@ -350,14 +350,14 @@ def create_func_preproc():
     func_volreg.inputs.zpad = '4'
 
     func_volreg_1 = func_volreg.clone('func_volreg_1')
-    func_automask = pe.MapNode(interface=afni.Automask(),
+    func_automask = pe.MapNode(interface=e_afni.ThreedAutomask(),
                                name='func_automask',
                                iterfield=['in_file'])
     func_automask.inputs.dilate = 1
 
     func_calcR = pe.MapNode(interface=afni.Calc(),
                             name='func_calcR',
-                            iterfield=['infile_a', 'infile_b'])
+                            iterfield=['in_file_a', 'in_file_b'])
     func_calcR.inputs.expr = '\'a*b\''
 
     func_mean = pe.MapNode(interface=afni.TStat(),
@@ -378,7 +378,7 @@ def create_func_preproc():
     func_mask.inputs.out_data_type = 'char'
 
     preproc.connect(inputNode, 'rest',
-                    func_calc, 'infile_a')
+                    func_calc, 'in_file_a')
     preproc.connect(inputNode, 'start_idx',
                     func_calc, 'start_idx')
     preproc.connect(inputNode, 'stop_idx',
@@ -402,9 +402,9 @@ def create_func_preproc():
     preproc.connect(func_volreg_1, 'out_file',
                     func_automask, 'in_file')
     preproc.connect(func_volreg_1, 'out_file',
-                    func_calcR, 'infile_a')
+                    func_calcR, 'in_file_a')
     preproc.connect(func_automask, 'out_file',
-                    func_calcR, 'infile_b')
+                    func_calcR, 'in_file_b')
     preproc.connect(func_calcR, 'out_file',
                     func_mean, 'in_file')
     preproc.connect(func_calcR, 'out_file',
@@ -836,7 +836,7 @@ def create_scrubbing_preproc():
                                                     'preprocessed'
                                                     ]),
                         name='inputspec')
-    
+
     inputnode_threshold = pe.Node(util.IdentityInterface(fields=['threshold']),
                              name='threshold_input')
 
@@ -1366,9 +1366,9 @@ def create_reho_preproc():
     return preproc
 
 
-def create_sca_preproc():
+def create_sca_preproc_native():
 
-    rsfc = pe.Workflow(name='sca_preproc')
+    rsfc = pe.Workflow(name='sca_preproc_native')
     inputNode = pe.Node(util.IdentityInterface(fields=['ref',
                                                 'warp',
                                                 'postmat',
@@ -1488,6 +1488,137 @@ def create_sca_preproc():
 
     return rsfc
 
+
+def create_sca_preproc(corr_space):
+
+    rsfc = pe.Workflow(name='sca_preproc')
+    inputNode = pe.Node(util.IdentityInterface(fields=[
+                                                'premat',
+                                                'rest_res_filt',
+                                                'fieldcoeff_file',
+                                                'residual_file',
+                                                'rest_mask2standard',
+                                                'standard']),
+                        name='inputspec')
+
+    inputnode_fwhm = pe.Node(util.IdentityInterface(fields=['fwhm']),
+                             name='fwhm_input')
+
+    inputnode_seed_list = pe.Node(util.IdentityInterface(fields=['seed_list']),
+                                  name='seed_list_input')
+
+    outputNode = pe.Node(util.IdentityInterface(fields=[
+                                                    'correlations',
+                                                    'Z_trans_correlations',
+                                                    'Z_2standard',
+                                                    'Z_2standard_FWHM']),
+                        name='outputspec')
+
+    printToFile = pe.MapNode(util.Function(input_names=['time_series'],
+                                           output_names=['ts_oneD'],
+                             function=pToFile),
+                             name='printToFile',
+                             iterfield=['time_series'])
+
+    warp = pe.MapNode(interface=fsl.ApplyWarp(),
+                      name='warp',
+                      iterfield=['in_file',
+                                 'premat'])
+
+    warp_filt = warp.clone('warp_filt')
+    ## 1. Extract Timeseries
+
+    time_series = pe.MapNode(interface=afni.ROIStats(),
+                             name='time_series',
+                             iterfield=['in_file'])
+    time_series.inputs.quiet = True
+    time_series.inputs.mask_f2short = True
+    #time_series.iterables = ("mask",seed_list)
+
+
+    ## 2. Compute voxel-wise correlation with Seed Timeseries
+    corr = pe.MapNode(interface=afni.Fim(),
+                      name='corr',
+                      iterfield=['in_file',
+                      'ideal_file'])
+    corr.inputs.fim_thr = 0.0009
+    corr.inputs.out = 'Correlation'
+
+    ## 3. Z-transform correlations
+    z_trans = pe.MapNode(interface=e_afni.Threedcalc(),
+                         name='z_trans',
+                         iterfield=['infile_a'])
+    z_trans.inputs.expr = '\'log((1+a)/(1-a))/2\''
+
+    ## 4. Register Z-transformed correlations to standard space
+    register = pe.MapNode(interface=fsl.ApplyWarp(),
+                          name='register',
+                          iterfield=['premat',
+                          'in_file'])
+
+    smooth = pe.MapNode(interface=fsl.MultiImageMaths(),
+                        name='smooth',
+                        iterfield=['in_file',
+                        'operand_files'])
+
+    rsfc.connect(inputNode, 'rest_res_filt',
+                 warp_filt, 'in_file')
+    rsfc.connect(inputNode, 'standard',
+                 warp_filt, 'ref_file')
+    rsfc.connect(inputNode, 'fieldcoeff_file',
+                 warp_filt, 'field_file')
+    rsfc.connect(inputNode, 'premat',
+                 warp_filt, 'premat')
+    rsfc.connect(inputNode, 'residual_file',
+                 warp, 'in_file')
+    rsfc.connect(inputNode, 'standard',
+                 warp, 'ref_file')
+    rsfc.connect(inputNode, 'fieldcoeff_file',
+                 warp, 'field_file')
+    rsfc.connect(inputNode, 'premat',
+                 warp, 'premat')
+    rsfc.connect(warp, 'out_file',
+                 time_series, 'in_file')
+    rsfc.connect(time_series, 'stats',
+                 printToFile, 'time_series')
+    rsfc.connect(inputnode_seed_list, 'seed_list',
+                time_series, 'mask')
+    rsfc.connect(printToFile, 'ts_oneD',
+                 corr, 'ideal_file')
+
+    if corr_space == 'native':
+        rsfc.connect(inputNode, 'rest_res_filt',
+                     corr, 'in_file')
+    else:
+        rsfc.connect(warp_filt, 'out_file',
+                     corr, 'in_file')
+    rsfc.connect(corr, 'out_file',
+                 z_trans, 'infile_a')
+    rsfc.connect(z_trans, 'out_file',
+                 register, 'in_file')
+    rsfc.connect(inputNode, 'standard',
+                 register, 'ref_file')
+    rsfc.connect(inputNode, 'fieldcoeff_file',
+                 register, 'field_file')
+    rsfc.connect(inputNode, 'premat',
+                 register, 'premat')
+    rsfc.connect(register, 'out_file',
+                 smooth, 'in_file')
+    rsfc.connect(inputnode_fwhm, ('fwhm', set_gauss),
+                 smooth, 'op_string')
+    rsfc.connect(inputNode, 'rest_mask2standard',
+                 smooth, 'operand_files')
+
+    rsfc.connect(corr, 'out_file',
+                 outputNode, 'correlations')
+    rsfc.connect(z_trans, 'out_file',
+                 outputNode, 'Z_trans_correlations')
+    rsfc.connect(register, 'out_file',
+                 outputNode, 'Z_2standard')
+    rsfc.connect(smooth, 'out_file',
+                 outputNode, 'Z_2standard_FWHM')
+
+    return rsfc
 
 def create_group_analysis(f_test):
 

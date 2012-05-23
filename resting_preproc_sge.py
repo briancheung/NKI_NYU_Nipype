@@ -163,20 +163,15 @@ def get_workflow(wf_name, c):
             'data/standard/MNI152_T1_%s_brain.nii.gz' % (c.standardResolution))
     standard = os.path.join(c.FSLDIR,
             'data/standard/MNI152_T1_%s.nii.gz' % (c.standardResolution))
-    standard_brain_mask_dil = os.path.join(c.FSLDIR,
-            'data/standard/MNI152_T1_%s_brain_mask_dil.nii.gz' % (c.standardResolution))
-    config_file = os.path.join(c.FSLDIR,
-            'etc/flirtsch/T1_2_MNI152_%s.cnf' % (c.standardResolution))
-    brain_symmetric = os.path.join(c.FSLDIR,
-            'data/standard/MNI152_T1_2mm_brain_symmetric.nii.gz')
-    symm_standard = os.path.join(c.FSLDIR,
-            'data/standard/MNI152_T1_2mm_symmetric.nii.gz')
-    twomm_brain_mask_dil = os.path.join(c.FSLDIR,
-            'data/standard/MNI152_T1_2mm_brain_mask_symmetric_dil.nii.gz')
-    config_file_twomm = os.path.join(c.FSLDIR,
-            'etc/flirtsch/T1_2_MNI152_2mm.cnf')
+    standard_brain_mask_dil = '/home2/ssikka/scripts1/templates/MNI152_T1_%s_brain_mask_dil.nii.gz' % (c.standardResolution)
+    config_file = '/home2/ssikka/scripts1/templates/T1_2_MNI152_%s.cnf' % (c.standardResolution)
+    brain_symmetric = '/home2/ssikka/scripts1/templates/MNI152_T1_2mm_brain_symmetric.nii.gz'
+    symm_standard = '/home2/ssikka/scripts1/templates/MNI152_T1_2mm_symmetric.nii.gz'
+    twomm_brain_mask_dil = '/home2/ssikka/scripts1/templates/MNI152_T1_2mm_brain_mask_symmetric_dil.nii.gz'
+    config_file_twomm = '/home2/ssikka/scripts1/templates/T1_2_MNI152_2mm.cnf'
     identity_matrix = os.path.join(c.FSLDIR,
             'etc/flirtsch/ident.mat')
+
 
     if wf_name.lower() == 'anat':
         preproc = create_anat_preproc()
@@ -350,7 +345,7 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
 
 
 
-    wfname = 'resting_preproc' + str(sub)
+    wfname = 'resting_preproc_sge'
     workflow = pe.Workflow(name=wfname)
     workflow.base_dir = c.workingDirectory
     workflow.crash_dir = c.crashLogDirectory
@@ -364,7 +359,7 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
     """
         grab the subject data
     """
-    flowAnatFunc = create_anat_func_dataflow([sub],
+    flowAnatFunc = create_anat_func_dataflow(sub,
                                               rest_session_list,
                                               anat_session_list,
                                               c.subjectDirectory,
@@ -669,8 +664,13 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
         workflow.run(plugin='MultiProc',
                      plugin_args={'n_procs': c.numCoresPerSubject})
     else:
+        template_str = """
+#!/bin/bash
+#$ -S /bin/bash
+#$ -V
+    """
         workflow.run(plugin='SGE',
-                     plugin_args=dict(qsub_args=c.qsubArgs))
+                     plugin_args=dict(qsub_args=c.qsubArgs, template=template_str))
 
     workflow.write_graph()
 
@@ -690,38 +690,17 @@ def main():
     sublist, rest_session_list, anat_session_list, seed_list = \
                                             getSubjectAndSeedLists(c)
 
-    processes = [Process(target=prep_workflow, args=(sub, rest_session_list, anat_session_list, seed_list, c)) for sub in sublist]
-
-    if len(sublist) <= c.numSubjectsAtOnce:
-        for p in processes:
-            p.start()
-
-        for p in processes:
-            p.join()
-
-    else:
-        idx = 0
-        while(idx < len(sublist)):
-
-            idc = idx
-            if(idc + c.numSubjectsAtOnce -1 < len(sublist)):
-                for p in processes[idc: idc + c.numSubjectsAtOnce]:
-                    p.start()
-
-                for p in processes[idc: idc + c.numSubjectsAtOnce]:
-                    idx += 1
-                    p.join()
-            else:
-                for p in processes[idc: len(sublist)]:
-                    p.start()
-
-                for p in processes[idc: len(sublist)]:
-                    idx += 1
-                    p.join()
+    prep_workflow(sublist, rest_session_list, anat_session_list, seed_list, c)
 
     symlink_creator(c.sinkDirectory, sublist)
 
 
 if __name__ == "__main__":
+
+    import os
+    import commands
+    cmd = 'bash /home2/ssikka/.bashrc'
+    print cmd
+    sys.stderr.write(commands.getoutput(cmd))
 
     sys.exit(main())

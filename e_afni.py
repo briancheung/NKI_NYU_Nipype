@@ -537,7 +537,7 @@ For complete details, see the `3dAutomask Documentation.
         if  name == 'brik_file':
             _, fname, ext = split_filename(self.inputs.in_file)
             fname = os.path.basename(fname)
-            return (str(self.inputs.out_file)+ '+orig'+ '.BRIK.gz')
+            return (str(self.inputs.out_file)+ '+orig'+ '.BRIK')
 
 
         return None
@@ -630,7 +630,7 @@ For complete details, see the `3dvolreg Documentation.
 
         if name == 'md1d_file':
             _, fname, ext = split_filename(self.inputs.in_file)
-            return ('./' +fname+ '_3dvmd1D'+'.1D')
+            return ('./' + fname+ '_3dvmd1D'+'.1D')
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
@@ -1316,7 +1316,7 @@ For complete details, see the `3dcalc Documentation.
             #return temp_path
             return (fname + '_3dc'+ ext)
         if name == 'BRIK':
-            return self.inputs.out_file + '+orig.'+ name + '.gz'
+            return self.inputs.out_file + '+orig.'+ name
         if name == 'HEAD':
             return self.inputs.out_file + '+orig.' + name
 
