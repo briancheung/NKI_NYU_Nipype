@@ -334,13 +334,16 @@ def extract_residuals(realigned_file, regressors_file):
     import os
     import nibabel as nb
     import numpy as np
-    
+
     nii = nb.load(realigned_file)
     data = nii.get_data().astype('float64')
     mask = (data != 0).sum(-1) != 0
     Y = data[mask].T
-    
+
     X = np.genfromtxt(regressors_file)
+    if len(X.shape) <= 1:
+        X = X[:,np.newaxis]
+
     X = np.hstack((X,np.ones((X.shape[0],1)))) #Add constant regressor to model
     B = np.dot(np.dot(np.linalg.inv(np.dot(X.T,X)), X.T), Y)
     XB = np.dot(X,B)
