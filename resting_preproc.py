@@ -3,20 +3,23 @@ import e_afni
 import sys
 import os
 import nipype.pipeline.engine as pe
+import nipype.interfaces.utility as util
+
 from base import (create_anat_preproc, create_func_preproc,
                     create_reg_preproc, create_seg_preproc,
                     create_alff_preproc, create_sca_preproc,
                     create_vmhc_preproc, create_scrubbing_preproc,
                     mprage_in_mnioutputs, func_in_mnioutputs,
                     create_filter, create_timeseries_preproc,
-                    create_group_analysis)
+                    create_group_analysis, create_parameters_preproc)
 
 from utils import (create_anat_func_dataflow, create_seed_dataflow,
                     create_alff_dataflow, create_sca_dataflow,
                     create_vmhc_dataflow, selector_wf,
                     create_parc_dataflow, create_mask_dataflow,
                     create_gp_dataflow, create_datasink,
-                    symlink_creator)
+                    symlink_creator, create_gp_datasink,
+                    getImgTR)
 
 from base_nuisance import create_nuisance_preproc
 
@@ -27,6 +30,7 @@ from sink import (anat_sink,
                   func_sink,
                   nuisance_sink,
                   scrubbing_sink,
+                  parameters_sink,
                   sca_sink,
                   alff_sink,
                   vmhc_sink,
@@ -226,7 +230,7 @@ def get_workflow(wf_name, c):
 
     if wf_name.lower() == 'alff':
 
-        preproc = create_alff_preproc()
+        preproc = create_alff_preproc(c)
         preproc.inputs.inputspec.standard = standard
         preproc.inputs.hp_input.hp = c.highPassFreqALFF
         preproc.inputs.lp_input.lp = c.lowPassFreqALFF
@@ -252,7 +256,7 @@ def get_workflow(wf_name, c):
 
     if wf_name.lower() == 'vmhc':
 
-        preproc = create_vmhc_preproc()
+        preproc = create_vmhc_preproc(c)
         preproc.inputs.inputspec.brain_symmetric = \
                                         brain_symmetric
         preproc.inputs.inputspec.symm_standard = \
@@ -265,9 +269,15 @@ def get_workflow(wf_name, c):
                                         standard
         return preproc
 
+
     if wf_name.lower() == 'sc':
 
         preproc = create_scrubbing_preproc()
+        return preproc
+
+    if wf_name.lower() == 'pm':
+
+        preproc = create_parameters_preproc(c)
         preproc.inputs.threshold_input.threshold = c.scrubbingThreshold
         preproc.get_node('threshold_input').iterables = ('threshold', c.scrubbingThreshold)
         return preproc
@@ -275,9 +285,9 @@ def get_workflow(wf_name, c):
     if wf_name.lower() == 'select':
 
         preproc = selector_wf()
-        preproc.inputs.run_scrubbing_input.run_scrubbing = c.scrubData
-        preproc.get_node('run_scrubbing_input').iterables = \
-                                    ('run_scrubbing', c.scrubData)
+        preproc.inputs.scrubbed_input.scrubbed = c.scrubData
+        preproc.get_node('scrubbed_input').iterables = \
+                                    ('scrubbed', c.scrubData)
         return preproc
 
     if wf_name.lower() == 'nuisance':
@@ -319,9 +329,9 @@ def get_workflow(wf_name, c):
                                            output_names=['bandpassed_file'],
                                            function=bandpass_voxels),
                                            name='bandpass_filter',
-                                           iterfield=['realigned_file', 'bandpass_freqs'])
+                                           iterfield=['realigned_file', 'bandpass_freqs', 'sample_period'])
         preproc.inputs.bandpass_freqs = c.nuisanceBandpassFreq
-        preproc.inputs.sample_period = c.TR
+        #preproc.inputs.sample_period = c.TR
         return preproc
 
 
@@ -344,6 +354,47 @@ def get_workflow(wf_name, c):
         preproc.inputs.inputspec.parameters = (c.FSLDIR,
                                                c.MNI)
         return preproc
+
+
+def run_group_analysis(rest_session_list, anat_session_list, seed_list, c):
+
+    wfname = 'resting_preproc' + '_group_analysis'
+    workflow = pe.Workflow(name=wfname)
+    workflow.base_dir = c.workingDirectory
+    workflow.crash_dir = c.crashLogDirectory
+    workflow.config['execution'] = {'hash_method': 'timestamp'}
+
+    """
+        FSL Group Analysis
+    """
+    if c.derivatives[6]:
+        """
+                grab the Group Analysis Data 
+        """
+        modelist, dervlist, labelist, template_dict, template_args = getGroupAnalysisInputs(c)
+
+        gp_flow = create_gp_dataflow(c.sinkDirectory, modelist,
+                                     dervlist, labelist, template_dict,
+                                     template_args, 'gpflow')
+
+        gppreproc = get_workflow('group_analysis', c)
+
+        workflow.connect(gp_flow, 'gpflow.mat',
+                     gppreproc, 'inputspec.mat_file')
+        workflow.connect(gp_flow, 'gpflow.con',
+                     gppreproc, 'inputspec.con_file')
+        workflow.connect(gp_flow, 'gpflow.fts',
+                     gppreproc, 'inputspec.fts_file')
+        workflow.connect(gp_flow, 'gpflow.grp',
+                     gppreproc, 'inputspec.grp_file')
+        workflow.connect(gp_flow, 'gpflow.derv',
+                     gppreproc, 'inputspec.zmap_files')
+
+
+        gp_datasink = create_gp_datasink(c.sinkDirectory)
+        workflow.connect(gp_flow, 'inputnode.label', gp_datasink, 'container')
+        group_analysis_sink(workflow, gp_datasink, gppreproc)
+
 
 
 def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
@@ -374,15 +425,6 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
                                               c.funcTemplateList)
 
 
-    if c.derivatives[6]:
-        """
-                grab the Group Analysis Data 
-        """
-        modelist, dervlist, labelist, template_dict, template_args = getGroupAnalysisInputs(c)
-
-        gp_flow = create_gp_dataflow(c.sinkDirectory, modelist,
-                                     dervlist, labelist, template_dict,
-                                     template_args, 'gpflow')
 
     if c.derivatives[1]:
         """
@@ -413,11 +455,18 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
     regpreproc = get_workflow('reg', c)
     segpreproc = get_workflow('seg', c)
     scpreproc = get_workflow('sc', c)
+    pmpreproc = get_workflow('pm', c)
     select = get_workflow('select', c)
     nuisancepreproc = get_workflow('nuisance', c)
     mprage_mni = get_workflow('mprage_in_mnioutputs', c)
     func_in_mni = get_workflow('func_in_mnioutputs', c)
     freq_filter = get_workflow('freq_filter', c)
+
+    TR_freq = pe.Node(util.Function(input_names=['in_files', 'TRa'],
+                               output_names=['TR'],
+                 function=getImgTR), name='TR_freq')
+    TR_freq.inputs.TRa = c.TR
+
 
     if c.derivatives[0]:
         alffpreproc = get_workflow('alff', c)
@@ -430,9 +479,6 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
 
     if c.derivatives[4] or c.derivatives[5]:
         tspreproc = get_workflow('ts', c)
-
-    if c.derivatives[6]:
-        gppreproc = get_workflow('group_analysis', c)
     """
         Calling datasink
     """
@@ -464,6 +510,16 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
     workflow.connect(regpreproc, 'outputspec.stand2highres_warp',
                      segpreproc, 'inputspec.stand2highres_warp')
 
+    workflow.connect(flowAnatFunc, 'inputnode.subject_id',
+                     pmpreproc, 'inputspec.subject_id')
+    workflow.connect(flowAnatFunc, 'inputnode.session_id',
+                     pmpreproc, 'inputspec.session_id')
+    workflow.connect(flowAnatFunc, 'datasource.rest',
+                     pmpreproc, 'inputspec.rest')
+    workflow.connect(funcpreproc, 'outputspec.movement_parameters',
+                     pmpreproc, 'inputspec.movement_parameters')
+    workflow.connect(funcpreproc, 'outputspec.max_displacement',
+                     pmpreproc, 'inputspec.max_displacement')
 
     workflow.connect(segpreproc, 'outputspec.wm_mask',
                      nuisancepreproc, 'inputspec.wm_mask')
@@ -498,8 +554,11 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
     workflow.connect(funcpreproc, 'outputspec.movement_parameters',
                      nuisancepreproc, 'inputspec.motion_components')
 
-    if(c.nuisanceBandpassFreq):
+    if(c.nuisanceBandpass):
 
+        workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+                        TR_freq, 'in_files')
+        workflow.connect(TR_freq, 'TR', freq_filter, 'sample_period')
         workflow.connect(nuisancepreproc, 'outputspec.residual_file',
                          freq_filter, 'realigned_file')
 
@@ -513,8 +572,9 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
         workflow.connect(nuisancepreproc, 'outputspec.residual_file',
                          select, 'inputspec.preprocessed')
 
-    workflow.connect(flowAnatFunc, 'datasource.rest',
-                     scpreproc, 'inputspec.rest')
+    workflow.connect(pmpreproc, 'outputspec.frames_in_1D',
+                     scpreproc, 'inputspec.frames_in_1D')
+
     workflow.connect(funcpreproc, 'outputspec.movement_parameters',
                      scpreproc, 'inputspec.movement_parameters')
 
@@ -534,12 +594,13 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
     workflow.connect(funcpreproc, 'outputspec.preprocessed_mask',
                      func_in_mni, 'inputspec.preprocessed_mask')
 
-    workflow.connect(select, 'outputspec.preprocessed_selector',
+    workflow.connect(nuisancepreproc, 'outputspec.residual_file',
                      func_in_mni, 'inputspec.residual_file')
 
 
     anat_sink(workflow,
               datasink,
+              anatpreproc,
               mprage_mni)
     func_sink(workflow,
               datasink,
@@ -552,12 +613,16 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
              datasink,
              segpreproc,
              mprage_mni)
+    parameters_sink(workflow,
+                    datasink,
+                    pmpreproc)
     scrubbing_sink(workflow,
                    datasink,
                    scpreproc)
     nuisance_sink(workflow,
                   datasink,
-                  nuisancepreproc)
+                  nuisancepreproc,
+                  func_in_mni)
 
     if c.derivatives[0]:
         """
@@ -605,7 +670,7 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
         """
             VMHC (Voxel-Mirrored Homotopic Connectivity)
         """
-        workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+        workflow.connect(select, 'outputspec.preprocessed_selector',
                          vmhcpreproc, 'inputspec.rest_res')
         workflow.connect(anatpreproc, 'outputspec.reorient',
                          vmhcpreproc, 'inputspec.reorient')
@@ -645,34 +710,20 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
                         tspreproc,
                         c.runSurfaceRegistraion)
 
-    """
-        FSL Group Analysis
-    """
-    if c.derivatives[6]:
-        workflow.connect(gp_flow, 'gpflow.mat',
-                     gppreproc, 'inputspec.mat_file')
-        workflow.connect(gp_flow, 'gpflow.con',
-                     gppreproc, 'inputspec.con_file')
-        workflow.connect(gp_flow, 'gpflow.fts',
-                     gppreproc, 'inputspec.fts_file')
-        workflow.connect(gp_flow, 'gpflow.grp',
-                     gppreproc, 'inputspec.grp_file')
-        workflow.connect(gp_flow, 'gpflow.derv',
-                     gppreproc, 'inputspec.zmap_files')
-
-
-        gp_datasink = create_gp_datasink(c.sinkDirectory)
-        workflow.connect(gp_flow, 'inputnode.label', gp_datasink, 'container')
-        group_analysis_sink(workflow, gp_datasink, gppreproc)
 
     if(not c.runOnGrid):
         workflow.run(plugin='MultiProc',
                      plugin_args={'n_procs': c.numCoresPerSubject})
     else:
+        template_str = """
+#!/bin/bash
+#$ -S /bin/bash
+#$ -V
+    """
         workflow.run(plugin='SGE',
-                     plugin_args=dict(qsub_args=c.qsubArgs))
-
+                     plugin_args=dict(qsub_args=c.qsubArgs, template=template_str))
     workflow.write_graph()
+
 
 def main():
 
@@ -719,7 +770,8 @@ def main():
                     idx += 1
                     p.join()
 
-    symlink_creator(c.sinkDirectory, sublist)
+    #symlink_creator(c.sinkDirectory)
+    run_group_analysis(rest_session_list, anat_session_list, seed_list, c)
 
 
 if __name__ == "__main__":

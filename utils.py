@@ -6,12 +6,161 @@ import e_afni
 import nipype.pipeline.engine as pe
 import nipype.interfaces.utility as util
 
+
+def generateMotionParameters(subject_id, session_id, rest, movement_parameters, max_displacement):
+
+
+    import os
+    import numpy as np
+    import re
+
+    out_file = os.path.join(os.getcwd(), 'motion_parameters.txt')
+
+    f= open(out_file,'w')
+    print >>f, "Subject,Session,Rest Scan,Mean Relative RMS Displacement,"\
+    "Max Relative RSM Displacement,Movements >0.1mm,Mean " \
+    "Relative Mean Rotation,Mean Relative Maxdisp,Max Relative Maxdisp," \
+    "Max Abs Maxdisp,Max Relative Roll,Max Relative Pitch," \
+    "Max Relative Yaw,Max Relative dS-I,Max Relative dL-R," \
+    "Max Relative dP-A,Mean Relative Roll,Mean Relative Pitch,Mean Relative Yaw," \
+    "Mean Relative dS-I,Mean Relative dL-R,Mean Relative dP-A,Max Abs Roll," \
+    "Max Abs Pitch,Max Abs Yaw,Max Abs dS-I,Max Abs dL-R,Max Abs dP-A"
+
+
+    dir_name = os.path.dirname(rest)
+    rest_name = os.path.basename(dir_name)
+#    subject_id = os.path.basename(
+#                    os.path.dirname(dir_name))
+    f.write("%s," %(subject_id))
+    f.write("%s," %(session_id))
+    f.write("%s," %(rest_name))
+
+    arr = np.genfromtxt(movement_parameters)
+    arr = arr.T
+
+    ##Relative RMS of translation
+    rms= np.sqrt(arr[3]*arr[3] + arr[4]*arr[4] + arr[5]*arr[5])
+    diff = np.diff(rms)
+    MEANrms = np.mean(abs(diff))
+    f.write("%.3f," %(MEANrms))
+
+    MAXrms= np.max(abs(diff))
+    f.write("%.3f," %(MAXrms))
+
+    ##NUMBER OF relative RMS movements >0.1mm
+    NUMmove= np.sum(abs(diff)>0.1)
+    f.write("%.3f," %(NUMmove))
+
+    ##Mean of mean relative rotation (params 1-3)
+    MEANrot= np.mean(np.abs(np.diff( (abs(arr[0])+ abs(arr[1])+ abs(arr[2]))/3 ) ) )
+    f.write("%.3f," %(MEANrot))
+
+    file= open(max_displacement, 'r')
+    lines =file.readlines()
+    file.close()
+    list1=[]
+
+    for l in lines:
+        if re.match("^\d+?\.\d+?$", l.strip()):
+            list1.append(float(l.strip()))
+
+    arr2=np.array(list1, dtype='float')
+
+    mean=np.mean(np.diff(arr2))
+    f.write("%.3f," %(mean))
+
+
+    relMAX=np.max(abs(np.diff(arr2)))
+    f.write("%.3f," %(relMAX))
+
+    MAX= np.max(arr2)
+    f.write("%.3f," %(MAX))
+
+
+    for i in range(6):
+        f.write("%.6f," %(np.max(abs(np.diff(arr[i])))))
+
+    for i in range(6):
+        f.write("%.6f," %(np.mean(np.diff(arr[i]))))
+
+    for i in range(6):
+        f.write("%.6f," %(np.max(abs(arr[i]))))
+
+    f.close()
+    return out_file
+
+
+def generatePowerParams(rest, FD_1D, threshold, ftof_percent, sqrt_mean_raw):
+
+    import os
+    import numpy as np
+    from numpy import loadtxt
+
+    out_file = os.path.join(os.getcwd(), 'pow_params.txt')
+
+    f= open(out_file,'w')
+    print >>f, "Subject,Rest Scan, MeanFD, rootMeanSquareFD, NumFD >=threshold," \
+    "rmsFD, FDquartile(top 1/4th FD), PercentFD( >threshold), Num5, Num10, MeanDVARS, MeanDVARS_POW"
+
+
+    dir_name = os.path.dirname(rest)
+    rest_name = os.path.basename(dir_name)
+    subject_id = os.path.basename(
+                    os.path.dirname(dir_name))
+
+
+    f.write("%s," % subject_id)
+    f.write("%s," % rest_name)
+
+    data= loadtxt(FD_1D)
+    meanFD  = np.mean(data)
+    f.write('%.4f,' % meanFD)
+
+    numFD = float(data[data >=threshold].size)
+    f.write('%.4f,' % numFD)
+
+    rmsFD = np.sqrt(np.mean(data))
+    f.write('%.4f,' % rmsFD)
+
+    #Mean of the top quartile of FD is $FDquartile
+    quat=int(len(data)/4)
+    FDquartile=np.mean(np.sort(data)[::-1][:quat])
+    f.write('%.4f,' % rmsFD)
+
+    ##NUMBER OF FRAMES >threshold FD as percentage of total num frames
+    count = np.float(data[data>threshold].size)
+    percentFD = (count*100/(len(data)+1))
+    f.write('%.4f,' %percentFD)
+
+
+    data=loadtxt(ftof_percent)
+    ###NUMBER OF relative FRAMES >5%
+    num5= np.sum(data>=5)*100/len(data)
+    f.write('%.4f,' % num5)
+
+    num10= np.sum(data>=10)*100/len(data)
+    f.write('%.4f,' % num10)
+
+    meanDVARS  = np.mean(data)
+    f.write('%.4f,' % meanDVARS)
+
+    data = loadtxt(sqrt_mean_raw)
+    meanDVARS_POW = np.mean(data)
+    f.write('%.4f,' % meanDVARS_POW)
+
+    return out_file
+
+
+
+
 def reho_statistic_filter(lfo, tied):
 
     import nibabel as nb
     import numpy as np
 
     V = np.pad(lfo, ((1, 1), (1, 1), (1, 1), (0, 0)), 'edge')
+
+
 
 
 def get_vectors(strat):
@@ -83,10 +232,9 @@ def get_strategies(K, iterables):
 
 def get_match(sink_dir, p, strategies):
 
-    p1 = p.split(sink_dir)
-    p1 = p1[1]
-    p_vals = p1.split('/')
-    p_vals = p_vals[3:]
+    p1 = p.split(sink_dir)[1:]
+    p1 = p1[0]
+    p_vals = p1.split('/')[2:]
 
     flag = 0
     strats = []
@@ -125,27 +273,20 @@ def smash(sink_dir, maps, strategies):
     return dict(new_maps)
 
 
-def make_links(new_maps, sink_dir, sub):
+
+def make_links(new_maps, sink_dir, sub, labels):
+
 
     print 'creating symbolink links for %s ...' % (sub)
     sym_path = os.path.join(sink_dir, 'sym_links')
-    cmd = 'mkdir -p %s' % (sym_path)
-    commands.getoutput(cmd)
 
-    idx = 0
-    f = open('%s/label_linkage.txt' % (sym_path), 'w')
-
-    labels = {}
     strats = sorted(new_maps.keys())
     orig_sub_dir = os.path.join(sink_dir, sub)
     wfs = sorted(os.listdir(orig_sub_dir))
     sessions = os.listdir(os.path.join(orig_sub_dir, wfs[1]))
 
     for strat in strats:
-        idx += 1
-        print >>f, 'label_'+str(idx), ' ', strat
-        labels[strat] = 'label_'+str(idx)
-        l_path = os.path.join(sym_path, 'label_'+str(idx))
+        l_path = os.path.join(sym_path, labels[strat])
 
         cmd = 'mkdir -p %s' % (l_path)
         commands.getoutput(cmd)
@@ -166,10 +307,9 @@ def make_links(new_maps, sink_dir, sub):
                     cmd = 'ln -s %s %s' %(file, os.path.join(wf_path, os.path.basename(file)))
                     commands.getoutput(cmd)
 
-    f.close()
 
 
-def make_sym_links(sink_dir, strategies, subj_list):
+def make_sym_links(sink_dir, strategies, subj_list, labels):
 
 
     for subject in subj_list:
@@ -192,14 +332,17 @@ def make_sym_links(sink_dir, strategies, subj_list):
 
         new_maps = smash(sink_dir, maps, strategies)
 
-        make_links(new_maps, sink_dir, subject)
-
-def symlink_creator(sink_dir, subj_list):
+        make_links(new_maps, sink_dir, subject, labels)
 
 
+
+def symlink_creator(sink_dir):
+
+    import os
+    subj_list = sorted(os.listdir(sink_dir))
     subjectDir = os.path.join(sink_dir, subj_list[0])
 
-    iterables = ['threshold', 'csf_threshold', 'fwhm', 'gm_threshold', 'hp', 'lp', 'nc', 'run_scrubbing', 'seeds', 'selector', 'session_id', 'target_angle', 'wm_threshold']
+    iterables = ['threshold', 'csf_threshold', 'fwhm', 'gm_threshold', 'hp', 'lp', 'nc', 'scrubbed', 'seeds', 'selector', 'session_id', 'target_angle', 'wm_threshold']
     wfs = os.listdir(subjectDir)
 
     labels = {}
@@ -224,6 +367,7 @@ def symlink_creator(sink_dir, subj_list):
         func_path = os.path.join(spath, 'func')
         seg_path = os.path.join(spath, 'segment')
         reg_path = os.path.join(spath, 'reg')
+        param_path = os.path.join(spath, 'parameters')
 
         file = re.sub(r'%s' % (vmhc_path), '', file)
         file = re.sub(r'%s' % (alff_path), '', file)
@@ -234,6 +378,8 @@ def symlink_creator(sink_dir, subj_list):
         file = re.sub(r'%s' % (func_path), '', file)
         file = re.sub(r'%s' % (reg_path), '', file)
         file = re.sub(r'%s' % (seg_path), '', file)
+        file = re.sub(r'%s' % (param_path), '', file)
+
         #print file
         pdir = os.path.dirname(file)
 
@@ -250,10 +396,27 @@ def symlink_creator(sink_dir, subj_list):
         maps[os.path.dirname(file)] = val
         m1[os.path.dirname(file)] = v
 
-    strategies = list(get_strategies(maps.keys(), iterables))
+    strategies = sorted(list(get_strategies(maps.keys(), iterables)))
 
 
-    make_sym_links(sink_dir, strategies, subj_list)
+    labels = {}
+
+    sym_path = os.path.join(sink_dir, 'sym_links')
+    cmd = 'mkdir -p %s' % (sym_path)
+    commands.getoutput(cmd)
+
+    f = open('%s/label_linkage.txt' % (sym_path), 'w')
+    label_idx = 1
+    for strategy in strategies:
+
+        labels[str(strategy)] = 'label_' + str(label_idx)
+        label_idx += 1
+        print >>f, labels[str(strategy)], ' ', strategy
+
+    f.close()
+
+    make_sym_links(sink_dir, strategies, subj_list, labels)
+
 
 
 def getIndx(in_file):
@@ -331,21 +494,59 @@ def getStopIdx(in_file):
             return int(myList[length - 1])
 
 
-def last_vol(vols):
+def last_vol(nvols, stopIdx, startIdx):
 
-    v = []
-    for vol in vols:
-        v.append(int(vol) - 1)
+    vol = nvols
+    if (stopIdx == None) and (startIdx == None):
+        last_volume = (int(vol) - 1)
+        return last_volume
+    elif (not (stopIdx == None)) and (not (startIdx == None)):
+        last_volume = (stopIdx)
+        return last_volume
+    elif (startIdx == None) and (not (stopIdx == None)):
+        last_volume = (stopIdx)
+        return last_volume
+    else:
+#       stopIdx is none and startIdx has a value
+#       nvols = stopIdx -startIdx +1
+# in this case this is ok because the image used is original image
+        last_volume = int(vol) + startIdx - 1
 
-    return v
+        return last_volume
 
 
-def TRendminus1(vols):
-    v = []
-    for vol in vols:
-        v.append(int(vol) - 2)
+def TRendminus1(nvols, stopIdx, startIdx):
 
-    return v
+    vol = nvols
+    last_vol_minus_one = None
+
+    if (stopIdx == None) and (startIdx == None):
+
+        last_volume = (int(vol) - 1)
+        last_vol_minus_one = last_volume - 1
+
+        return last_vol_minus_one
+
+    elif (not (stopIdx == None)) and (not (startIdx == None)):
+
+        last_volume = (stopIdx)
+        last_vol_minus_one = last_volume - 1
+
+        return last_vol_minus_one
+
+    elif (startIdx == None) and (not (stopIdx == None)):
+
+        last_volume = (stopIdx)
+        last_vol_minus_one = last_volume - 1
+        return last_vol_minus_one
+
+    else:
+#       stopIdx is none and startIdx has a value
+#       nvols = stopIdx -startIdx +1
+        last_volume = int(vol) + startIdx - 1
+
+        last_vol_minus_one = last_volume - 1
+        return last_vol_minus_one
 
 
 def scCopy(in_file):
@@ -758,26 +959,29 @@ def setNUMFD(in_file, threshold):
     return out_file
 
 
+
 def setScrubbedMotion(infile_a, infile_b):
 
     import os
 
     out_file = os.path.join(os.getcwd(), 'rest_mc_scrubbed.1D')
 
-    f1 = open(infile_a)
-    f2 = open(infile_b)
-    l1 = f1.readlines()
-    l2 = f2.readlines()
+    f1= open(infile_a)
+    f2=open(infile_b)
+    l1=f1.readline()
+    l2=f2.readlines()
     f1.close()
     f2.close()
 
+
+    l1=l1.rstrip(',').split(',')
+
     f = open(out_file, 'a')
     for l in l1:
-        data = l2[int(l.strip())]
+        data=l2[int(l.strip())]
         f.write(data)
     f.close()
     return out_file
-
 
 def pToFile(time_series):
 
@@ -904,8 +1108,30 @@ def pick_wm_2(probability_maps):
                 return file
     return None
 
+def get_idx(in_files, stop_idx, start_idx):
 
-def getImgNVols(in_files):
+    stopidx = None
+    startidx = None
+    from nibabel import load
+
+    img = load(in_files)
+    hdr = img.get_header()
+    nvols = int(hdr.get_data_shape()[3])
+
+    if (start_idx == None) or (start_idx < 0) or (start_idx > (nvols - 1)):
+        startidx = 0
+    else:
+        startidx = start_idx
+
+    if (stop_idx == None) or (stop_idx > (nvols - 1)):
+        stopidx = nvols - 1
+    else:
+        stopidx = stop_idx
+
+    return stopidx, startidx
+
+
+def getImgNVols(in_files, stopIdx, startIdx):
 
     out = []
     from nibabel import load
@@ -913,17 +1139,91 @@ def getImgNVols(in_files):
         for in_file in in_files:
             img = load(in_file)
             hdr = img.get_header()
-            out.append(int(hdr.get_data_shape()[3]))
+
+            if len(hdr.get_data_shape()) > 3:
+                nvols = int(hdr.get_data_shape()[3])
+            else:
+                nvols = 1
+            if (startIdx == None) and (stopIdx == None):
+                out.append(nvols)
+
+            if (startIdx == None) and (not (stopIdx == None)):
+
+                num_vols = stopIdx - 0 + 1
+
+                if num_vols > nvols:
+
+                    print "WARNING!!!: NUM of Volumes specified in config file: %d  exceeds total number of volumes found in functional image: %d, using image header no of vols" % (num_vols, nvols)
+                    out.append(nvols)
+                else:
+                    out.append(num_vols)
+
+            elif (stopIdx == None) and (not (startIdx == None)):
+                num_vols = nvols - startIdx
+                if num_vols > nvols:
+
+                    print "WARNING!!!: NUM of Volumes specified in config file: %d  exceeds total number of volumes found in functional image: %d, using image header no of vols" % (num_vols, nvols)
+                    out.append(nvols)
+                else:
+                    out.append(num_vols)
+
+            elif (not (startIdx == None)) and (not (stopIdx == None)):
+
+                num_vols = stopIdx - startIdx + 1
+
+                if num_vols > nvols:
+
+                    print "WARNING!!!: NUM of Volumes specified in config file: %d  exceeds total number of volumes found in functional image: %d, using image header no of vols" % (num_vols, nvols)
+                    out.append(nvols)
+                else:
+                    out.append(num_vols)
+
+
         return out
 
     else:
         img = load(in_files)
         hdr = img.get_header()
-        n_vol = int(hdr.get_data_shape()[3])
-        return [n_vol]
+        nvols = int(hdr.get_data_shape()[3])
+        if (startIdx == None) and (stopIdx == None):
+             return [nvols]
+
+        if (startIdx == None) and (not (stopIdx == None)):
+
+            num_vols = stopIdx - 0 + 1
+
+            if num_vols > nvols:
+
+                print "WARNING!!!: NUM of Volumes specified in config file: %d  exceeds total number of volumes found in functional image: %d, using image header no of vols" % (num_vols, nvols)
+                return [nvols]
+            else:
+                return [num_vols]
+
+        elif (stopIdx == None) and (not (startIdx == None)):
+            num_vols = nvols - startIdx
+            if num_vols > nvols:
+
+                print "WARNING!!!: NUM of Volumes specified in config file: %d  exceeds total number of volumes found in functional image: %d, using image header no of vols" % (num_vols, nvols)
+                return [nvols]
+            else:
+                return [num_vols]
+
+        elif (not (startIdx == None)) and (not (stopIdx == None)):
+
+            num_vols = stopIdx - startIdx + 1
+
+            if num_vols > nvols:
+
+                print "WARNING!!!: NUM of Volumes specified in config file: %d  exceeds total number of volumes found in functional image: %d, using image header no of vols" % (num_vols, nvols)
+                return [nvols]
+            else:
+                return [num_vols]
 
 
-def getImgTR(in_files):
+        return [nvols]
+
+
+def getImgTR(in_files, TRa):
 
     out = []
     from nibabel import load
@@ -934,7 +1234,18 @@ def getImgTR(in_files):
             tr = float(hdr.get_zooms()[3])
             if tr > 10:
                 tr = float(float(tr) / 1000.0)
-            out.append(tr)
+            if not (TRa == None):
+                diff = None
+                if TRa > tr:
+                    diff = TRa - tr
+                else:
+                    diff = tr - TRa
+
+                if (diff > 0.001):
+                    print "Warning: specified TR  %f and TR in image header  %f do not match:" % (TRa, tr)
+                out.append(TRa)
+            else:
+                out.append(tr)
         return out
     else:
         img = load(in_files)
@@ -942,7 +1253,18 @@ def getImgTR(in_files):
         tr = float(hdr.get_zooms()[3])
         if tr > 10:
             tr = float(float(tr) / 1000.0)
-        return [tr]
+        if not (TRa == None):
+            diff = None
+            if TRa > tr:
+                diff = TRa - tr
+            else:
+                diff = tr - TRa
+
+            if (diff > 0.001):
+                print "Warning: specified TR  %f and TR in image header  %f do not match:" % (TRa, tr)
+            return [TRa]
+        else:
+            return [tr]
 
 
 def getN1(TR, nvols, HP):
@@ -1021,10 +1343,10 @@ def getEXP(nvols):
     return expr
 
 
-def select(pp, run_scrubbing, sc_pp):
+def select(pp, scrubbed, sc_pp):
 
     pp_s = None
-    if (run_scrubbing):
+    if (scrubbed):
 
         pp_s = sc_pp
 
@@ -1036,10 +1358,10 @@ def select(pp, run_scrubbing, sc_pp):
 
 
 def selectM(movement_parameters,
-            run_scrubbing, scrubbed_movement_parameters):
+            scrubbed, scrubbed_movement_parameters):
 
     mp = None
-    if (run_scrubbing):
+    if (scrubbed):
 
         mp = scrubbed_movement_parameters
 
@@ -1063,8 +1385,8 @@ def selector_wf():
                                             ]),
                         name='inputspec')
 
-    iRun = pe.Node(util.IdentityInterface(fields=['run_scrubbing']),
-                             name='run_scrubbing_input')
+    iRun = pe.Node(util.IdentityInterface(fields=['scrubbed']),
+                             name='scrubbed_input')
 
     outputNode = pe.Node(util.IdentityInterface(fields=[
                                                 'preprocessed_selector',
@@ -1074,7 +1396,7 @@ def selector_wf():
 
     selectP = pe.MapNode(util.Function(input_names=[
                                               'pp',
-                                              'run_scrubbing',
+                                              'scrubbed',
                                               'sc_pp'],
                                       output_names=['pp_s'],
                         function=select),
@@ -1083,7 +1405,7 @@ def selector_wf():
 
     selectP1 = pe.MapNode(util.Function(input_names=[
                                         'movement_parameters',
-                                        'run_scrubbing',
+                                        'scrubbed',
                                         'scrubbed_movement_parameters'],
                                         output_names=['mp'],
                           function=selectM),
@@ -1096,15 +1418,15 @@ def selector_wf():
                 selectP, 'pp')
     swf.connect(inputNode, 'scrubbed_preprocessed',
                 selectP, 'sc_pp')
-    swf.connect(iRun, 'run_scrubbing',
-                selectP, 'run_scrubbing')
+    swf.connect(iRun, 'scrubbed',
+                selectP, 'scrubbed')
 
     swf.connect(inputNode, 'movement_parameters',
                 selectP1, 'movement_parameters')
     swf.connect(inputNode, 'scrubbed_movement_parameters',
                 selectP1, 'scrubbed_movement_parameters')
-    swf.connect(iRun, 'run_scrubbing',
-                selectP1, 'run_scrubbing')
+    swf.connect(iRun, 'scrubbed',
+                selectP1, 'scrubbed')
 
     swf.connect(selectP, 'pp_s',
                 outputNode, 'preprocessed_selector')
@@ -1364,7 +1686,7 @@ def create_vmhc_dataflow(name,
     return datasource, da, datasource_warp
 
 
-def create_gp_dataflow(base_dir, modelist, dervlist, template_dict, template_args, name):
+def create_gp_dataflow(base_dir, modelist, dervlist, labelist, template_dict, template_args, name):
 
     import nipype.pipeline.engine as pe
     import nipype.interfaces.io as nio
@@ -1374,11 +1696,12 @@ def create_gp_dataflow(base_dir, modelist, dervlist, template_dict, template_arg
     wf = pe.Workflow(name='gp_dataflow')
 
 
-    inputnode = pe.Node(interface=IdentityInterface(fields=['model', 'derivative'],
+    inputnode = pe.Node(interface=IdentityInterface(fields=['model', 'derivative', 'label'],
                                                     mandatory_inputs=True),
                         name='inputnode')
     inputnode.iterables = [('model', modelist),
-                           ('derivative', dervlist)]
+                           ('derivative', dervlist),
+                           ('label', labelist)]
 
     datasource = pe.Node(interface=nio.DataGrabber(infields=['model_name', 'derivative'],
                                                    outfields=['mat', 'con', 'fts', 'grp', 'derv']),
@@ -1391,7 +1714,7 @@ def create_gp_dataflow(base_dir, modelist, dervlist, template_dict, template_arg
 
     wf.connect(inputnode, 'model', datasource, 'model_name')
     wf.connect(inputnode, 'derivative', datasource, 'derivative')
-
+    wf.connect(inputnode, 'label', datasource, 'label')
     return wf
 
 
@@ -1460,7 +1783,6 @@ def create_mask_dataflow(voxelMasksDirectory):
     return datasource
 
 
-
 def gen_csv_for_parcelation(data_file,
                             template,
                             unitTSOutputs):
@@ -1518,7 +1840,6 @@ def gen_csv_for_parcelation(data_file,
         out_list.append(numpy_file)
 
     return out_list
-
 
 
 def gen_csv_for_mask(data_file,
@@ -1581,7 +1902,6 @@ def gen_csv_for_mask(data_file,
     return out_list
 
 
-
 def gen_csv_for_surface(rh_surface_file,
                         lh_surface_file,
                         verticesTSOutputs):
@@ -1620,7 +1940,6 @@ def gen_csv_for_surface(rh_surface_file,
     return out_list
 
 
-
 def create_datasink(source_dir):
 
     import nipype.interfaces.io as nio
@@ -1628,7 +1947,7 @@ def create_datasink(source_dir):
     datasink = pe.Node(nio.DataSink(), name='data_sink')
     datasink.inputs.base_directory = source_dir
     datasink.inputs.regexp_substitutions = [(r"[/](_)+", '/'), (r"^(_)+", ''), (r"[\w]*rename(\d)+[/]", ''),
-                                            (r"_subject_(\w)*(\d)*", ''), (r"apply_warp(\d)+[/]", 'mni_outputs/'),
+                                            (r"_subject_(\w)*(\d)*", ''), (r"apply_warp(\d)+[/]", 'MNI_Outputs/'),
                                             (r"func_(\w)+(\d)+[/]", ''), (r"median_angle(\d)+", ''),
                                             (r"sc_(\d)*(\w)+(\d)+[/]", ''), (r"seg_(\w)+(\d)+[/]", ''),
                                             (r"timeseries_(\w)+(\d)+[/]", ''), (r"(\.nii.gz)[/]", '/')]
@@ -1645,7 +1964,7 @@ def create_gp_datasink(source_dir):
     datasink.inputs.regexp_substitutions = [(r"[/](_)+", '/'),
                                             (r"^(_)+", ''),
                                             (r"[\w]*rename(\d)+[/]", ''),
-                                            (r"derivative_(\w)*(\d)*(\w)*_model", 'model'),
+                                            (r"_label_(\w)*(\d)*(\w)*_model", '/model'),
                                             (r"gp_(\w)+(\d)+", ''),
                                             (r"Merged/model_(\w)*(\d)*(\w)*[/]", 'Merged/')]
     return datasink

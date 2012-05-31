@@ -268,7 +268,7 @@ def create_anat_preproc():
                               name='anat_skullstrip')
     anat_skullstrip.inputs.options = '-o_ply'
 
-    anat_calc = pe.Node(interface=afni.Calc(),
+    anat_calc = pe.Node(interface=e_afni.Threedcalc(),
                         name='anat_calc')
     anat_calc.inputs.expr = '\'a*step(b)\''
 
@@ -279,9 +279,9 @@ def create_anat_preproc():
     preproc.connect(anat_reorient, 'out_file',
                     anat_skullstrip, 'in_file')
     preproc.connect(anat_skullstrip, 'out_file',
-                    anat_calc, 'in_file_b')
+                    anat_calc, 'infile_b')
     preproc.connect(anat_reorient, 'out_file',
-                    anat_calc, 'in_file_a')
+                    anat_calc, 'infile_a')
 
     preproc.connect(anat_refit, 'out_file',
                     outputNode, 'refit')
@@ -319,9 +319,14 @@ def create_func_preproc():
 
                           name='outputspec')
 
-    func_calc = pe.MapNode(interface=afni.Calc(),
+    func_idx = pe.MapNode(util.Function(input_names=['in_files', 'stop_idx', 'start_idx'],
+                               output_names=['stopidx', 'startidx'],
+                 function=get_idx), name='func_idx',
+                                    iterfield=['in_files'])
+
+    func_calc = pe.MapNode(interface=e_afni.Threedcalc(),
                            name='func_calc',
-                           iterfield=['in_file_a'])
+                           iterfield=['infile_a', 'stop_idx', 'start_idx'])
     func_calc.inputs.expr = '\'a\''
 
     func_refit = pe.MapNode(interface=e_afni.Threedrefit(),
@@ -355,9 +360,9 @@ def create_func_preproc():
                                iterfield=['in_file'])
     func_automask.inputs.dilate = 1
 
-    func_calcR = pe.MapNode(interface=afni.Calc(),
+    func_calcR = pe.MapNode(interface=e_afni.Threedcalc(),
                             name='func_calcR',
-                            iterfield=['in_file_a', 'in_file_b'])
+                            iterfield=['infile_a', 'infile_b'])
     func_calcR.inputs.expr = '\'a*b\''
 
     func_mean = pe.MapNode(interface=afni.TStat(),
@@ -378,10 +383,16 @@ def create_func_preproc():
     func_mask.inputs.out_data_type = 'char'
 
     preproc.connect(inputNode, 'rest',
-                    func_calc, 'in_file_a')
+                    func_idx, 'in_files')
     preproc.connect(inputNode, 'start_idx',
-                    func_calc, 'start_idx')
+                    func_idx, 'start_idx')
     preproc.connect(inputNode, 'stop_idx',
+                    func_idx, 'stop_idx')
+    preproc.connect(inputNode, 'rest',
+                    func_calc, 'infile_a')
+    preproc.connect(func_idx, 'startidx',
+                    func_calc, 'start_idx')
+    preproc.connect(func_idx, 'stopidx',
                     func_calc, 'stop_idx')
     preproc.connect(func_calc, 'out_file',
                     func_refit, 'in_file')
@@ -402,9 +413,9 @@ def create_func_preproc():
     preproc.connect(func_volreg_1, 'out_file',
                     func_automask, 'in_file')
     preproc.connect(func_volreg_1, 'out_file',
-                    func_calcR, 'in_file_a')
+                    func_calcR, 'infile_a')
     preproc.connect(func_automask, 'out_file',
-                    func_calcR, 'in_file_b')
+                    func_calcR, 'infile_b')
     preproc.connect(func_calcR, 'out_file',
                     func_mean, 'in_file')
     preproc.connect(func_calcR, 'out_file',
@@ -827,13 +838,16 @@ def create_seg_preproc():
     return preproc
 
 
-def create_scrubbing_preproc():
+
+def create_parameters_preproc(c):
 
 
-    sc = pe.Workflow(name='sc_preproc')
-    inputNode = pe.Node(util.IdentityInterface(fields=['rest',
-                                                    'movement_parameters',
-                                                    'preprocessed'
+    sc = pe.Workflow(name='param_preproc')
+    inputNode = pe.Node(util.IdentityInterface(fields=['subject_id',
+                                                       'session_id',
+                                                       'rest',
+                                                       'movement_parameters',
+                                                       'max_displacement'
                                                     ]),
                         name='inputspec')
 
@@ -842,7 +856,6 @@ def create_scrubbing_preproc():
 
     outputNode = pe.Node(util.IdentityInterface(fields=['mean_deriv_sq_1D',
                                                             'mean_raw_sq_1D',
-                                                            'scrubbed_preprocessed',
                                                             'temp_deriv_brik_file',
                                                             'temp_deriv_head_file',
                                                             'temp_deriv_sq_brik_file',
@@ -856,21 +869,34 @@ def create_scrubbing_preproc():
                                                             'sqrt_mean_raw_sq_1D',
                                                             'frames_ex_1D',
                                                             'frames_in_1D',
-                                                            'pow_params',
-                                                            'ftof_percent_change_1D',
-                                                            'scrubbed_movement_parameters']),
+                                                            'power_params',
+                                                            'motion_params',
+                                                            'ftof_percent_change_1D']),
                         name='outputspec')
 
-    NVOLS = pe.Node(util.Function(input_names=['in_files'], 
+    NVOLS = pe.Node(util.Function(input_names=['in_files', 'stopIdx', 'startIdx'],
                                   output_names=['nvols'],
-                                  function=getImgNVols), 
+                                  function=getImgNVols),
                     name='NVOLS')
+    NVOLS.inputs.stopIdx = c.stopIdx
+    NVOLS.inputs.startIdx = c.startIdx
 
-    sc_copy = pe.MapNode(util.Function(input_names=['in_file'], 
-                                       output_names=['out_file'],
-                                       function=scCopy), 
-                         name='sc_copy', 
-                         iterfield=["in_file"])
+    last = pe.MapNode(util.Function(input_names=['nvols', 'stopIdx', 'startIdx'], 
+                                              output_names=['last_volume'],
+                                              function=last_vol), 
+                                name='last', 
+                                iterfield=['nvols'])
+    last.inputs.stopIdx = c.stopIdx
+    last.inputs.startIdx = c.startIdx
+
+    last_minus_one = pe.MapNode(util.Function(input_names=['nvols', 'stopIdx', 'startIdx'], 
+                                              output_names=['last_vol_minus_one'],
+                                              function=TRendminus1), 
+                                name='last_minus_one', 
+                                iterfield=['nvols'])
+
+    last_minus_one.inputs.startIdx = c.startIdx
+    last_minus_one.inputs.stopIdx = c.stopIdx
 
     sc_createSC = pe.MapNode(util.Function(input_names=['in_file'], 
                                            output_names=['out_file'],
@@ -878,23 +904,6 @@ def create_scrubbing_preproc():
                              name='sc_createSC', 
                              iterfield=["in_file"])
 
-    sc_MeanFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], 
-                                         output_names=['out_file'],
-                                         function=setMeanFD), 
-                           name='sc_MeanFD', 
-                           iterfield=["infile_a", "infile_b"])
-
-    sc_NumFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b', 'threshold'], 
-                                        output_names=['out_file'],
-                                        function=setNumFD), 
-                          name='sc_NumFD', 
-                          iterfield=["infile_a", "infile_b"])
-
-    sc_PercentFD = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b', 'threshold'], 
-                                            output_names=['out_file'],
-                                            function=setPercentFD), 
-                              name='sc_PercentFD', 
-                              iterfield=["infile_a", "infile_b"])
 
     sc_FramesEx = pe.MapNode(util.Function(input_names=['in_file', 'threshold'], 
                                            output_names=['out_file'],
@@ -902,47 +911,11 @@ def create_scrubbing_preproc():
                              name='sc_FramesEx', 
                              iterfield=["in_file"])
 
-    sc_FramesIN = pe.MapNode(util.Function(input_names=['in_file', 'threshold','exclude_list'], 
+    sc_FramesIN = pe.MapNode(util.Function(input_names=['in_file', 'threshold', 'exclude_list'], 
                                            output_names=['out_file'],
                                            function=setFramesIN), 
                              name='sc_FramesIN', 
                              iterfield=["in_file", "exclude_list"])
-
-    sc_FramesInList = pe.MapNode(util.Function(input_names=['in_file'], 
-                                               output_names=['out_file'],
-                                               function=setFramesInList), 
-                                 name='sc_FramesInList', 
-                                 iterfield=["in_file"])
-
-    sc_MeanDVARS = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], 
-                                            output_names=['out_file'],
-                                            function=setMeanDVARS), 
-                              name='sc_MeanDVARS', 
-                              iterfield=["infile_a", "infile_b"])
-
-    sc_NUM5 = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], 
-                                       output_names=['out_file'],
-                                       function=setNUM5), 
-                         name='sc_NUM5', 
-                         iterfield=["infile_a", "infile_b"])
-
-    sc_NUM10 = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], 
-                                        output_names=['out_file'],
-                                        function=setNUM10), 
-                          name='sc_NUM10', 
-                          iterfield=["infile_a", "infile_b"])
-
-    sc_NUMFD = pe.MapNode(util.Function(input_names=['in_file', 'threshold'], 
-                                        output_names=['out_file'],
-                                        function=setNUMFD), 
-                          name='sc_NUMFD', 
-                          iterfield=["in_file"])
-
-    sc_ScrubbedMotion = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], 
-                                                 output_names=['out_file'],
-                                                 function=setScrubbedMotion), 
-                                   name='sc_ScrubbedMotion',
-                                   iterfield=["infile_a", "infile_b"])
 
     sc_FtoFPercentChange = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], 
                                                     output_names=['out_file'],
@@ -982,10 +955,6 @@ def create_scrubbing_preproc():
     sc_calc3.inputs.expr = '\'a*a\''
     sc_calc3.inputs.out_file = 'raw_sq'
 
-    sc_calc_scrub = pe.MapNode(interface=e_afni.Threedcalc(), 
-                               name='sc_calc_scrub',
-                               iterfield=["infile_a", "list_idx"] )
-    sc_calc_scrub.inputs.expr = '\'a\''
 
     sc_automask = pe.MapNode(interface=e_afni.ThreedAutomask(), 
                              name='sc_automask', 
@@ -1005,18 +974,42 @@ def create_scrubbing_preproc():
                                  iterfield=["in_file", "mask"])
     sc_3dROIstats_2.inputs.quiet = True
 
+
+    sc_MotionParameters = pe.MapNode(util.Function(input_names=["subject_id","session_id", "rest", "movement_parameters", 
+                                                                "max_displacement"],
+                                                   output_names=['out_file'],
+                                                   function=generateMotionParameters),
+                                     name='sc_MotionParameters',
+                                     iterfield=["rest", 
+                                                "movement_parameters", 
+                                                "max_displacement"])
+
+    sc_PowerParameters = pe.MapNode(util.Function(input_names=["rest", "FD_1D", "threshold",
+                                                               "ftof_percent", "sqrt_mean_raw"],
+                                                   output_names=['out_file'],
+                                                   function=generatePowerParams),
+                                     name='sc_PowerParameters',
+                                     iterfield=["rest", "FD_1D", 
+                                                "ftof_percent", 
+                                                "sqrt_mean_raw"])
+
     sc.connect(inputNode, 'rest', NVOLS, 'in_files')
-    sc.connect(inputNode, 'rest', sc_copy, 'in_file' )
 
     sc.connect(inputNode, 'rest', sc_calc1, 'infile_a')
     sc.connect(inputNode, 'rest', sc_calc1, 'infile_b')
-    sc.connect(NVOLS, ('nvols', last_vol), sc_calc1, 'stop_idx')
-    sc.connect(NVOLS, ('nvols', TRendminus1), sc_calc1, 'stop_idx2')
+    sc.connect(NVOLS, 'nvols', last, 'nvols')
+    sc.connect(last, 'last_volume', sc_calc1, 'stop_idx')
+    sc.connect(NVOLS, 'nvols', last_minus_one, 'nvols')
+    sc.connect(last_minus_one, 'last_vol_minus_one', sc_calc1, 'stop_idx2')
+    #sc.connect(NVOLS, ('nvols', TRendminus1), sc_calc1, 'stop_idx2')
 
     sc.connect(sc_calc1, 'brik_file', sc_calc2, 'infile_a')
 
     sc.connect(inputNode, 'rest', sc_calc3, 'infile_a')
-    sc.connect(NVOLS, ('nvols', TRendminus1), sc_calc3, 'stop_idx')
+    sc.connect(last_minus_one, 'last_vol_minus_one', sc_calc3, 'stop_idx')
+#    sc.connect(NVOLS, ('nvols', last_vol), sc_calc1, 'stop_idx')
+#    sc.connect(NVOLS, ('nvols', TRendminus1), sc_calc1, 'stop_idx2')
+
 
     sc.connect(inputNode, 'rest', sc_automask, 'in_file')
 
@@ -1034,30 +1027,7 @@ def create_scrubbing_preproc():
 
     ###Calculating mean Framewise Displacement
     sc.connect(inputNode, 'movement_parameters', sc_createSC, 'in_file' )
-    sc.connect(sc_createSC, 'out_file', sc_MeanFD, 'infile_b' )
-    sc.connect(sc_copy, 'out_file', sc_MeanFD, 'infile_a' )
 
-    ##NUMBER OF FRAMES >0.5mm FD
-    sc.connect(sc_MeanFD, 'out_file', sc_NumFD, 'infile_a')
-    sc.connect(sc_createSC, 'out_file', sc_NumFD, 'infile_b')
-    sc.connect(inputnode_threshold, 'threshold', sc_NumFD, 'threshold')
-
-    ##NUMBER OF FRAMES >0.5mm FD as percentage of total num frames
-    sc.connect(sc_NumFD, 'out_file', sc_PercentFD, 'infile_a')
-    sc.connect(sc_createSC, 'out_file', sc_PercentFD, 'infile_b')
-    sc.connect(inputnode_threshold, 'threshold', sc_PercentFD, 'threshold')
-    
-    ####Mean DVARS
-    sc.connect(sc_PercentFD, 'out_file', sc_MeanDVARS, 'infile_a')
-    sc.connect(sc_FtoFPercentChange, 'out_file', sc_MeanDVARS, 'infile_b')
-
-    ###NUMBER OF relative FRAMES >5%
-    sc.connect(sc_MeanDVARS, 'out_file', sc_NUM5, 'infile_a')
-    sc.connect(sc_FtoFPercentChange, 'out_file', sc_NUM5, 'infile_b')
-
-    ###NUMBER OF relative FRAMES >10%
-    sc.connect(sc_NUM5, 'out_file', sc_NUM10, 'infile_a')
-    sc.connect(sc_FtoFPercentChange, 'out_file', sc_NUM10, 'infile_b')
 
     ##WHAT FRAMES HAVE >0.5mm FD??
     ## FD timeseries starts at the second TR because it's a derivative
@@ -1065,22 +1035,37 @@ def create_scrubbing_preproc():
     ## (i.e., if the 5th number in the FD file indicates a bad frame, removing timepoint "5" will correctly remove the 6th frame).
     sc.connect(sc_createSC, 'out_file', sc_FramesEx, 'in_file')
     sc.connect(inputnode_threshold, 'threshold', sc_FramesEx, 'threshold')
-    
-    sc.connect(sc_FramesIN, 'out_file', sc_FramesInList, 'in_file')
-    
+
+
     sc.connect(sc_createSC, 'out_file', sc_FramesIN, 'in_file')
     sc.connect(inputnode_threshold, 'threshold', sc_FramesIN, 'threshold')
     sc.connect(sc_FramesEx, 'out_file', sc_FramesIN, 'exclude_list')
 
-    sc.connect(inputNode, 'preprocessed', sc_calc_scrub, 'infile_a')
-    sc.connect(sc_FramesIN, ('out_file', getIndx), sc_calc_scrub, 'list_idx')
+    sc.connect(inputNode, 'subject_id', 
+               sc_MotionParameters, 'subject_id')
+    sc.connect(inputNode, 'session_id', 
+               sc_MotionParameters, 'session_id')
+    sc.connect(inputNode, 'rest', 
+               sc_MotionParameters, 'rest')
+    sc.connect(inputNode, 'movement_parameters', 
+                sc_MotionParameters, 'movement_parameters')
+    sc.connect(inputNode, 'max_displacement',
+               sc_MotionParameters, 'max_displacement')
 
-    sc.connect(inputNode, 'movement_parameters', sc_ScrubbedMotion, 'infile_b')
-    sc.connect(sc_FramesInList, 'out_file', sc_ScrubbedMotion, 'infile_a' )
+    sc.connect(inputNode, 'rest',  
+               sc_PowerParameters, 'rest')
+    sc.connect(sc_FtoFPercentChange, 'out_file', 
+               sc_PowerParameters, 'ftof_percent')
+    sc.connect(sc_createSC, 'out_file',
+               sc_PowerParameters, 'FD_1D')
+    sc.connect(inputnode_threshold, 'threshold',
+               sc_PowerParameters, 'threshold')
+    sc.connect(sc_SqrtMeanRaw, 'out_file',
+                sc_PowerParameters, 'sqrt_mean_raw')
 
     sc.connect(sc_3dROIstats_1, 'stats', outputNode, 'mean_deriv_sq_1D')
     sc.connect(sc_3dROIstats_2, 'stats', outputNode, 'mean_raw_sq_1D')
-    sc.connect(sc_calc_scrub, 'out_file', outputNode, 'scrubbed_preprocessed')
+
     sc.connect(sc_calc1, 'brik_file', outputNode, 'temp_deriv_brik_file')
     sc.connect(sc_calc1, 'head_file', outputNode, 'temp_deriv_head_file')
     sc.connect(sc_calc2, 'brik_file', outputNode, 'temp_deriv_sq_brik_file')
@@ -1094,15 +1079,54 @@ def create_scrubbing_preproc():
     sc.connect(sc_SqrtMeanRaw, 'out_file', outputNode, 'sqrt_mean_raw_sq_1D')
     sc.connect(sc_FramesEx, 'out_file', outputNode, 'frames_ex_1D')
     sc.connect(sc_FramesIN, 'out_file', outputNode, 'frames_in_1D')
-    sc.connect(sc_NUM10, 'out_file', outputNode, 'pow_params')
     sc.connect(sc_FtoFPercentChange, 'out_file', outputNode, 'ftof_percent_change_1D')
+    sc.connect(sc_MotionParameters, 'out_file', outputNode, 'motion_params')
+    sc.connect(sc_PowerParameters, 'out_file', outputNode, 'power_params')
+
+
+    return sc
+
+
+def create_scrubbing_preproc():
+
+    sc = pe.Workflow(name='sc_preproc')
+
+    inputNode = pe.Node(util.IdentityInterface(fields=['frames_in_1D',
+                                                       'movement_parameters',
+                                                       'preprocessed'
+                                                    ]),
+                        name='inputspec')
+
+
+    outputNode = pe.Node(util.IdentityInterface(fields=['scrubbed_preprocessed',
+                                                         'scrubbed_movement_parameters']),
+                        name='outputspec')
+
+
+    sc_ScrubbedMotion = pe.MapNode(util.Function(input_names=['infile_a', 'infile_b'], 
+                                                 output_names=['out_file'],
+                                                 function=setScrubbedMotion), 
+                                   name='sc_ScrubbedMotion',
+                                   iterfield=["infile_a", "infile_b"])
+
+    sc_calc_scrub = pe.MapNode(interface=e_afni.Threedcalc(), 
+                               name='sc_calc_scrub',
+                               iterfield=["infile_a", "list_idx"] )
+    sc_calc_scrub.inputs.expr = '\'a\''
+
+    sc.connect(inputNode, 'preprocessed', sc_calc_scrub, 'infile_a')
+    sc.connect(inputNode, ('frames_in_1D', getIndx), sc_calc_scrub, 'list_idx')
+
+    sc.connect(inputNode, 'movement_parameters', sc_ScrubbedMotion, 'infile_b')
+    sc.connect(inputNode, 'frames_in_1D', sc_ScrubbedMotion, 'infile_a' )
+
+    sc.connect(sc_calc_scrub, 'out_file', outputNode, 'scrubbed_preprocessed')
     sc.connect(sc_ScrubbedMotion, 'out_file', outputNode, 'scrubbed_movement_parameters')
 
     return sc
 
 
-
-def create_vmhc_preproc():
+def create_vmhc_preproc(c):
 
     vmhc = pe.Workflow(name='vmhc_preproc')
     inputNode = pe.Node(util.IdentityInterface(fields=['brain',
@@ -1172,10 +1196,12 @@ def create_vmhc_preproc():
                                    'expr'])
     z_stat.inputs.outputtype = 'NIFTI'
 
-    NVOLS = pe.Node(util.Function(input_names=['in_files'],
+    NVOLS = pe.Node(util.Function(input_names=['in_files', 'stopIdx', 'startIdx'],
                                   output_names=['nvols'],
                     function=getImgNVols),
                     name='NVOLS')
+    NVOLS.inputs.stopIdx = c.stopIdx
+    NVOLS.inputs.startIdx = c.startIdx
 
     generateEXP = pe.Node(util.Function(input_names=['nvols'],
                                         output_names=['expr'],
@@ -1784,7 +1810,7 @@ def create_group_analysis(f_test):
 
 
 
-def create_alff_preproc():
+def create_alff_preproc(c):
 
     alff = pe.Workflow(name='alff_preproc')
     inputNode = pe.Node(util.IdentityInterface(fields=['rest_res',
@@ -1808,6 +1834,9 @@ def create_alff_preproc():
                                             'alff_Z_2standard_fwhm_img',
                                             'falff_Z_2standard_fwhm_img']),
                           name='outputspec')
+
+
+
     inputnode_hp = pe.Node(util.IdentityInterface(fields=['hp']),
                              name='hp_input')
 
@@ -1817,13 +1846,17 @@ def create_alff_preproc():
     inputnode_fwhm = pe.Node(util.IdentityInterface(fields=['fwhm']),
                              name='fwhm_input')
 
-    TR = pe.Node(util.Function(input_names=['in_files'],
+    TR = pe.Node(util.Function(input_names=['in_files', 'TRa'],
                                output_names=['TR'],
                  function=getImgTR), name='TR')
-    NVOLS = pe.Node(util.Function(input_names=['in_files'],
+    TR.inputs.TRa = c.TR
+
+    NVOLS = pe.Node(util.Function(input_names=['in_files', 'stopIdx', 'startIdx'],
                                   output_names=['nvols'],
                     function=getImgNVols),
                     name='NVOLS')
+    NVOLS.inputs.stopIdx = c.stopIdx
+    NVOLS.inputs.startIdx = c.startIdx
 
     cp = pe.MapNode(interface=fsl.ImageMaths(),
                     name='cp',
