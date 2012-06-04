@@ -16,10 +16,10 @@
     c) num_cores: Use only when runOnGrid = False( or 0).
                   Specify the number of cores on a multiprocessor environment.
 """
-runOnGrid = False
+runOnGrid = True
 qsubArgs = '-q all.q'
 numSubjectsAtOnce = 12
-numCoresPerSubject = 5
+numCoresPerSubject = 1
 
 """
 2. Directory Setup
@@ -36,12 +36,12 @@ numCoresPerSubject = 5
         It is recommended to delete this directory once the pipeline completes execution.
 
 """
-workingDirectory = '/home/data/Projects/nuisance_reliability_paper/working_dir_CPAC/'
+workingDirectory = '/home2/ssikka/nki_nyu_pipeline/working_dir/'
 
 """
         Crash Log Directory
 """
-crashLogDirectory = '/home/data/Projects/nuisance_reliability_paper'
+crashLogDirectory = '/home2/data/Projects/Pipelines_testing/Dickstein_working_dir/CrashLog'
 
 """
     b) Data Specifications
@@ -67,9 +67,9 @@ crashLogDirectory = '/home/data/Projects/nuisance_reliability_paper'
               exclusionSubjectList are processed
 
 """
-subjectDirectory = '/home/data/Originals/NYU_TRT/'
-subjectList = '/home/data/Projects/nuisance_reliability_paper/work_lists/subject_list.txt'
-exclusionSubjectList = '/home/data/Projects/nuisance_reliability_paper/work_lists/subject_exclude.txt'
+subjectDirectory = '/home2/data/Projects/Pipelines_testing/Dickstein/subjects'
+subjectList = '/home2/data/Projects/Pipelines_testing/Dickstein/settings/subject_list.txt'
+exclusionSubjectList = None
 
 """
         Anatomical File Name and Location within Subject Directory
@@ -103,9 +103,9 @@ exclusionSubjectList = '/home/data/Projects/nuisance_reliability_paper/work_list
         anatomicalFilePath = '%s/*/*/%s.nii.gz'
 
 """
-anatTemplate = '%s/%s/anat/mprage_anonymized.nii.gz'
-anatTemplateList = ['session', 'subject']
-anatSessionFile = '/home/data/Projects/nuisance_reliability_paper/work_lists/session_list.txt'
+anatTemplate = '%s/anat/%s.nii.gz'
+anatTemplateList = ['subject', 'mprage']
+anatSessionFile = '/home2/data/Projects/Pipelines_testing/Dickstein/settings/anat_session_list.txt'
 
 """
         anatLogFile: In case of multiple anatomical scans per subject.
@@ -124,7 +124,7 @@ anatSessionFile = '/home/data/Projects/nuisance_reliability_paper/work_lists/ses
         anatLogFilePath = '%s/*/%s'
     
 """
-anatLogFile = 'log.txt'
+anatLogFile = 'log.txt' #Don't need this, for IPN use only. -Yang
 anatLogFilePath = '%s/*/*/%s'
 
 
@@ -133,15 +133,16 @@ anatLogFilePath = '%s/*/*/%s'
         Functional File Name and Location within Subject Directory
         Note: functionalFileName substituted into functionalDirectorySetup template
 """
-funcTemplate = '%s/%s/func/lfo.nii.gz'
-funcTemplateList = ['session', 'subject']
-funcSessionFile = '/home/data/Projects/nuisance_reliability_paper/work_lists/session_list.txt'
+funcTemplate = '%s/%s/%s.nii.gz'
+funcTemplateList = ['subject','session','rest']
+funcSessionFile = '/home2/data/Projects/Pipelines_testing/Dickstein/settings/func_session_list.txt' # show an exmple somewhere... -Yang
 
 
 """
         Output Target Directory 
 """
-sinkDirectory = '/home/data/Projects/nuisance_reliability_paper/results'
+sinkDirectory = '/home2/ssikka/nki_nyu_pipeline/results'
+
 
 """
     c) Miscellaneous Specifications
@@ -151,13 +152,13 @@ sinkDirectory = '/home/data/Projects/nuisance_reliability_paper/results'
 """
         Set FSL Directory (For Purposes of Template Selection)
 """
-FSLDIR = '/usr/share/fsl/4.1/'
+FSLDIR = '/usr/share/fsl/4.1/' # this should be something automatically set up, On Sharad's todo list. -Yang
 
 
 """
         Tissue Priors Directory
 """
-priorDirectory = '/home/data/Projects/nuisance_reliability_paper/tissuepriors'
+priorDirectory = '/home2/data/Projects/Pipelines_testing/NKI_NYU_Nipype/tissuepriors' ## ask Sharad, should this be hard coded? No?
 
 """
 3. Optional Header and Timeseries Overrides
@@ -166,9 +167,9 @@ priorDirectory = '/home/data/Projects/nuisance_reliability_paper/tissuepriors'
     startIdx : starting time point(defaults to 0)
 """
 startIdx = 0
-stopIdx = 196
-nVols = stopIdx - startIdx + 1
-TR = 2.0
+stopIdx = 255
+nVols = stopIdx - startIdx + 1 # ask Sharad no edits needed for this line, better not put it together with the ones need editing...
+TR = 2                # This value can be retrieve from nii data, better have a cross checking...
 
 
 """
@@ -184,14 +185,15 @@ TR = 2.0
 """
     a) MNI Template Resolution Specification For Registration
 """
-standardResolution = '3mm'
+standardResolution = '2mm'
 MNI = 'MNI152'
-
+# ask Sharad are there other options for standard image, and better "change MNI to standard".
 
 """
     b) Spatial Filter
         Lowpass 3D Gaussian Filter Kernel Specification in mm [FSL: fslmaths]
         note: Set to [] or 0 to skip spatial filtering
+            recommended values are 1.5 or 2 folds of voxel size, e.g. for 3x3x3 mm voxel, use fwhm= [6]
 """
 fwhm = [6]
 
@@ -207,47 +209,42 @@ grayMatterThreshold = [0.2]
     d) Scrub data prior to derivate generation: In accord with Power et al. (2012)
        Default value True/False or a list of True/False(if need both at the same time)
 """
-scrubData = [False]
-scrubbingThreshold = [0.5, 0.2]
+scrubData = [False, True]
+scrubbingThreshold = [0.5]
 """
     e) Nuisance Signal Correction
 """
 
 """
-    e) Nuisance Signal Correction
-"""
+            Select Desired Approach:
+                - Global mean signal (glb)
+                - Compcor:                    A component based noise correction method (CompCor)
+                                           for BOLD and perfusion based fMRI
+                                           Yashar Behzadia, Khaled Restoma, Joy Liaua, Thomas T. Liua, , 
+                                           Science Direct: Received 18 December 2006. Revised 23 April                                                2007.
+                                           Accepted 25 April 2007.
+                                           Available online 3 May 2007. #ask Sharad: same citation??
+                - White Matter    (WM)
+                - CSF regression (CSF)
+                - GRAY Matter    (GM)
+                - First principal component (fpc):
+                                           Extracts the  principal components found in white matter and
+                                           cerebral spinal fluid.  Algorithm based on:
+                                           Y. Behzadi, K. Restom, J. Liau, and T. T. Liu,
+                                           component based noise correction
+                                           method (CompCor) for BOLD and perfusion based fMRI.,
+                                           NeuroImage, vol. 37, no. 1, pp. 90-101, Aug. 2007.
+                - Motion 
 
 """
-			Select Desired Approach:
-				0 - Global mean signal regression
-				1 - Compcor: 				   A component based noise correction method (CompCor)
-					    					   for BOLD and perfusion based fMRI
-						    				   Yashar Behzadia, Khaled Restoma, Joy Liaua, Thomas T. Liua, , 
-							    			   Science Direct: Received 18 December 2006. Revised 23 April 2007.
-								    		   Accepted 25 April 2007.
-									    	   Available online 3 May 2007. 
-				2 - White Matter
-				3 - CSF regression (CSF)
-				4 - GRAY Matter
-				5 - First principal component regression:
-										   Extracts the  principal components found in white matter and
-    									   cerebral spinal fluid.  Algorithm based on:
-										   Y. Behzadi, K. Restom, J. Liau, and T. T. Liu,
-										   component based noise correction
-										   method (CompCor) for BOLD and perfusion based fMRI.,
-										   NeuroImage, vol. 37, no. 1,
-										   pp. 90-101, Aug. 2007.
-				6 - Motion Regression
-
-"""
+# Corrections for [glb, Compcor, WM, CSF, GM, FPC, Motion]
 Corrections = [
-                [6],
-                [2, 3, 6]
-              ]
+                [0, 2, 3, 6],
+]
 
 
 """
-    f) For Compcor Use Only: Number of components to regress
+    f) For Compcor Use Only: Number of components to regress # usally 5 or 6.
 """
 nComponents = [5]
 
@@ -267,12 +264,11 @@ targetAngleDeg = [90]
        Temporal Filter Specification in Hz performed after Nuisance Signal Correction
        Note: Set to [] or 0 to skip high- or low-pass filter
 """
-
 """
         nuisanceHighPassFilter: Turn HighPassFilter ON(value : True/1), OFF(value : False/0)
         nuisanceLowPassFilter:  Turn LowPassFilter ON(value : True/1), OFF(value : False/0)
 """
-nuisanceBandpassFreq = [(0.01, 0.1)]
+nuisanceBandpassFreq =[(0.01, 0.1)]
 
 """
 5. Derivative Specification
@@ -293,25 +289,19 @@ nuisanceBandpassFreq = [(0.01, 0.1)]
                        resting state fMRI
 
         -SCA(seed based correlation analysis):
-                                       Biswal, B., Zerrin Yetkin, F., Haughton, V. M., & Hyde, J. S. (1995).
-                                       Functional connectivity in the motor cortex of resting human brain using echo-planar mri.
-                                       Magnetic Resonance in Medicine, 34(4), 537-541. doi:10.1002/mrm.1910340409
+                                       Biswal et al., (1995). doi:10.1002/mrm.1910340409
 
         -VMHC:
-                                       Zuo, X.-N., Kelly, C., Di Martino, A., Mennes, M., Margulies,
-                                       D. S., Bangaru, S., Grzadzinski, R., et al. (2010).
-                                        Growing together and growing apart: regional and sex differences in the
-                                       lifespan developmental trajectories of functional homotopy.
-                                       The Journal of neuroscience : the official journal of the
-                                        Society for Neuroscience, 30(45), 15034-43. doi:10.1523/JNEUROSCI.2612-10.2010
+                                       Zuo, et al., (2010). doi:10.1523/JNEUROSCI.2612-10.2010
 
         -REHO:                           Regional homogeneity approach to fMRI data analysis, Zang 2004 NeuroImage.
 
-        -Unit TimeSeries Extraction
-        -Vertices Extraction
-        -FSL Group Analysis: http://www.fmrib.ox.ac.uk/fsl/feat5/detail.html#higher
+        -Unit TimeSeries Extraction (tsE)
+        -Vertices Extraction 
+        -FSL Group Analysis (GA): http://www.fmrib.ox.ac.uk/fsl/feat5/detail.html#higher
 """
-derivatives = [False, False, False, False, False, False, False]
+#derivatives = [f/ALFF, SCA, VMHC, ReHo, tsE, VerticesE, GA  ] 
+derivatives = [True, True, True, False, False, False, False]
 
 
 """
@@ -336,12 +326,11 @@ lowPassFreqALFF = [0.1]
 """
         For SCA use only
         seedFile : specify full path to the seed list file.
-    	correlationSpace : Perform SCA in Subject's Native space or in MNI Space
-		correlationSpace Values: 'mni' or 'native'
+    
         Each line of the seedFile contains full path to a seed.
 
 """
-seedFile = '/home/ssikka/nki_nyu_pipeline/seed_list.txt'
+seedFile = '/home2/data/Projects/Pipelines_testing/Dickstein/settings/seed_list.txt' # yang
 correlationSpace = 'mni'
 
 """
@@ -353,7 +342,7 @@ correlationSpace = 'mni'
             Note: Definitions Directory should contain one subdirectory for each set of units
                     to be generated (e.g., Harvard-Oxford Atlas, AAL, Craddock, Dosenbach-160);
 """
-unitDefinitionsDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
+unitDefinitionsDirectory = '/home2/ssikka/nki_nyu_pipeline/tsdata'
 
 # Output type: .csv, numPy
 unitTSOutputs = [True, True]
@@ -363,70 +352,64 @@ unitTSOutputs = [True, True]
             Note: Definitions Directory should contain one subdirectory for each
                     mask/mask set to be used to select voxels to be output; one output file / mask 
 """
-voxelMasksDirectory = '/home/ssikka/nki_nyu_pipeline/tsdata'
+voxelMasksDirectory = '/home2/ssikka/nki_nyu_pipeline/tsdata' #ask sharad, what is this??
 
 
 # Output type: .csv, numPy
-voxelTSOutputs = [False, True]
+voxelTSOutputs = [True, True]
 
 """
             For Vertices Timeseries Extraction Only
 """
 # Output type: .csv, numPy
-verticesTSOutputs = [False, True]
+verticesTSOutputs = [False]
 runSurfaceRegistraion = False
-reconSubjectsDirectory = '/home/ssikka/nki_nyu_pipeline/recon_subjects'
+reconSubjectsDirectory = '/home2/data/Projects/Pipelines_testing/Dickstein_CPAC_output/recon_subjects'
 
 
 """
-	e) FSL Group Analysis
-		Notes: 
-			- Separate group analysis conducted for each derivative
-			- Not applicable to time series extraction derivatives
+    e) FSL Group Analysis
+        Notes: 
+            - Separate group analysis conducted for each derivative
+            - Not applicable to time series extraction derivatives
 """
 """
-    	List of one or more derivatives on which the group anlaysis is be run
-    	As a default, some of derivatives which are generated from the pipleine have
-    	been specified
+        List of one or more derivatives on which the group anlaysis is be run
+        As a default, some of derivatives which are generated from the pipleine have
+        been specified
 """
-derivativeList = ['rest_Dickstein_accumbens_Z_fn2standard', 'sca_Z_fn2standard']
+derivativeFile = '/Users/ranjeet.khanuja/Documents/workspace/GroupAnalysis/devriverFile_list.txt'
 
 """
-		Specify Models Directory that contains one or more models to be executed per derivate
+        Specify Model List File that contains one or more models to be executed per derivate
 """
-modelsDirectory = '/Users/ranjeet.khanuja/Desktop/data2/models/'
+modelsFile = '/Users/ranjeet.khanuja/Documents/workspace/GroupAnalysis/model_list.txt'
+"""
+         Templates for Group Analysis
+         Design Files
+         .con -> list of contrasts requested.
+         .fts -> list of F-tests requested.
+         .mat -> the actual values in the design matrix
+
+         model_name in the template_list will be fetch from  modesList above
+"""
+matTemplateList = ['model_name']
+conTemplateList = ['model_name']
+ftsTemplateList = ['model_name']
+grpTemplateList = ['model_name']
+
+mat = '/Users/ranjeet.khanuja/Desktop/data2/models/%s.mat'
+con = '/Users/ranjeet.khanuja/Desktop/data2/models/%s.con'
+fts = '/Users/ranjeet.khanuja/Desktop/data2/models/%s.fts'
+grp = '/Users/ranjeet.khanuja/Desktop/data2/models/%s.grp'
 
 """
-     	Templates for Group Analysis
-     	Design Files
-     	.con -> list of contrasts requested.
-     	.fts -> list of F-tests requested.
-     	.mat -> the actual values in the design matrix
-
-     	model_name in the template_list will be fetch from  modelsDirectory above
+        Derivative Template
+        derivative in the template_list will be fetched from the derivative file
+        defined above
 """
-matTemplateList = ['model_name', 'model_name']
-conTemplateList = ['model_name', 'model_name']
-ftsTemplateList = ['model_name', 'model_name']
-grpTemplateList = ['model_name', 'model_name']
-
-mat = '%s/%s.mat'
-con = '%s/%s.con'
-fts = '%s/%s.fts'
-grp = '%s/%s.grp'
-
-"""
-    	Derivative Template
-    	The first argument is label which is actually the strategy name. The pipeline
-    	automatically creates the lable-linkage file in the sym_links folder.
-    	The second argument is derivative name. This will be fetched from 
-    	the derivative list defined above
-"""
-
-dervTemplate = sinkDirectory+ '/sym_links/%s/*/*/%s.nii.gz'
-labelFile = sinkDirectory + '/sym_links/label_linkage.txt'
-
-dervTemplateList = ['label', 'derivative']
+dervTemplate = sinkDirectory + '/*/%s.nii.gz'
+dervTemplateList = ['derivative']
 
 zThreshold = 2.3
 pThreshold = 0.05

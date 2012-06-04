@@ -23,12 +23,16 @@ def rename_connections(workflow, datasink, rename_list, sink_node):
         ncount += 1
 
 
-def anat_sink(workflow, datasink, mprage_mni):
+def anat_sink(workflow, datasink, anatpreproc, mprage_mni):
 
-    rename_list = [(mprage_mni, 'outputspec.brain_mni',
-                    'anat_rename', 'mprage_brian.nii.gz'),
+    rename_list = [(anatpreproc, 'outputspec.brain',
+                    'anat_rename', 'mprage_brain.nii.gz'),
+                   (anatpreproc, 'outputspec.reorient',
+                    'anat_rename', 'mprage_RPI.nii.gz'), 
+                   (mprage_mni, 'outputspec.brain_mni',
+                    'anat_rename', 'mprage_brain_MNI.nii.gz'),
                    (mprage_mni, 'outputspec.reorient_mni',
-                    'anat_rename', 'mprage_RPI.nii.gz')]
+                    'anat_rename', 'mprage_RPI_MNI.nii.gz')]
     rename_connections(workflow, datasink, rename_list, 'anat')
 
 
@@ -44,8 +48,12 @@ def func_sink(workflow, datasink, funcpreproc, func_in_mni):
                     'func_rename', 'rest_maxdisp.1D'),
                    (funcpreproc, 'outputspec.preprocessed',
                     'func_rename', 'rest_pp.nii.gz'),
+                   (funcpreproc, 'outputspec.preprocessed_mask',
+                    'func_rename', 'rest_pp_mask.nii.gz'),
+                   (funcpreproc, 'outputspec.example_func',
+                    'func_rename', 'example_func.nii.gz'),
                    (func_in_mni, 'outputspec.preprocessed_mask_mni',
-                    'func_rename', 'rest_pp_mask.nii.gz')]
+                    'func_rename', 'rest_pp_mask_MNI.nii.gz')]
     rename_connections(workflow, datasink, rename_list, 'func')
 
 
@@ -109,51 +117,77 @@ def seg_sink(workflow, datasink, segpreproc, mprage_mni):
     rename_connections(workflow, datasink, rename_list, 'segment')
 
 
-def nuisance_sink(workflow, datasink, nuisancepreproc):
+def nuisance_sink(workflow, datasink, nuisancepreproc, func_in_mni):
     rename_list = [(nuisancepreproc, 'outputspec.residual_file',
                     'rename', 'rest_residual.nii.gz'),
+                   (func_in_mni, 'outputspec.residual_file_mni',
+                    'rename', 'rest_residual_MNI.nii.gz'),
                    (nuisancepreproc, 'outputspec.median_angle_corrected_file')]
     rename_connections(workflow, datasink, rename_list, 'nuisance')
 
+def scrubbing_sink(workflow, datasink, scpreproc, scpreproc_alff):
 
-def scrubbing_sink(workflow, datasink, scpreproc):
-
-    rename_list = [(scpreproc, 'outputspec.mean_deriv_sq_1D',
-                    'sc_rename', 'mean_deriv_sq.1D'),
-                   (scpreproc, 'outputspec.mean_raw_sq_1D',
-                    'sc_rename', 'mean_raw_sq.1D'),
+    rename_list = [
                    (scpreproc, 'outputspec.scrubbed_preprocessed',
+                    'sc_rename', 'rest_pp_scrubbed_bandpassed.nii.gz'),
+                   (scpreproc, 'outputspec.scrubbed_movement_parameters',
+                    'sc_rename', 'motion_parameters_bandpassed.txt'),
+                   (scpreproc_alff, 'outputspec.scrubbed_preprocessed',
                     'sc_rename', 'rest_pp_scrubbed.nii.gz'),
-                   (scpreproc, 'outputspec.temp_deriv_brik_file'),
-                   (scpreproc, 'outputspec.temp_deriv_head_file'),
-                   (scpreproc, 'outputspec.temp_deriv_sq_brik_file'),
-                   (scpreproc, 'outputspec.temp_deriv_sq_head_file'),
-                   (scpreproc, 'outputspec.raw_sq_brik_file'),
-                   (scpreproc, 'outputspec.raw_sq_head_file'),
-                   (scpreproc, 'outputspec.mask_brik_file'),
-                   (scpreproc, 'outputspec.mask_head_file'),
-                   (scpreproc, 'outputspec.FD_1D'),
-                   (scpreproc, 'outputspec.sqrt_mean_deriv_sq_1D'),
-                   (scpreproc, 'outputspec.sqrt_mean_raw_sq_1D'),
-                   (scpreproc, 'outputspec.frames_ex_1D'),
-                   (scpreproc, 'outputspec.frames_in_1D'),
-                   (scpreproc, 'outputspec.pow_params'),
-                   (scpreproc, 'outputspec.ftof_percent_change_1D'),
-                   (scpreproc, 'outputspec.scrubbed_movement_parameters')]
+                   (scpreproc_alff, 'outputspec.scrubbed_movement_parameters',
+                    'sc_rename', 'motion_parameters.txt'),
+                  ]
     rename_connections(workflow, datasink, rename_list, 'scrubbing')
 
 
-def sca_sink(workflow, datasink, scapreproc):
-    rename_list = [(scapreproc, 'outputspec.seed_mni2func',
-                    'sca_rename', 'seed_native.nii.gz'),
-                   (scapreproc, 'outputspec.correlations',
-                    'sca_rename', 'correlations_native.nii.gz'),
-                   (scapreproc, 'outputspec.Z_trans_correlations',
-                    'sca_rename', 'Z_native.nii.gz'),
-                   (scapreproc, 'outputspec.Z_2standard',
-                    'sca_rename', 'Z_2standard.nii.gz'),
-                   (scapreproc, 'outputspec.Z_2standard_FWHM',
-                    'sca_rename', 'Z_FWHM_2standard.nii.gz')]
+def parameters_sink(workflow, datasink, pmpreproc):
+
+    rename_list = [(pmpreproc, 'outputspec.temp_deriv_brik_file'),
+                   (pmpreproc, 'outputspec.temp_deriv_head_file'),
+                   (pmpreproc, 'outputspec.temp_deriv_sq_brik_file'),
+                   (pmpreproc, 'outputspec.temp_deriv_sq_head_file'),
+                   (pmpreproc, 'outputspec.raw_sq_brik_file'),
+                   (pmpreproc, 'outputspec.raw_sq_head_file'),
+                   (pmpreproc, 'outputspec.mask_brik_file'),
+                   (pmpreproc, 'outputspec.mask_head_file'),
+                   (pmpreproc, 'outputspec.FD_1D'),
+                   (pmpreproc, 'outputspec.sqrt_mean_deriv_sq_1D'),
+                   (pmpreproc, 'outputspec.sqrt_mean_raw_sq_1D'),
+                   (pmpreproc, 'outputspec.frames_ex_1D'),
+                   (pmpreproc, 'outputspec.frames_in_1D'),
+                   (pmpreproc, 'outputspec.ftof_percent_change_1D'),
+                   (pmpreproc, 'outputspec.mean_deriv_sq_1D',
+                    'pm_rename', 'mean_deriv_sq.1D'),
+                   (pmpreproc, 'outputspec.mean_raw_sq_1D',
+                    'pm_rename', 'mean_raw_sq.1D'),
+                   (pmpreproc, 'outputspec.power_params'),
+                   (pmpreproc, 'outputspec.motion_params')]
+    rename_connections(workflow, datasink, rename_list, 'parameters')
+
+
+def sca_sink(workflow, datasink, scapreproc, correlationSpace):
+
+    if not (correlationSpace == 'mni'):
+        rename_list = [
+                       (scapreproc, 'outputspec.correlations',
+                        'sca_rename', 'correlations.nii.gz'),
+                       (scapreproc, 'outputspec.Z_trans_correlations',
+                        'sca_rename', 'Z.nii.gz'),
+                       (scapreproc, 'outputspec.Z_2standard',
+                        'sca_rename', 'Z_2standard.nii.gz'),
+                       (scapreproc, 'outputspec.Z_2standard_FWHM',
+                        'sca_rename', 'Z_FWHM_2standard.nii.gz')]
+
+    else:
+        rename_list = [
+                       (scapreproc, 'outputspec.correlations',
+                        'sca_rename', 'sca_correlations.nii.gz'),
+                       (scapreproc, 'outputspec.Z_trans_correlations',
+                        'sca_rename', 'sca_Z.nii.gz'),
+                       (scapreproc, 'outputspec.Z_FWHM',
+                        'sca_rename', 'sca_Z_FWHM.nii.gz')]
+
+
     rename_connections(workflow, datasink, rename_list, 'sca')
 
 
@@ -180,9 +214,9 @@ def alff_sink(workflow, datasink, alffpreproc):
 
 
 def vmhc_sink(workflow, datasink, vmhcpreproc):
-    rename_list = [(vmhcpreproc, 'outputspec.VMHC_img', 'vmhc_rename', 'VMHC.nii.gz'),
-                   (vmhcpreproc, 'outputspec.VMHC_Z_img', 'vmhc_rename', 'VMHC_Z.nii.gz'),
-                   (vmhcpreproc, 'outputspec.VMHC_Z_stat_img', 'vmhc_rename', 'VMHC_Z_stat.nii.gz')]
+    rename_list = [(vmhcpreproc, 'outputspec.VMHC_FWHM_img', 'vmhc_rename', 'VMHC_FWHM.nii.gz'),
+                   (vmhcpreproc, 'outputspec.VMHC_Z_FWHM_img', 'vmhc_rename', 'VMHC_Z_FWHM.nii.gz'),
+                   (vmhcpreproc, 'outputspec.VMHC_Z_stat_FWHM_img', 'vmhc_rename', 'VMHC_Z_stat_FWHM.nii.gz')]
     rename_connections(workflow, datasink, rename_list, 'vmhc')
 
 
