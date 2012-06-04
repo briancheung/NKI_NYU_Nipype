@@ -1137,6 +1137,7 @@ def create_vmhc_preproc(c):
                                                 'symm_standard',
                                                 'twomm_brain_mask_dil',
                                                 'config_file_twomm',
+                                                'rest_mask',
                                                 'standard']),
                         name='inputspec')
 
@@ -1146,10 +1147,15 @@ def create_vmhc_preproc(c):
                                                 'fnirt_highres2symmstandard',
                                                 'highres2symmstandard_jac',
                                                 'rest_res_2symmstandard',
-                                                'VMHC_img',
-                                                'VMHC_Z_img',
-                                                'VMHC_Z_stat_img']),
+                                                'VMHC_FWHM_img',
+                                                'VMHC_Z_FWHM_img',
+                                                'VMHC_Z_stat_FWHM_img'
+                                                ]),
                         name='outputspec')
+
+
+    inputnode_fwhm = pe.Node(util.IdentityInterface(fields=['fwhm']),
+                             name='fwhm_input')
 
     ## Linear registration of T1 --> symmetric standard
     flirt = pe.Node(interface=fsl.FLIRT(),
@@ -1208,6 +1214,12 @@ def create_vmhc_preproc(c):
                           function=getEXP),
                           name='generateEXP')
 
+
+    smooth = pe.MapNode(interface=fsl.MultiImageMaths(),
+                        name='smooth',
+                        iterfield=['in_file',
+                        'operand_files'])
+
     vmhc.connect(inputNode, 'brain',
                  flirt, 'in_file')
     vmhc.connect(inputNode, 'brain_symmetric',
@@ -1223,6 +1235,12 @@ def create_vmhc_preproc(c):
     vmhc.connect(inputNode, 'config_file_twomm',
                  fnt, 'config_file')
     vmhc.connect(inputNode, 'rest_res',
+                 smooth, 'in_file')
+    vmhc.connect(inputnode_fwhm, ('fwhm', set_gauss),
+                 smooth, 'op_string')
+    vmhc.connect(inputNode, 'rest_mask',
+                 smooth, 'operand_files')
+    vmhc.connect(smooth, 'out_file',
                  warp, 'in_file')
     vmhc.connect(inputNode, 'symm_standard',
                  warp, 'ref_file')
@@ -1261,11 +1279,12 @@ def create_vmhc_preproc(c):
     vmhc.connect(warp, 'out_file',
                  outputNode, 'rest_res_2symmstandard')
     vmhc.connect(corr, 'out_file',
-                 outputNode, 'VMHC_img')
+                 outputNode, 'VMHC_FWHM_img')
     vmhc.connect(z_trans, 'out_file',
-                 outputNode, 'VMHC_Z_img')
+                 outputNode, 'VMHC_Z_FWHM_img')
     vmhc.connect(z_stat, 'out_file',
-                 outputNode, 'VMHC_Z_stat_img')
+                 outputNode, 'VMHC_Z_stat_FWHM_img')
+
 
     return vmhc
 
@@ -1536,6 +1555,7 @@ def create_sca_preproc(corr_space):
     outputNode = pe.Node(util.IdentityInterface(fields=[
                                                     'correlations',
                                                     'Z_trans_correlations',
+                                                    'Z_FWHM',
                                                     'Z_2standard',
                                                     'Z_2standard_FWHM']),
                         name='outputspec')
@@ -1587,6 +1607,8 @@ def create_sca_preproc(corr_space):
                         iterfield=['in_file',
                         'operand_files'])
 
+    smooth_mni = smooth.clone('smooth_mni')
+
     rsfc.connect(inputNode, 'rest_res_filt',
                  warp_filt, 'in_file')
     rsfc.connect(inputNode, 'standard',
@@ -1615,40 +1637,52 @@ def create_sca_preproc(corr_space):
     if corr_space == 'native':
         rsfc.connect(inputNode, 'rest_res_filt',
                      corr, 'in_file')
+        rsfc.connect(corr, 'out_file',
+                     z_trans, 'infile_a')
+        rsfc.connect(z_trans, 'out_file',
+                     register, 'in_file')
+        rsfc.connect(inputNode, 'standard',
+                     register, 'ref_file')
+        rsfc.connect(inputNode, 'fieldcoeff_file',
+                     register, 'field_file')
+        rsfc.connect(inputNode, 'premat',
+                     register, 'premat')
+        rsfc.connect(register, 'out_file',
+                     smooth, 'in_file')
+        rsfc.connect(inputnode_fwhm, ('fwhm', set_gauss),
+                     smooth, 'op_string')
+        rsfc.connect(inputNode, 'rest_mask2standard',
+                     smooth, 'operand_files')
+
+        rsfc.connect(register, 'out_file',
+                     outputNode, 'Z_2standard')
+
+        rsfc.connect(smooth, 'out_file',
+                     outputNode, 'Z_2standard_FWHM')
     else:
         rsfc.connect(warp_filt, 'out_file',
                      corr, 'in_file')
-    rsfc.connect(corr, 'out_file',
-                 z_trans, 'infile_a')
-    rsfc.connect(z_trans, 'out_file',
-                 register, 'in_file')
-    rsfc.connect(inputNode, 'standard',
-                 register, 'ref_file')
-    rsfc.connect(inputNode, 'fieldcoeff_file',
-                 register, 'field_file')
-    rsfc.connect(inputNode, 'premat',
-                 register, 'premat')
-    rsfc.connect(register, 'out_file',
-                 smooth, 'in_file')
-    rsfc.connect(inputnode_fwhm, ('fwhm', set_gauss),
-                 smooth, 'op_string')
-    rsfc.connect(inputNode, 'rest_mask2standard',
-                 smooth, 'operand_files')
+        rsfc.connect(corr, 'out_file',
+                     z_trans, 'infile_a')
+        rsfc.connect(z_trans, 'out_file',
+                     smooth_mni, 'in_file')
+        rsfc.connect(inputnode_fwhm, ('fwhm', set_gauss),
+                     smooth_mni, 'op_string')
+        rsfc.connect(inputNode, 'rest_mask2standard',
+                     smooth_mni, 'operand_files')
+        rsfc.connect(smooth_mni, 'out_file',
+                     outputNode, 'Z_FWHM')
 
     rsfc.connect(corr, 'out_file',
                  outputNode, 'correlations')
     rsfc.connect(z_trans, 'out_file',
                  outputNode, 'Z_trans_correlations')
-    rsfc.connect(register, 'out_file',
-                 outputNode, 'Z_2standard')
-    rsfc.connect(smooth, 'out_file',
-                 outputNode, 'Z_2standard_FWHM')
 
     return rsfc
 
 def create_group_analysis(f_test):
 
-    grp_analysis = pe.Workflow(name='group_analysis')
+    grp_analysis = pe.Workflow(name='groupAnalysis')
 
     inputnode = pe.Node(util.IdentityInterface(fields=['mat_file',
                                                         'con_file',

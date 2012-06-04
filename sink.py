@@ -125,12 +125,18 @@ def nuisance_sink(workflow, datasink, nuisancepreproc, func_in_mni):
                    (nuisancepreproc, 'outputspec.median_angle_corrected_file')]
     rename_connections(workflow, datasink, rename_list, 'nuisance')
 
-def scrubbing_sink(workflow, datasink, scpreproc):
+def scrubbing_sink(workflow, datasink, scpreproc, scpreproc_alff):
 
     rename_list = [
                    (scpreproc, 'outputspec.scrubbed_preprocessed',
+                    'sc_rename', 'rest_pp_scrubbed_bandpassed.nii.gz'),
+                   (scpreproc, 'outputspec.scrubbed_movement_parameters',
+                    'sc_rename', 'motion_parameters_bandpassed.txt'),
+                   (scpreproc_alff, 'outputspec.scrubbed_preprocessed',
                     'sc_rename', 'rest_pp_scrubbed.nii.gz'),
-                   (scpreproc, 'outputspec.scrubbed_movement_parameters')]
+                   (scpreproc_alff, 'outputspec.scrubbed_movement_parameters',
+                    'sc_rename', 'motion_parameters.txt'),
+                  ]
     rename_connections(workflow, datasink, rename_list, 'scrubbing')
 
 
@@ -159,16 +165,29 @@ def parameters_sink(workflow, datasink, pmpreproc):
     rename_connections(workflow, datasink, rename_list, 'parameters')
 
 
-def sca_sink(workflow, datasink, scapreproc):
-    rename_list = [
-                   (scapreproc, 'outputspec.correlations',
-                    'sca_rename', 'correlations.nii.gz'),
-                   (scapreproc, 'outputspec.Z_trans_correlations',
-                    'sca_rename', 'Z.nii.gz'),
-                   (scapreproc, 'outputspec.Z_2standard',
-                    'sca_rename', 'Z_2standard.nii.gz'),
-                   (scapreproc, 'outputspec.Z_2standard_FWHM',
-                    'sca_rename', 'Z_FWHM_2standard.nii.gz')]
+def sca_sink(workflow, datasink, scapreproc, correlationSpace):
+
+    if not (correlationSpace == 'mni'):
+        rename_list = [
+                       (scapreproc, 'outputspec.correlations',
+                        'sca_rename', 'correlations.nii.gz'),
+                       (scapreproc, 'outputspec.Z_trans_correlations',
+                        'sca_rename', 'Z.nii.gz'),
+                       (scapreproc, 'outputspec.Z_2standard',
+                        'sca_rename', 'Z_2standard.nii.gz'),
+                       (scapreproc, 'outputspec.Z_2standard_FWHM',
+                        'sca_rename', 'Z_FWHM_2standard.nii.gz')]
+
+    else:
+        rename_list = [
+                       (scapreproc, 'outputspec.correlations',
+                        'sca_rename', 'sca_correlations.nii.gz'),
+                       (scapreproc, 'outputspec.Z_trans_correlations',
+                        'sca_rename', 'sca_Z.nii.gz'),
+                       (scapreproc, 'outputspec.Z_FWHM',
+                        'sca_rename', 'sca_Z_FWHM.nii.gz')]
+
+
     rename_connections(workflow, datasink, rename_list, 'sca')
 
 
@@ -195,9 +214,9 @@ def alff_sink(workflow, datasink, alffpreproc):
 
 
 def vmhc_sink(workflow, datasink, vmhcpreproc):
-    rename_list = [(vmhcpreproc, 'outputspec.VMHC_img', 'vmhc_rename', 'VMHC.nii.gz'),
-                   (vmhcpreproc, 'outputspec.VMHC_Z_img', 'vmhc_rename', 'VMHC_Z.nii.gz'),
-                   (vmhcpreproc, 'outputspec.VMHC_Z_stat_img', 'vmhc_rename', 'VMHC_Z_stat.nii.gz')]
+    rename_list = [(vmhcpreproc, 'outputspec.VMHC_FWHM_img', 'vmhc_rename', 'VMHC_FWHM.nii.gz'),
+                   (vmhcpreproc, 'outputspec.VMHC_Z_FWHM_img', 'vmhc_rename', 'VMHC_Z_FWHM.nii.gz'),
+                   (vmhcpreproc, 'outputspec.VMHC_Z_stat_FWHM_img', 'vmhc_rename', 'VMHC_Z_stat_FWHM.nii.gz')]
     rename_connections(workflow, datasink, rename_list, 'vmhc')
 
 

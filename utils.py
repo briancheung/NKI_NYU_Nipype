@@ -250,7 +250,7 @@ def get_match(sink_dir, p, strategies):
 
     if strats == []:
         print "WARNING : No strategy found for ", p
-        return None
+        return []
 
     return strats
 
@@ -261,7 +261,6 @@ def smash(sink_dir, maps, strategies):
     for p in sorted(maps.keys()):
 
         strats = get_match(sink_dir, p, strategies)
-
 
         for strat in strats:
             if strat in new_maps:
@@ -1703,7 +1702,7 @@ def create_gp_dataflow(base_dir, modelist, dervlist, labelist, template_dict, te
                            ('derivative', dervlist),
                            ('label', labelist)]
 
-    datasource = pe.Node(interface=nio.DataGrabber(infields=['model_name', 'derivative'],
+    datasource = pe.Node(interface=nio.DataGrabber(infields=['model_name', 'derivative', 'label'],
                                                    outfields=['mat', 'con', 'fts', 'grp', 'derv']),
                          name=name)
     datasource.inputs.base_directory = base_dir

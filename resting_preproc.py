@@ -108,7 +108,7 @@ def getGroupAnalysisInputs(c):
     modelist = []
     dervlist = []
     labelist = []
-
+    sublist = []
     try:
 
         models = os.listdir(c.modelsDirectory)
@@ -120,14 +120,24 @@ def getGroupAnalysisInputs(c):
         print 'checking for models ', modelist
 
         f = open(c.labelFile, 'r')
-        labels = f.readlines()
+        labels=f.readlines()
         f.close()
         for l in labels:
             labelist.append(l.split()[0])
 
         print 'checking for strategy list ', labelist
 
-        dervlist = c.derivativeList
+        f = open(c.subList, 'r')
+        subjects=f.readlines()
+        f.close()
+        for s in subjects:
+            sublist.append(s.strip())
+
+        print 'checking for subject list ', sublist
+
+        c.dervTemplateList= c.dervTemplateList[:1]+ [sublist] + c.dervTemplateList[1:]
+
+        dervlist=c.derivativeList
         print 'checking for derivatives ', dervlist
 
         template_dict = dict(mat=os.path.join(c.modelsDirectory, c.mat),
@@ -149,7 +159,7 @@ def getGroupAnalysisInputs(c):
     except:
         raise
 
-    return  modelist, dervlist, labelist, template_dict, template_args
+    return  sublist, modelist, dervlist, labelist, template_dict, template_args
 
 
 
@@ -267,6 +277,9 @@ def get_workflow(wf_name, c):
                                         config_file_twomm
         preproc.inputs.inputspec.standard = \
                                         standard
+        preproc.inputs.fwhm_input.fwhm = c.fwhm
+        preproc.get_node('fwhm_input').iterables = ('fwhm',
+                                                    c.fwhm)
         return preproc
 
 
@@ -356,7 +369,7 @@ def get_workflow(wf_name, c):
         return preproc
 
 
-def run_group_analysis(rest_session_list, anat_session_list, seed_list, c):
+def run_group_analysis(c):
 
     wfname = 'resting_preproc' + '_group_analysis'
     workflow = pe.Workflow(name=wfname)
@@ -371,7 +384,7 @@ def run_group_analysis(rest_session_list, anat_session_list, seed_list, c):
         """
                 grab the Group Analysis Data 
         """
-        modelist, dervlist, labelist, template_dict, template_args = getGroupAnalysisInputs(c)
+        sublist, modelist, dervlist, labelist, template_dict, template_args = getGroupAnalysisInputs(c)
 
         gp_flow = create_gp_dataflow(c.sinkDirectory, modelist,
                                      dervlist, labelist, template_dict,
@@ -394,6 +407,20 @@ def run_group_analysis(rest_session_list, anat_session_list, seed_list, c):
         gp_datasink = create_gp_datasink(c.sinkDirectory)
         workflow.connect(gp_flow, 'inputnode.label', gp_datasink, 'container')
         group_analysis_sink(workflow, gp_datasink, gppreproc)
+
+
+    if(not c.runOnGrid):
+        workflow.run(plugin='MultiProc',
+                     plugin_args={'n_procs': c.numCoresPerSubject})
+    else:
+        template_str = """
+#!/bin/bash
+#$ -S /bin/bash
+#$ -V
+    """
+        workflow.run(plugin='SGE',
+                     plugin_args=dict(qsub_args=c.qsubArgs, template=template_str))
+#    workflow.write_graph()
 
 
 
@@ -455,8 +482,10 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
     regpreproc = get_workflow('reg', c)
     segpreproc = get_workflow('seg', c)
     scpreproc = get_workflow('sc', c)
+    scpreproc_alff = scpreproc.clone('sc_alff')
     pmpreproc = get_workflow('pm', c)
     select = get_workflow('select', c)
+    select_alff = select.clone('select_alff')
     nuisancepreproc = get_workflow('nuisance', c)
     mprage_mni = get_workflow('mprage_in_mnioutputs', c)
     func_in_mni = get_workflow('func_in_mnioutputs', c)
@@ -572,11 +601,26 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
         workflow.connect(nuisancepreproc, 'outputspec.residual_file',
                          select, 'inputspec.preprocessed')
 
+
+    workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+                     scpreproc_alff, 'inputspec.preprocessed')
+    workflow.connect(funcpreproc, 'outputspec.movement_parameters',
+                     scpreproc_alff, 'inputspec.movement_parameters')
+
+    workflow.connect(nuisancepreproc, 'outputspec.residual_file',
+                     select_alff, 'inputspec.preprocessed')
+
+
+
+    workflow.connect(pmpreproc, 'outputspec.frames_in_1D',
+                     scpreproc_alff, 'inputspec.frames_in_1D')
+
     workflow.connect(pmpreproc, 'outputspec.frames_in_1D',
                      scpreproc, 'inputspec.frames_in_1D')
 
     workflow.connect(funcpreproc, 'outputspec.movement_parameters',
                      scpreproc, 'inputspec.movement_parameters')
+
 
     workflow.connect(scpreproc, 'outputspec.scrubbed_preprocessed',
                      select, 'inputspec.scrubbed_preprocessed')
@@ -584,6 +628,13 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
                      select, 'inputspec.movement_parameters')
     workflow.connect(scpreproc, 'outputspec.scrubbed_movement_parameters',
                      select, 'inputspec.scrubbed_movement_parameters')
+
+    workflow.connect(scpreproc_alff, 'outputspec.scrubbed_preprocessed',
+                     select_alff, 'inputspec.scrubbed_preprocessed')
+    workflow.connect(funcpreproc, 'outputspec.movement_parameters',
+                     select_alff, 'inputspec.movement_parameters')
+    workflow.connect(scpreproc_alff, 'outputspec.scrubbed_movement_parameters',
+                     select_alff, 'inputspec.scrubbed_movement_parameters')
     """
         Get Func outputs in MNI
     """
@@ -618,7 +669,8 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
                     pmpreproc)
     scrubbing_sink(workflow,
                    datasink,
-                   scpreproc)
+                   scpreproc,
+                   scpreproc_alff)
     nuisance_sink(workflow,
                   datasink,
                   nuisancepreproc,
@@ -628,7 +680,7 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
         """
                 ALFF/fALFF
         """
-        workflow.connect(select, 'outputspec.preprocessed_selector',
+        workflow.connect(select_alff, 'outputspec.preprocessed_selector',
                          alffpreproc, 'inputspec.rest_res')
         workflow.connect(funcpreproc, 'outputspec.preprocessed_mask',
                          alffpreproc, 'inputspec.rest_mask')
@@ -663,7 +715,7 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
                          scapreproc, 'inputspec.rest_mask2standard')
         sca_sink(workflow,
                  datasink,
-                 scapreproc)
+                 scapreproc, c.correlationSpace)
 
 
     if c.derivatives[2]:
@@ -678,6 +730,8 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
                          vmhcpreproc, 'inputspec.brain')
         workflow.connect(regpreproc, 'outputspec.example_func2highres_mat',
                          vmhcpreproc, 'inputspec.example_func2highres_mat')
+        workflow.connect(funcpreproc, 'outputspec.preprocessed_mask',
+                         vmhcpreproc, 'inputspec.rest_mask')
 
         vmhc_sink(workflow,
                   datasink,
@@ -712,17 +766,20 @@ def prep_workflow(sub, rest_session_list, anat_session_list, seed_list, c):
 
 
     if(not c.runOnGrid):
-        workflow.run(plugin='MultiProc',
-                     plugin_args={'n_procs': c.numCoresPerSubject})
+        workflow.run(updatehash=True)
+#        workflow.run(plugin='MultiProc',
+#                     plugin_args={'n_procs': c.numCoresPerSubject})
     else:
         template_str = """
 #!/bin/bash
 #$ -S /bin/bash
 #$ -V
     """
-        workflow.run(plugin='SGE',
-                     plugin_args=dict(qsub_args=c.qsubArgs, template=template_str))
-    workflow.write_graph()
+#        workflow.run(plugin='SGE',
+#                     plugin_args=dict(qsub_args=c.qsubArgs, template=template_str))
+
+        workflow.run(updatehash=True)
+#    workflow.write_graph()
 
 
 def main():
@@ -770,8 +827,8 @@ def main():
                     idx += 1
                     p.join()
 
-    #symlink_creator(c.sinkDirectory)
-    run_group_analysis(rest_session_list, anat_session_list, seed_list, c)
+#    symlink_creator(c.sinkDirectory)
+#    run_group_analysis(c)
 
 
 if __name__ == "__main__":
